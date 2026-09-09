@@ -1,0 +1,9 @@
+PORT=3000
+JWT_SECRET=shivjees-local-dev-secret-change-before-hosting
+ADMIN_EMAIL=admin@shivjeestyping.com
+ADMIN_PASSWORD=Admin@12345
+DEV_OTP_MODE=1
+OTP_WEBHOOK_URL=
+OTP_WEBHOOK_TOKEN=
+ADMIN_SIGNUP_CODE=ShivjeeOwner@2026
+DATA_DIR=
