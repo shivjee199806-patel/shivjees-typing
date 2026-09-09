@@ -10,9 +10,17 @@ A complete Node.js + Express + SQLite typing platform with student accounts, tim
 5. Run `npm start`.
 6. Open `http://localhost:3000`.
 
+
+## Owner signup & 2FA quick access
+- Owner/Admin login: `http://localhost:3000/#owner-access`
+- Owner/Admin signup: `http://localhost:3000/#owner-signup`
+- Local OTP testing is enabled with `DEV_OTP_MODE=1` in `.env`; the OTP appears on screen.
+- Before public hosting, set `DEV_OTP_MODE=0`, connect a real SMS gateway using `OTP_WEBHOOK_URL`, and replace the local JWT/admin secrets.
+
 ## Owner login
 The default fallback admin is:
-
+- Email: `admin@shivjeestyping.com`
+- Password: `Admin@12345`
 
 **Change the admin password immediately from Owner Control > Security before putting the site online.** For production, set strong `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `JWT_SECRET` environment variables.
 
@@ -103,3 +111,21 @@ Signup now stores full name, father's name, date of birth, target exam, mobile n
 - Passage Select/Open editor can change full text, title, exam, language/layout, difficulty, highlight, status, and linked exam time/WPM/accuracy/backspace rules.
 - User manager can edit name, father name, DOB, mobile, email and target exam, plus block/unblock, plan/validity and password reset.
 - Changing a mobile number through Owner control resets its verified flag until it is verified again.
+
+## Owner-only Admin creation
+- Login as Owner first.
+- Open Owner Control and click **Create Admin**.
+- Direct route: `http://localhost:3000/#admin-signup`
+- Only the seeded Owner account can create Admin accounts.
+- New Admin requires name, email, 10-digit mobile and a password of at least 10 characters.
+
+## Full Popular Search Keywords
+The Exams page now keeps the complete popular keyword chip directory visible (AIIMS, SSC, NTPC, RRB, UP Police, UPPSC, UPSSSC, courts, state boards and more). Newly created exam folders are also appended automatically as searchable keyword chips.
+
+## 2026-09-09 Login / Free Practice update
+- Owner Login button removed from public home top bar. Owner portal remains available directly at `/#owner-login`.
+- Master Owner/Admin login no longer asks for the mobile number on every login after the number has been linked once.
+- Candidate + Owner/Admin Forgot Password flow added with registered-mobile OTP and new password setup.
+- Free Typing Practice now uses only passages that are not assigned to an exam.
+- Owner/Admin Passage Manager now includes `Free Typing Practice` as a target, so new English/Hindi free-practice passages can be added without creating an exam folder.
+- Footer About/Contact opens email to the configured owner contact address currently set to `admin@shivjeestyping.com`.
