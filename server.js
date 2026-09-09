@@ -79,7 +79,7 @@ if(!resultCols.includes('live_test_id')) db.exec("ALTER TABLE results ADD COLUMN
 db.exec("CREATE INDEX IF NOT EXISTS idx_live_tests_window ON live_tests(start_at,end_at,active)");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_results_attempt_id ON results(attempt_id) WHERE attempt_id IS NOT NULL");
 db.exec("CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id,created_at DESC)");
-const adminEmail=process.env.ADMIN_EMAIL||'admin@shivjeestyping.com',adminPass=process.process.env.ADMIN_PASSWORD;if(!db.prepare('SELECT id FROM users WHERE email=?').get(adminEmail))db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)').run('Shivjee\'s Admin',adminEmail,bcrypt.hashSync(adminPass,10),'admin');
+const adminEmail=process.env.ADMIN_EMAIL||'admin@shivjeestyping.com',adminPass=process.env.ADMIN_PASSWORD;if(!db.prepare('SELECT id FROM users WHERE email=?').get(adminEmail))db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)').run('Shivjee\'s Admin',adminEmail,bcrypt.hashSync(adminPass,10),'admin');
 const exams=[
 ['SSC English Typing','ssc-english','English','QWERTY',10,35,90,1,'full','Government-style English typing test. 10 minutes; configure official rule before public launch.'],
 ['Hindi Unicode Typing','hindi-unicode','Hindi','Unicode / Mangal',10,30,90,1,'full','Hindi Unicode practice exam with exam-style passage.'],
