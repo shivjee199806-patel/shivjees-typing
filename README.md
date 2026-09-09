@@ -12,8 +12,7 @@ A complete Node.js + Express + SQLite typing platform with student accounts, tim
 
 ## Owner login
 The default fallback admin is:
-- Email: `admin@shivjeestyping.com`
-- Password: `Admin@12345`
+
 
 **Change the admin password immediately from Owner Control > Security before putting the site online.** For production, set strong `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `JWT_SECRET` environment variables.
 
