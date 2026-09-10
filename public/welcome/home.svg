@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260">
+<defs><radialGradient id="g" cx="50%" cy="35%" r="65%"><stop stop-color="#fff6d5"/><stop offset="1" stop-color="#ffb74d" stop-opacity=".15"/></radialGradient><filter id="sh"><feDropShadow dx="0" dy="7" stdDeviation="6" flood-opacity=".18"/></filter></defs>
+<ellipse cx="100" cy="132" rx="91" ry="118" fill="url(#g)"/>
+<g filter="url(#sh)">{1: '', 2: '<circle cx="116" cy="20" r="18" fill="#3e241b"/><circle cx="121" cy="15" r="13" fill="#3e241b"/>', 3: '<path d="M63 46 Q40 60 47 107" fill="none" stroke="#3e241b" stroke-width="13" stroke-linecap="round"/><path d="M138 44 Q160 65 150 110" fill="none" stroke="#3e241b" stroke-width="13" stroke-linecap="round"/>', 4: '<ellipse cx="100" cy="17" rx="24" ry="13" fill="#3e241b"/>'}<path d="M58 83 Q48 27 100 22 Q153 29 143 86 Q133 48 101 47 Q69 48 58 83Z" fill="#3e241b"/>
+<ellipse cx="100" cy="80" rx="42" ry="45" fill="#f2c3a1"/>
+<path d="M70 72 Q79 66 87 72" fill="none" stroke="#4a2a22" stroke-width="2.5"/><path d="M113 72 Q121 66 130 72" fill="none" stroke="#4a2a22" stroke-width="2.5"/>
+<ellipse cx="83" cy="78" rx="4" ry="5" fill="#2c2323"/><ellipse cx="118" cy="78" rx="4" ry="5" fill="#2c2323"/><circle cx="81.5" cy="76.5" r="1" fill="#fff"/><circle cx="116.5" cy="76.5" r="1" fill="#fff"/>
+<path d="M91 96 Q100 103 110 96" fill="none" stroke="#b65c55" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="64" r="2.5" fill="#b51f2e"/>
+<path d="M52 238 Q56 127 100 121 Q145 127 149 238Z" fill="#f28c28"/><path d="M82 122 Q100 139 118 122" fill="none" stroke="#ffd27a" stroke-width="5"/>
+<path d="M68 143 Q84 156 94 177" fill="none" stroke="#f2c3a1" stroke-width="14" stroke-linecap="round"/><path d="M132 143 Q117 157 106 177" fill="none" stroke="#f2c3a1" stroke-width="14" stroke-linecap="round"/>
+<path d="M93 168 Q100 162 107 168 L111 190 Q101 198 89 190Z" fill="#f2c3a1"/><path d="M100 170 L100 193" stroke="#b67d65" stroke-width="1.2"/>
+<path d="M68 210 Q100 230 132 210" fill="none" stroke="#ffd27a" stroke-width="4" opacity=".7"/></g></svg>

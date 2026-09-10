@@ -1,0 +1,16 @@
+FINAL FULL ACCESS CONTROL UPDATE
+- Full Website Access is CANDIDATE-ONLY. Owner/Admin cannot purchase it.
+- Separate Owner Control tab: Full Access (kept separate from sub-folder Payments for easy tracing).
+- Owner/Admin can edit each Full Access plan price, validity days, old price/badge, and turn plan ON/OFF.
+- Owner/Admin can manage candidate Full Access purchases: edit paid amount + valid-till date, Block, Unblock, Remove.
+- All management actions apply immediately to candidate access state.
+- Confirmed overall payment auto-activates candidate access immediately through its validity.
+- Overall access bypasses sub-folder fee/demo gates while active.
+- On expiry/Block/Remove, overall access no longer unlocks paid sub-folders.
+- Pricing Demo Pay remains available for candidate testing.
+- Center Payment Required popup is animated and closes in 2 seconds.
+- Approved Namaste lady reference retained for Home/First Login/Return Login/Logout; display ~2.5 sec.
+- Social footer icons are centered and slightly enlarged; hover/tap animation preserved.
+- Owner Control tabs now highlight/animate on hover and active click.
+- Daily Matter Queue and password eye features retained.
+- Daily API route ordering fixed so review queue endpoints are reachable before SPA catch-all.

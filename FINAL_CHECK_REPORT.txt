@@ -1,0 +1,27 @@
+Shivjee's Typing - Final Static Verification
+Date: 2026-09-11 IST
+
+Verified requested latest changes present:
+- Center animated Payment Required popup; 2-second timer/fade trigger.
+- Approved Namaste lady asset used for Home, First Login, Returning Login and Logout; 2.5-second display timing.
+- Social footer centered; social icons enlarged to 50px desktop / 46px mobile; hover/tap tooltip/glow behavior retained.
+- Owner/Admin tabs have hover/click/active animation.
+- Overall Pricing / Full Access plans: 7d, 1m, 3m, 6m, 1y; demo payment auto approval and immediate access.
+- Full Access purchase is candidate-only; all admin accounts are rejected server-side.
+- Active Full Access bypasses sub-folder fee/demo gates until its validity ends.
+- Separate Full Access Owner management section with plan edit/on-off and candidate purchase edit/block/unblock/remove.
+- Daily Matter Queue scheduler checks 10:00 AM Asia/Kolkata; drafts remain pending until Owner action.
+- Per exam-language daily generation: 2 Easy + 2 Medium + 2 Hard; live queue also 2/2/2 English + 2/2/2 Hindi.
+- Daily matter includes dates/reference/application-style numbers.
+- Daily queue supports full edit, delete, publish; Live draft supports scheduling.
+- Password fields receive show/hide eye control.
+- Passage Auto Scroll/Manual Scroll retained.
+- Candidate backspace choice retained.
+- Existing folder payment/block/unblock and qualification logic retained in code.
+
+Static checks:
+- node --check server.js: PASS
+- All inline frontend scripts: PASS
+- ZIP integrity: to be checked after packaging
+
+Runtime/browser test not performed because npm dependencies are not installed in the verification environment.

@@ -129,3 +129,10 @@ The Exams page now keeps the complete popular keyword chip directory visible (AI
 - Free Typing Practice now uses only passages that are not assigned to an exam.
 - Owner/Admin Passage Manager now includes `Free Typing Practice` as a target, so new English/Hindi free-practice passages can be added without creating an exam folder.
 - Footer About/Contact opens email to the configured owner contact address currently set to `admin@shivjeestyping.com`.
+
+
+## Qualification calculation update
+Exam-mode speed uses Correct Words / Scheduled Exam Minutes. Accuracy uses Correct Words / Total Passage Words × 100. Owner-set qualification conditions decide Qualified/Not Qualified; every selected condition must pass.
+
+## Easy Windows Start
+Double-click `START_SITE.bat`. On a newly extracted folder it installs dependencies once, then starts the site. On later runs it skips installation and starts directly.

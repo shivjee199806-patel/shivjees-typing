@@ -1,0 +1,1 @@
+FIX: Sub-folder access now groups Hindi/English variants by canonical exam slug/name key. Reject/Block removes access for all variants and a live candidate check closes an already-open exam immediately. Other approved controls are preserved.

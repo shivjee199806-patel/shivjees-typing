@@ -1,0 +1,1 @@
+Only typing/typing-skill exam sub-folders are seeded. Non-typing generated state/railway folders from older builds are automatically hidden (active=0). Existing owner-created/passages/payment/qualification logic is preserved.
