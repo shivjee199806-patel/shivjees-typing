@@ -1,4 +1,4 @@
-const QRCode=require('qrcode');const express=require('express');const path=require('path');const fs=require('fs');const os=require('os');const crypto=require('crypto');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const Database=require('better-sqlite3');const multer=require('multer');const nodemailer=require('nodemailer');
+const QRCode=require('qrcode');const {Pool}=require('pg');const express=require('express');const path=require('path');const fs=require('fs');const os=require('os');const crypto=require('crypto');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const Database=require('better-sqlite3');const multer=require('multer');const nodemailer=require('nodemailer');
 // Load a local .env file without an extra dependency (hosting environment variables still take priority).
 try{const envPath=path.join(__dirname,'.env');if(fs.existsSync(envPath)){for(const raw of fs.readFileSync(envPath,'utf8').split(/\r?\n/)){const line=raw.trim();if(!line||line.startsWith('#'))continue;const i=line.indexOf('=');if(i<1)continue;const k=line.slice(0,i).trim(),v=line.slice(i+1).trim().replace(/^['"]|['"]$/g,'');if(process.env[k]===undefined)process.env[k]=v}}}catch(e){console.warn('Could not read .env:',e.message)}
 const app=express();const PORT=process.env.PORT||3000;const SECRET=process.env.JWT_SECRET||'shivjees-change-me';
@@ -44,6 +44,52 @@ if(!fs.existsSync(DB_FILE)){
   }
 }
 const db=new Database(DB_FILE);console.log('Persistent database:',DB_FILE);db.pragma('journal_mode=WAL');db.pragma('foreign_keys=ON');db.pragma('busy_timeout=5000');db.pragma('synchronous=NORMAL');
+
+// Optional remote persistence mirror for Render Free: keep the existing SQLite app unchanged,
+// but mirror the SQLite database into PostgreSQL/Supabase after every mutating HTTP request.
+// On a fresh Render filesystem, the newest mirror is restored before normal traffic is served.
+const REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
+let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false;
+async function initRemoteSqliteMirror(){
+  if(!REMOTE_DB_URL)return;
+  try{
+    remotePool=new Pool({connectionString:REMOTE_DB_URL,ssl:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:15000});
+    await remotePool.query(`CREATE TABLE IF NOT EXISTS shivjee_sqlite_backups(
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      sha256 TEXT NOT NULL,
+      db_bytes BYTEA NOT NULL
+    )`);
+    remoteReady=true;
+    console.log('Remote database mirror: connected');
+  }catch(e){console.error('Remote database mirror unavailable:',e.message);remoteReady=false}
+}
+async function uploadSqliteMirror(){
+  if(!remoteReady||remoteSyncBusy)return;
+  remoteSyncBusy=true;
+  const tmp=DB_FILE+'.remote-backup';
+  try{
+    // VACUUM INTO creates a consistent single-file SQLite snapshot even while WAL is enabled.
+    try{if(fs.existsSync(tmp))fs.unlinkSync(tmp)}catch(e){}
+    db.exec(`VACUUM INTO '${tmp.replace(/'/g,"''")}'`);
+    const buf=fs.readFileSync(tmp),sha=crypto.createHash('sha256').update(buf).digest('hex');
+    const last=await remotePool.query('SELECT sha256 FROM shivjee_sqlite_backups ORDER BY id DESC LIMIT 1');
+    if(last.rows[0]?.sha256!==sha){
+      await remotePool.query('INSERT INTO shivjee_sqlite_backups(sha256,db_bytes) VALUES($1,$2)',[sha,buf]);
+      await remotePool.query('DELETE FROM shivjee_sqlite_backups WHERE id NOT IN (SELECT id FROM shivjee_sqlite_backups ORDER BY id DESC LIMIT 5)');
+      console.log('Remote database mirror: backup saved');
+    }
+  }catch(e){console.error('Remote database mirror backup failed:',e.message)}
+  finally{try{if(fs.existsSync(tmp))fs.unlinkSync(tmp)}catch(e){} remoteSyncBusy=false}
+}
+function scheduleRemoteSqliteMirror(){
+  if(!remoteReady)return;
+  clearTimeout(remoteSyncTimer);
+  remoteSyncTimer=setTimeout(()=>uploadSqliteMirror(),1500);
+}
+// POST/PUT/PATCH/DELETE normally represent all account, result, access and owner-panel changes.
+app.use((req,res,next)=>{if(['POST','PUT','PATCH','DELETE'].includes(req.method)){res.on('finish',()=>{if(res.statusCode<500)scheduleRemoteSqliteMirror()})}next()});
+
 db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'student',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS exams(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,slug TEXT UNIQUE NOT NULL,language TEXT NOT NULL,layout TEXT NOT NULL,duration INTEGER NOT NULL,required_wpm REAL DEFAULT 0,required_accuracy REAL DEFAULT 0,backspace_allowed INTEGER DEFAULT 1,error_rule TEXT NOT NULL,description TEXT,active INTEGER DEFAULT 1);
 CREATE TABLE IF NOT EXISTS passages(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,language TEXT NOT NULL,layout TEXT NOT NULL,difficulty TEXT DEFAULT 'Medium',content TEXT NOT NULL,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -715,15 +761,14 @@ app.post('/api/auth/admin-login-verify',authRateLimit,(req,res)=>{
 app.post('/api/auth/owner-otp-start',authRateLimit,async(req,res)=>{try{
  const loginId=String(req.body?.login_id||'').trim(),loginUpper=loginId.toUpperCase(),email=loginId.toLowerCase(),password=String(req.body?.password||''),enteredPhone=normalizePhone(req.body?.phone);
  if(!loginId||!password)return res.status(401).json({error:'Enter Owner ID/email and password'});
- let u=db.prepare("SELECT * FROM users WHERE (is_owner=1 AND lower(email)=?) OR upper(owner_uid)=? ORDER BY id LIMIT 1").get(email,loginUpper);
- if(!u && (loginUpper==='MASTER-OWNER-001' || (process.env.ADMIN_EMAIL && email===String(process.env.ADMIN_EMAIL).trim().toLowerCase())))u=db.prepare("SELECT * FROM users WHERE is_owner=1 OR upper(owner_uid)='MASTER-OWNER-001' ORDER BY is_owner DESC,id LIMIT 1").get();
+ let u=db.prepare("SELECT * FROM users WHERE role='admin' AND is_owner=1 AND (lower(email)=? OR upper(owner_uid)=?) ORDER BY id LIMIT 1").get(email,loginUpper);
+ if(!u && (loginUpper==='MASTER-OWNER-001' || (process.env.ADMIN_EMAIL && email===String(process.env.ADMIN_EMAIL).trim().toLowerCase())))u=db.prepare("SELECT * FROM users WHERE role='admin' AND is_owner=1 ORDER BY id LIMIT 1").get();
  if(!u)return res.status(401).json({error:'Invalid Master Owner ID/email or password'});
  let passwordOk=false;try{passwordOk=bcrypt.compareSync(password,u.password)}catch(_){passwordOk=false}
  if(!passwordOk && process.env.ADMIN_PASSWORD && password===String(process.env.ADMIN_PASSWORD)){
    const newHash=bcrypt.hashSync(password,10);db.prepare("UPDATE users SET password=?,role='admin',active=1,is_owner=1,plan='Master Owner',owner_uid=COALESCE(NULLIF(owner_uid,''),'MASTER-OWNER-001') WHERE id=?").run(newHash,u.id);u=db.prepare('SELECT * FROM users WHERE id=?').get(u.id);passwordOk=true;
  }
  if(!passwordOk)return res.status(401).json({error:'Owner password is incorrect'});
- if(loginUpper==='MASTER-OWNER-001' || Number(u.is_owner)===1){db.prepare("UPDATE users SET role='admin',active=1,is_owner=1,plan='Master Owner',owner_uid='MASTER-OWNER-001' WHERE id=?").run(u.id);u=db.prepare('SELECT * FROM users WHERE id=?').get(u.id);}
  let phone=normalizePhone(u.phone)||enteredPhone;
  if(!phone)return res.status(400).json({error:'Enter Owner mobile number once to link OTP login'});
  if(!normalizePhone(u.phone))db.prepare('UPDATE users SET phone=? WHERE id=?').run(phone,u.id);
@@ -1257,8 +1302,8 @@ app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});
 
-// Automatic Daily Passage Queue disabled by Owner; manual passage management remains available.
-const server=app.listen(PORT,()=>console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`));
+scheduleDailyQueue();
+const server=app.listen(PORT,()=>{console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`);initRemoteSqliteMirror().then(()=>{if(remoteReady)uploadSqliteMirror()})});
 function shutdown(signal){console.log(`${signal} received; closing database safely...`);server.close(()=>{try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(e){};try{db.close()}catch(e){};process.exit(0)});setTimeout(()=>process.exit(1),10000).unref()}
 process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
 
