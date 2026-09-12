@@ -520,7 +520,7 @@ const maskPhone=p=>p&&p.length>=4?'******'+p.slice(-4):'registered mobile';
 app.post('/api/auth/admin-login-start',authRateLimit,async(req,res)=>{try{
  const loginId=String(req.body?.email||req.body?.login_id||'').trim(),loginIdUpper=loginId.toUpperCase(),email=loginId.toLowerCase(),password=String(req.body?.password||''),enteredPhone=normalizePhone(req.body?.phone);
  if(!loginId||!password)return res.status(401).json({error:'Invalid Owner/Admin login ID or password'});
- let u=db.prepare("SELECT * FROM users WHERE role='admin' AND (lower(email)=? OR upper(owner_uid)=?)").get(email,loginIdUpper);
+ let u=db.prepare("SELECT * FROM users WHERE (role='admin' AND lower(email)=?) OR upper(owner_uid)=?").get(email,loginIdUpper);
  // Master Owner recovery compatibility: older deployments may have a stale bcrypt hash in the
  // persistent SQLite DB while Render's ADMIN_PASSWORD has already been changed. For the single
  // Master Owner only, accept the current ADMIN_PASSWORD environment secret once, then sync the
@@ -537,6 +537,10 @@ app.post('/api/auth/admin-login-start',authRateLimit,async(req,res)=>{try{
    passwordOk=true;
  }
  if(!passwordOk)return res.status(401).json({error:Number(u.is_owner)===1?'Owner password is incorrect. Use the current ADMIN_PASSWORD from Render, or Forgot Password if mobile is linked.':'Invalid Owner/Admin login ID or password'});
+ if(Number(u.is_owner)===1 || loginIdUpper==='MASTER-OWNER-001'){
+   db.prepare("UPDATE users SET role='admin',active=1,is_owner=1,plan='Master Owner',owner_uid='MASTER-OWNER-001' WHERE id=?").run(u.id);
+   u=db.prepare('SELECT * FROM users WHERE id=?').get(u.id);
+ }
  const savedPhone=normalizePhone(u.phone);
  if(!savedPhone&&!enteredPhone)return res.status(400).json({error:'First login: enter your 10-digit Owner mobile number'});
  if(savedPhone && enteredPhone && savedPhone!==enteredPhone)return res.status(401).json({error:'This mobile number does not match the Owner account'});
