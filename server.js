@@ -1320,7 +1320,7 @@ app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)
 // Imports candidate/account history from migration/legacy-shivjees.db into the current Live SQLite DB.
 // Live rows win on conflicts; legacy rows are inserted without deleting/replacing Live data.
 function runOneTimeLegacyMerge(){
- const marker='legacy_localhost_merge_20260912_v3_force',legacyFile=path.join(__dirname,'migration','legacy-shivjees.db'),legacyGz=path.join(__dirname,'migration','legacy-shivjees.db.gz');
+ const marker='legacy_localhost_merge_20260912_v4_skip_daily_fast_passages',legacyFile=path.join(__dirname,'migration','legacy-shivjees.db'),legacyGz=path.join(__dirname,'migration','legacy-shivjees.db.gz');
  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
  console.log('Legacy localhost merge: startup check', {gz:fs.existsSync(legacyGz),db:fs.existsSync(legacyFile),marker});
  if(db.prepare('SELECT value FROM app_meta WHERE key=?').get(marker)){console.log('Legacy localhost merge: already completed for this marker');return;}
@@ -1344,9 +1344,34 @@ function runOneTimeLegacyMerge(){
      if(!lu){const cs=common('users'),q=`INSERT OR IGNORE INTO users(${cs.join(',')}) VALUES(${cs.map(()=>'?').join(',')})`;const r=db.prepare(q).run(...cs.map(c=>u[c]));lu=db.prepare('SELECT * FROM users WHERE lower(email)=?').get(norm(u.email))||db.prepare('SELECT * FROM users WHERE id=?').get(r.lastInsertRowid)}
      if(lu)userMap.set(u.id,lu.id);
    }
-   // Exams map by stable slug; passages map by exact content/title. We do not duplicate the large seeded banks.
-   if(has('exams'))for(const x of old.prepare('SELECT id,slug FROM exams').all()){const y=db.prepare('SELECT id FROM exams WHERE slug=?').get(x.slug);if(y)examMap.set(x.id,y.id)}
-   if(has('passages'))for(const x of old.prepare('SELECT id,title,content FROM passages').all()){let y=db.prepare('SELECT id FROM passages WHERE content=? ORDER BY id LIMIT 1').get(x.content);if(!y)y=db.prepare('SELECT id FROM passages WHERE title=? ORDER BY id LIMIT 1').get(x.title);if(y)passageMap.set(x.id,y.id)}
+   // Exams: map by stable slug. If a legacy/Owner-created exam is missing on Live, import it without replacing Live rows.
+   if(has('exams')){
+     const liveBySlug=new Map(db.prepare('SELECT id,slug FROM exams').all().map(x=>[String(x.slug||''),x.id]));
+     for(const x of old.prepare('SELECT * FROM exams ORDER BY id').all()){
+       let eid=liveBySlug.get(String(x.slug||''));
+       if(!eid){ins('exams',x);eid=db.prepare('SELECT id FROM exams WHERE slug=?').get(x.slug)?.id;if(eid)liveBySlug.set(String(x.slug||''),eid)}
+       if(eid)examMap.set(x.id,eid);
+     }
+   }
+   // Passages: preserve the real exam passage bank, but do it O(n) in memory instead of thousands of full-table scans.
+   // Exact content is the primary de-duplication key. daily_passage_queue is intentionally NOT migrated.
+   if(has('passages')){
+     const livePassages=db.prepare('SELECT id,title,content FROM passages').all();
+     const byContent=new Map(),byTitle=new Map();
+     for(const y of livePassages){if(y.content!=null&&!byContent.has(String(y.content)))byContent.set(String(y.content),y.id);if(y.title!=null&&!byTitle.has(String(y.title)))byTitle.set(String(y.title),y.id)}
+     let addedPassages=0;
+     for(const x of old.prepare('SELECT * FROM passages ORDER BY id').all()){
+       let pid=byContent.get(String(x.content??''));
+       if(!pid && !x.content)pid=byTitle.get(String(x.title??''));
+       if(!pid){
+         const mapped={...x,exam_id:examMap.get(x.exam_id)||null};
+         const r=ins('passages',mapped);
+         if(r?.changes){pid=Number(r.lastInsertRowid);addedPassages++;byContent.set(String(x.content??''),pid);if(x.title!=null&&!byTitle.has(String(x.title)))byTitle.set(String(x.title),pid)}
+       }
+       if(pid)passageMap.set(x.id,pid);
+     }
+     console.log(`Legacy localhost passages: mapped ${passageMap.size}, added ${addedPassages}; daily queue skipped by Owner choice`);
+   }
    // Results/history: attempt_id is the stable de-duplication key where available; otherwise use a conservative signature.
    if(has('results'))for(const r0 of old.prepare('SELECT * FROM results ORDER BY id').all()){
      const uid=userMap.get(r0.user_id);if(!uid)continue;
