@@ -20,6 +20,23 @@ const aboutStorage=multer.diskStorage({destination:(req,file,cb)=>cb(null,ABOUT_
 const aboutUpload=multer({storage:aboutStorage,limits:{fileSize:20*1024*1024},fileFilter:(req,file,cb)=>{const ok=String(file.mimetype||'').startsWith('image/');cb(ok?null:new Error('Only image files allowed'),ok)}});
 app.use('/about-media',express.static(ABOUT_UPLOAD_DIR,{maxAge:'1d'}));
 const DB_FILE=path.join(data,'shivjees.db');
+const RAW_REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
+// Render values are sometimes pasted from a provider's "Copy all" panel with labels/newlines.
+// Extract only the actual PostgreSQL URI so pg never treats a stray word (for example "base") as the host.
+const REMOTE_DB_URL=(RAW_REMOTE_DB_URL.match(/postgres(?:ql)?:\/\/[^\s'"<>]+/i)||[])[0]||RAW_REMOTE_DB_URL;
+if(RAW_REMOTE_DB_URL && !/^postgres(?:ql)?:\/\//i.test(REMOTE_DB_URL)) console.warn('DATABASE_URL does not contain a PostgreSQL URI');
+// SAFE REMOTE RESTORE v1: on a fresh Render filesystem only, restore the newest SQLite snapshot before opening SQLite.
+// Existing local DB is NEVER overwritten here.
+if(!fs.existsSync(DB_FILE) && REMOTE_DB_URL){
+  try{
+    const {execFileSync}=require('child_process');
+    const restoreCode=`
+      const {Pool}=require('pg'),fs=require('fs');
+      (async()=>{const p=new Pool({connectionString:process.env.SJT_REMOTE_URL,ssl:{rejectUnauthorized:false},max:1,connectionTimeoutMillis:15000});
+      try{const r=await p.query('SELECT db_bytes FROM shivjee_sqlite_backups ORDER BY id DESC LIMIT 1');if(r.rows[0]?.db_bytes){fs.writeFileSync(process.env.SJT_DB_FILE,r.rows[0].db_bytes);console.log('Remote database mirror: restored latest backup')}}finally{await p.end()}})().catch(e=>{console.error('Remote database mirror restore skipped:',e.message);process.exit(2)});`;
+    execFileSync(process.execPath,['-e',restoreCode],{stdio:'inherit',env:{...process.env,SJT_REMOTE_URL:REMOTE_DB_URL,SJT_DB_FILE:DB_FILE},timeout:30000});
+  }catch(e){console.warn('Remote database mirror restore unavailable; continuing with normal startup:',e.message)}
+}
 // First run only: automatically import the newest nearby database from an older Shivjee/Typing build.
 if(!fs.existsSync(DB_FILE)){
   const candidates=[];
@@ -48,11 +65,6 @@ const db=new Database(DB_FILE);console.log('Persistent database:',DB_FILE);db.pr
 // Optional remote persistence mirror for Render Free: keep the existing SQLite app unchanged,
 // but mirror the SQLite database into PostgreSQL/Supabase after every mutating HTTP request.
 // On a fresh Render filesystem, the newest mirror is restored before normal traffic is served.
-const RAW_REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
-// Render values are sometimes pasted from a provider's "Copy all" panel with labels/newlines.
-// Extract only the actual PostgreSQL URI so pg never treats a stray word (for example "base") as the host.
-const REMOTE_DB_URL=(RAW_REMOTE_DB_URL.match(/postgres(?:ql)?:\/\/[^\s'"<>]+/i)||[])[0]||RAW_REMOTE_DB_URL;
-if(RAW_REMOTE_DB_URL && !/^postgres(?:ql)?:\/\//i.test(REMOTE_DB_URL)) console.warn('DATABASE_URL does not contain a PostgreSQL URI');
 let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false;
 async function initRemoteSqliteMirror(){
   if(!REMOTE_DB_URL)return;
@@ -1302,6 +1314,63 @@ app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)
  let pid=q.published_passage_id;if(!pid){let exam=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id LIMIT 1").get(q.language);if(!exam)return res.status(400).json({error:'No active exam found for language'});pid=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,?,?,1)').run(q.title,q.language,exam.layout,q.difficulty,q.content,exam.highlight_mode||'current_char',exam.id).lastInsertRowid;db.prepare("UPDATE daily_passage_queue SET status='published',published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(pid,id)}
  const p=db.prepare('SELECT exam_id FROM passages WHERE id=?').get(pid),lt=db.prepare('INSERT INTO live_tests(title,exam_id,passage_id,start_at,end_at,active) VALUES(?,?,?,?,?,1)').run(q.title,p.exam_id,pid,start,end).lastInsertRowid;audit(req,'SCHEDULE','live_test',lt,q.title);res.json({ok:true,live_test_id:lt,passage_id:pid});
 });
+
+
+// ONE-TIME LEGACY LOCALHOST MERGE v1
+// Imports candidate/account history from migration/legacy-shivjees.db into the current Live SQLite DB.
+// Live rows win on conflicts; legacy rows are inserted without deleting/replacing Live data.
+function runOneTimeLegacyMerge(){
+ const marker='legacy_localhost_merge_20260912_v1',legacyFile=path.join(__dirname,'migration','legacy-shivjees.db');
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ if(db.prepare('SELECT value FROM app_meta WHERE key=?').get(marker) || !fs.existsSync(legacyFile))return;
+ const old=new Database(legacyFile,{readonly:true,fileMustExist:true});
+ const cols=t=>db.prepare(`PRAGMA table_info(${t})`).all().map(x=>x.name), oldCols=t=>old.prepare(`PRAGMA table_info(${t})`).all().map(x=>x.name);
+ const has=t=>{try{return !!old.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t)}catch(e){return false}};
+ const liveHas=t=>!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t);
+ const common=t=>{const a=new Set(cols(t));return oldCols(t).filter(x=>a.has(x)&&x!=='id')};
+ const ins=(t,row,replace=false)=>{const cs=common(t);if(!cs.length)return null;const sql=`INSERT ${replace?'OR REPLACE':'OR IGNORE'} INTO ${t}(${cs.join(',')}) VALUES(${cs.map(()=>'?').join(',')})`;return db.prepare(sql).run(...cs.map(c=>row[c]));};
+ const userMap=new Map(),examMap=new Map(),passageMap=new Map(),certMap=new Map();
+ const norm=x=>String(x||'').trim().toLowerCase(), phone=x=>String(x||'').replace(/\D/g,'').slice(-10);
+ const liveUsers=()=>db.prepare('SELECT * FROM users').all();
+ const tx=db.transaction(()=>{
+   // Users: match by canonical email first, then phone. Never replace a current Live account/password.
+   for(const u of old.prepare('SELECT * FROM users ORDER BY id').all()){
+     let lu=db.prepare('SELECT * FROM users WHERE lower(email)=?').get(norm(u.email));
+     if(!lu && phone(u.phone))lu=liveUsers().find(x=>phone(x.phone)===phone(u.phone));
+     if(!lu){const cs=common('users'),q=`INSERT OR IGNORE INTO users(${cs.join(',')}) VALUES(${cs.map(()=>'?').join(',')})`;const r=db.prepare(q).run(...cs.map(c=>u[c]));lu=db.prepare('SELECT * FROM users WHERE lower(email)=?').get(norm(u.email))||db.prepare('SELECT * FROM users WHERE id=?').get(r.lastInsertRowid)}
+     if(lu)userMap.set(u.id,lu.id);
+   }
+   // Exams map by stable slug; passages map by exact content/title. We do not duplicate the large seeded banks.
+   if(has('exams'))for(const x of old.prepare('SELECT id,slug FROM exams').all()){const y=db.prepare('SELECT id FROM exams WHERE slug=?').get(x.slug);if(y)examMap.set(x.id,y.id)}
+   if(has('passages'))for(const x of old.prepare('SELECT id,title,content FROM passages').all()){let y=db.prepare('SELECT id FROM passages WHERE content=? ORDER BY id LIMIT 1').get(x.content);if(!y)y=db.prepare('SELECT id FROM passages WHERE title=? ORDER BY id LIMIT 1').get(x.title);if(y)passageMap.set(x.id,y.id)}
+   // Results/history: attempt_id is the stable de-duplication key where available; otherwise use a conservative signature.
+   if(has('results'))for(const r0 of old.prepare('SELECT * FROM results ORDER BY id').all()){
+     const uid=userMap.get(r0.user_id);if(!uid)continue;
+     let exists=r0.attempt_id?db.prepare('SELECT 1 FROM results WHERE attempt_id=?').get(r0.attempt_id):db.prepare('SELECT 1 FROM results WHERE user_id=? AND created_at=? AND COALESCE(net_wpm,0)=COALESCE(?,0) AND COALESCE(accuracy,0)=COALESCE(?,0)').get(uid,r0.created_at,r0.net_wpm,r0.accuracy);
+     if(exists)continue;const r={...r0,user_id:uid,exam_id:examMap.get(r0.exam_id)||null,passage_id:passageMap.get(r0.passage_id)||null,live_test_id:null};ins('results',r);
+   }
+   if(has('learning_attempts'))for(const a0 of old.prepare('SELECT * FROM learning_attempts ORDER BY id').all()){const uid=userMap.get(a0.user_id);if(!uid)continue;const ex=db.prepare('SELECT 1 FROM learning_attempts WHERE user_id=? AND lesson_key=? AND created_at=?').get(uid,a0.lesson_key,a0.created_at);if(!ex)ins('learning_attempts',{...a0,user_id:uid})}
+   // Access tables with natural UNIQUE keys.
+   if(has('user_exam_access'))for(const a of old.prepare('SELECT * FROM user_exam_access').all()){const uid=userMap.get(a.user_id),eid=examMap.get(a.exam_id);if(uid&&eid)ins('user_exam_access',{...a,user_id:uid,exam_id:eid,granted_by:userMap.get(a.granted_by)||null})}
+   if(has('user_exam_demo_bonus'))for(const a of old.prepare('SELECT * FROM user_exam_demo_bonus').all()){const uid=userMap.get(a.user_id),eid=examMap.get(a.exam_id);if(uid&&eid)ins('user_exam_demo_bonus',{...a,user_id:uid,exam_id:eid})}
+   if(has('user_learning_access'))for(const a of old.prepare('SELECT * FROM user_learning_access').all()){const uid=userMap.get(a.user_id);if(uid)ins('user_learning_access',{...a,user_id:uid})}
+   if(has('user_overall_access'))for(const a of old.prepare('SELECT * FROM user_overall_access').all()){const uid=userMap.get(a.user_id);if(uid)ins('user_overall_access',{...a,user_id:uid})}
+   // Payment records: preserve history, de-dupe by user/exam/time/transaction reference.
+   if(has('payment_requests'))for(const a of old.prepare('SELECT * FROM payment_requests').all()){const uid=userMap.get(a.user_id),eid=examMap.get(a.exam_id);if(!uid||!eid)continue;const ex=db.prepare("SELECT 1 FROM payment_requests WHERE user_id=? AND exam_id=? AND created_at=? AND COALESCE(txn_ref,'')=COALESCE(?, '')").get(uid,eid,a.created_at,a.txn_ref);if(!ex)ins('payment_requests',{...a,user_id:uid,exam_id:eid,reviewed_by:userMap.get(a.reviewed_by)||null})}
+   if(has('overall_payment_requests'))for(const a of old.prepare('SELECT * FROM overall_payment_requests').all()){const uid=userMap.get(a.user_id);if(!uid)continue;const ex=db.prepare("SELECT 1 FROM overall_payment_requests WHERE user_id=? AND plan_code=? AND created_at=? AND COALESCE(txn_ref,'')=COALESCE(?, '')").get(uid,a.plan_code,a.created_at,a.txn_ref);if(!ex)ins('overall_payment_requests',{...a,user_id:uid})}
+   // Certificates: map by user + course_key; existing Live certificate wins.
+   if(has('certificates'))for(const c0 of old.prepare('SELECT * FROM certificates ORDER BY id').all()){
+     const uid=userMap.get(c0.user_id);if(!uid)continue;let c=db.prepare('SELECT * FROM certificates WHERE user_id=? AND course_key=?').get(uid,c0.course_key);
+     if(!c){const cc={...c0,user_id:uid,approved_by:userMap.get(c0.approved_by)||null};ins('certificates',cc);c=db.prepare('SELECT * FROM certificates WHERE user_id=? AND course_key=?').get(uid,c0.course_key)}if(c)certMap.set(c0.id,c.id);
+   }
+   if(has('certificate_skill_tests')&&liveHas('certificate_skill_tests'))for(const t0 of old.prepare('SELECT * FROM certificate_skill_tests ORDER BY id').all()){
+     const cid=certMap.get(t0.certificate_id),uid=userMap.get(t0.user_id);if(!cid||!uid)continue;const ex=db.prepare('SELECT 1 FROM certificate_skill_tests WHERE certificate_id=? AND user_id=? AND assigned_at=?').get(cid,uid,t0.assigned_at);if(!ex)ins('certificate_skill_tests',{...t0,certificate_id:cid,user_id:uid,passage_id:passageMap.get(t0.passage_id)||null});
+   }
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({at:new Date().toISOString(),legacy_users:userMap.size}));
+ });
+ try{tx();console.log(`Legacy localhost merge: complete (${userMap.size} user mappings)`)}finally{old.close()}
+}
+try{runOneTimeLegacyMerge()}catch(e){console.error('Legacy localhost merge FAILED; Live DB left transaction-safe:',e.message)}
 
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});
