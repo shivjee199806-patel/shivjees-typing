@@ -1,4 +1,4 @@
-const QRCode=require('qrcode');const {Pool}=require('pg');const express=require('express');const path=require('path');const fs=require('fs');const os=require('os');const crypto=require('crypto');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const Database=require('better-sqlite3');const multer=require('multer');const nodemailer=require('nodemailer');
+const QRCode=require('qrcode');const {Pool}=require('pg');const zlib=require('zlib');const express=require('express');const path=require('path');const fs=require('fs');const os=require('os');const crypto=require('crypto');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const Database=require('better-sqlite3');const multer=require('multer');const nodemailer=require('nodemailer');
 // Load a local .env file without an extra dependency (hosting environment variables still take priority).
 try{const envPath=path.join(__dirname,'.env');if(fs.existsSync(envPath)){for(const raw of fs.readFileSync(envPath,'utf8').split(/\r?\n/)){const line=raw.trim();if(!line||line.startsWith('#'))continue;const i=line.indexOf('=');if(i<1)continue;const k=line.slice(0,i).trim(),v=line.slice(i+1).trim().replace(/^['"]|['"]$/g,'');if(process.env[k]===undefined)process.env[k]=v}}}catch(e){console.warn('Could not read .env:',e.message)}
 const app=express();const PORT=process.env.PORT||3000;const SECRET=process.env.JWT_SECRET||'shivjees-change-me';
@@ -1320,9 +1320,13 @@ app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)
 // Imports candidate/account history from migration/legacy-shivjees.db into the current Live SQLite DB.
 // Live rows win on conflicts; legacy rows are inserted without deleting/replacing Live data.
 function runOneTimeLegacyMerge(){
- const marker='legacy_localhost_merge_20260912_v1',legacyFile=path.join(__dirname,'migration','legacy-shivjees.db');
+ const marker='legacy_localhost_merge_20260912_v3_force',legacyFile=path.join(__dirname,'migration','legacy-shivjees.db'),legacyGz=path.join(__dirname,'migration','legacy-shivjees.db.gz');
  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
- if(db.prepare('SELECT value FROM app_meta WHERE key=?').get(marker) || !fs.existsSync(legacyFile))return;
+ console.log('Legacy localhost merge: startup check', {gz:fs.existsSync(legacyGz),db:fs.existsSync(legacyFile),marker});
+ if(db.prepare('SELECT value FROM app_meta WHERE key=?').get(marker)){console.log('Legacy localhost merge: already completed for this marker');return;}
+ let tempLegacy=false;
+ if(!fs.existsSync(legacyFile) && fs.existsSync(legacyGz)){fs.writeFileSync(legacyFile,zlib.gunzipSync(fs.readFileSync(legacyGz)));tempLegacy=true;console.log('Legacy localhost migration: compressed DB unpacked')}
+ if(!fs.existsSync(legacyFile)){console.warn('Legacy localhost merge: source DB not found at',legacyGz);return;}
  const old=new Database(legacyFile,{readonly:true,fileMustExist:true});
  const cols=t=>db.prepare(`PRAGMA table_info(${t})`).all().map(x=>x.name), oldCols=t=>old.prepare(`PRAGMA table_info(${t})`).all().map(x=>x.name);
  const has=t=>{try{return !!old.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t)}catch(e){return false}};
@@ -1368,7 +1372,7 @@ function runOneTimeLegacyMerge(){
    }
    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({at:new Date().toISOString(),legacy_users:userMap.size}));
  });
- try{tx();console.log(`Legacy localhost merge: complete (${userMap.size} user mappings)`)}finally{old.close()}
+ try{tx();console.log(`Legacy localhost merge: complete (${userMap.size} user mappings)`)}finally{old.close();if(tempLegacy){try{fs.unlinkSync(legacyFile)}catch(e){}}}
 }
 try{runOneTimeLegacyMerge()}catch(e){console.error('Legacy localhost merge FAILED; Live DB left transaction-safe:',e.message)}
 
