@@ -1302,8 +1302,12 @@ app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});
 
-scheduleDailyQueue();
-const server=app.listen(PORT,()=>{console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`);initRemoteSqliteMirror().then(()=>{if(remoteReady)uploadSqliteMirror()})});
+// Automatic Daily Passage Queue disabled by Owner; do not block server startup.
+const server=app.listen(PORT,()=>{
+  console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`);
+  // Remote persistence starts only after the HTTP port is open, and never blocks site startup.
+  setImmediate(()=>{initRemoteSqliteMirror().then(()=>{if(remoteReady)uploadSqliteMirror()}).catch(e=>console.error('Remote database mirror startup failed:',e.message))});
+});
 function shutdown(signal){console.log(`${signal} received; closing database safely...`);server.close(()=>{try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(e){};try{db.close()}catch(e){};process.exit(0)});setTimeout(()=>process.exit(1),10000).unref()}
 process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
 
