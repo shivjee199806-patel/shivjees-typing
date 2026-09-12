@@ -48,7 +48,11 @@ const db=new Database(DB_FILE);console.log('Persistent database:',DB_FILE);db.pr
 // Optional remote persistence mirror for Render Free: keep the existing SQLite app unchanged,
 // but mirror the SQLite database into PostgreSQL/Supabase after every mutating HTTP request.
 // On a fresh Render filesystem, the newest mirror is restored before normal traffic is served.
-const REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
+const RAW_REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
+// Render values are sometimes pasted from a provider's "Copy all" panel with labels/newlines.
+// Extract only the actual PostgreSQL URI so pg never treats a stray word (for example "base") as the host.
+const REMOTE_DB_URL=(RAW_REMOTE_DB_URL.match(/postgres(?:ql)?:\/\/[^\s'"<>]+/i)||[])[0]||RAW_REMOTE_DB_URL;
+if(RAW_REMOTE_DB_URL && !/^postgres(?:ql)?:\/\//i.test(REMOTE_DB_URL)) console.warn('DATABASE_URL does not contain a PostgreSQL URI');
 let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false;
 async function initRemoteSqliteMirror(){
   if(!REMOTE_DB_URL)return;
