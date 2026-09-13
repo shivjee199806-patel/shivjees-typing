@@ -4167,51 +4167,6 @@ window.renderInstructions = function(){
 })();
 </script>
 
-<script id="jp-restore-three-owner-actions">
-(function(){
-  if(window.__JP_THREE_OWNER_ACTIONS__) return; window.__JP_THREE_OWNER_ACTIONS__=1;
-  const prevOwnerTab=window.ownerTab;
-  function examOptions(){
-    const e=(window.OWNER&&window.OWNER.e)||[];
-    return e.filter(x=>x&&x.active!==0).map(x=>`<option value="${x.id}">${esc(x.name)} · ${esc(x.language||'')}</option>`).join('');
-  }
-  window.openAddPracticePassage=function(){
-    document.getElementById('passageModalTitle').textContent='Add Practice Passage';
-    document.getElementById('passageModalBody').innerHTML=`<div class="notice" style="margin-bottom:12px"><b>Free Practice Passage</b> · यह किसी exam/sub-folder से link नहीं होगा और Free Practice में दिखाई देगा.</div><div class="form-grid"><input id="rppTitle" class="input" placeholder="Practice passage title"><select id="rppLang" class="select"><option>English</option><option>Hindi</option></select><select id="rppDiff" class="select"><option>Easy</option><option selected>Medium</option><option>Hard</option></select><input id="rppLayout" class="input" value="QWERTY" placeholder="Keyboard layout"></div><textarea id="rppContent" class="input" rows="12" style="width:100%;margin-top:10px" placeholder="Type or paste practice passage text"></textarea><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" onclick="savePracticePassageRestored()">+ Add Practice Passage</button><button class="btn btn-white" onclick="closeModal('passageModal')">Cancel</button></div>`;
-    document.getElementById('rppLang').onchange=function(){document.getElementById('rppLayout').value=this.value==='Hindi'?'InScript Unicode':'QWERTY'};
-    document.getElementById('passageModal').classList.add('show');
-  };
-  window.savePracticePassageRestored=async function(){
-    try{
-      const title=(document.getElementById('rppTitle')?.value||'').trim(),content=(document.getElementById('rppContent')?.value||'').trim();
-      if(!title||!content) throw Error('Title और passage text दोनों भरें');
-      await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id:null,title,language:rppLang.value,layout:rppLayout.value,difficulty:rppDiff.value,content,highlight_mode:'none',active:true})});
-      showToast('Practice Passage add हो गया'); closeModal('passageModal');
-      window.OWNER.p=await api('/api/admin/passages?summary=1'); await window.ownerTab('passages');
-    }catch(e){showToast(e.message||'Practice passage add नहीं हुआ')}
-  };
-  window.openAddExamPassageRestored=function(){
-    document.getElementById('passageModalTitle').textContent='Add New Exam Passage';
-    document.getElementById('passageModalBody').innerHTML=`<div class="notice" style="margin-bottom:12px">Passage को सही exam/sub-folder में जोड़ें. Existing sub-folder duplicate नहीं बनेगा.</div><div class="form-grid"><select id="repExam" class="select"><option value="">Select Exam / Sub-folder</option>${examOptions()}</select><input id="repTitle" class="input" placeholder="Passage title"><select id="repDiff" class="select"><option>Easy</option><option selected>Medium</option><option>Hard</option></select></div><textarea id="repContent" class="input" rows="12" style="width:100%;margin-top:10px" placeholder="Type or paste exam passage text"></textarea><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" onclick="saveExamPassageRestored()">+ Add New Passage</button><button class="btn btn-white" onclick="closeModal('passageModal')">Cancel</button></div>`;
-    document.getElementById('passageModal').classList.add('show');
-  };
-  window.saveExamPassageRestored=async function(){
-    try{const exam_id=Number(repExam.value||0),title=repTitle.value.trim(),content=repContent.value.trim();if(!exam_id)throw Error('Exam/Sub-folder चुनें');if(!title||!content)throw Error('Title और passage text दोनों भरें');await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id,title,difficulty:repDiff.value,content,highlight_mode:'none',active:true})});showToast('Exam Passage add हो गया');closeModal('passageModal');window.OWNER.p=await api('/api/admin/passages?summary=1');await window.ownerTab('passages')}catch(e){showToast(e.message||'Exam passage add नहीं हुआ')}
-  };
-  window.ownerTab=async function(tab,btn){
-    const r=await prevOwnerTab(tab,btn); const pane=document.getElementById('ownerPane'); if(!pane)return r;
-    if(tab==='passages'){
-      if(!document.getElementById('jpThreeActions')){
-        const bar=document.createElement('div');bar.id='jpThreeActions';bar.className='card';bar.style.cssText='padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center';
-        bar.innerHTML=`<b style="margin-right:6px">Owner Passage Controls:</b><button class="btn btn-primary" onclick="openAddExamPassageRestored()">+ Add New Exam Passage</button><button class="btn btn-soft" onclick="openAddPracticePassage()">+ Add Practice Passage</button><button class="btn btn-white" onclick="ownerTab('exams');showToast('Main Folder खोलें — वहीं + Create Sub-folder मिलेगा')">+ Create Sub-folder</button>`;
-        pane.prepend(bar);
-      }
-    }
-    return r;
-  };
-})();
-</script>
-
 </body>
 </html>
 <style id="jp-topnav-light-theme-final">
