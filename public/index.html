@@ -439,6 +439,10 @@ input,select,textarea,button{max-width:100%}
 .google-candidate-glow #googleSignInButton{position:relative;z-index:1;filter:drop-shadow(0 5px 9px rgba(66,133,244,.14));transition:transform .22s ease,filter .22s ease}
 .google-candidate-glow #googleSignInButton:hover{transform:translateY(-2px) scale(1.015);filter:drop-shadow(0 8px 13px rgba(66,133,244,.24))}
 @keyframes googleGlowMove{0%{background-position:200% 0}100%{background-position:-20% 0}}
+.google-candidate-glow{animation:googleCardBreath 2.8s ease-in-out infinite}
+.google-candidate-glow:after{content:"✦ Continue securely with Google ✦";display:block;position:relative;z-index:1;margin-top:9px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.35px;color:#315f9e;animation:googleTextShine 2.2s ease-in-out infinite}
+@keyframes googleCardBreath{0%,100%{box-shadow:0 10px 28px rgba(30,64,175,.10),0 0 0 0 rgba(66,133,244,.10)}50%{box-shadow:0 14px 38px rgba(30,64,175,.18),0 0 22px 3px rgba(66,133,244,.13)}}
+@keyframes googleTextShine{0%,100%{opacity:.68;transform:scale(.99)}50%{opacity:1;transform:scale(1.02)}}
 @media(max-width:520px){.google-candidate-glow{padding:13px 8px 11px;border-radius:15px}.google-candidate-glow #googleSignInButton{max-width:100%;overflow:hidden}}
 </style>
 </head>
@@ -3119,6 +3123,8 @@ let ob=window.renderBrotherHelper;if(typeof ob==='function')window.renderBrother
  if(typeof oldWelcome==='function')window.showCustomWelcome=function(type,user,onDone){const firstGoogle=sessionStorage.getItem('st_google_first_setup')==='1';return oldWelcome(type,user,function(){if(firstGoogle){sessionStorage.removeItem('st_google_first_setup');setTimeout(showGoogleMobileCapture,180)}if(typeof onDone==='function')onDone()})};
 })();
 </script>
+
+
 </body>
 </html>
 
@@ -3789,6 +3795,38 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
      window.OWNER_LEARN_FOLDER='';return window.renderOwnerLearningControl();
    }
    return previousOwnerTab.apply(this,arguments);
+ };
+})();
+</script>
+
+<style id="learning-folder-payment-final-20260913">
+.jp-learning-pay-gate{position:relative;overflow:hidden;border:1px solid rgba(99,102,241,.22);box-shadow:0 16px 42px rgba(15,23,42,.10)}
+.jp-learning-pay-gate:before{content:"";position:absolute;inset:-2px;background:linear-gradient(120deg,rgba(59,130,246,.10),transparent 38%,rgba(168,85,247,.12));pointer-events:none}
+.jp-learning-pay-gate>*{position:relative}
+</style>
+<script>
+(function(){
+ const keyOf=(lang,track)=>lang==='English'?'english':track==='inscript'?'hindi-inscript':track==='remington-gail'?'hindi-remington-gail':track==='krutidev'?'hindi-kruti-dev':track==='devlys'?'hindi-devlys':'hindi-chanakya';
+ const latestRender=window.renderLearningCourseV3;
+ window.renderLearningCourseV3=async function(lang,trackId){
+   const key=keyOf(lang,trackId);
+   try{
+     const g=await api('/api/learning/access/'+encodeURIComponent(key));
+     if(!g.allowed){
+       const box=document.getElementById('learningFolder');if(!box)return;
+       const p=g.plan||{},fee=Number(p.fee_amount||0),demo=Number(p.daily_demo_limit||0),days=Number(p.validity_days||30);
+       box.innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="${lang==='Hindi'?"openLearningFolderV3('Hindi')":"learning()"}">← Back</button></div><div class="card jp-learning-pay-gate" style="padding:24px"><span class="badge amber">🔒 PAID LEARNING FOLDER</span><h2>${esc(p.title||'Learning Folder')}</h2><p>इस Learning folder की Daily Demo limit पूरी हो चुकी है। आगे access के लिए इसी folder का payment या active Full Access जरूरी है.</p><div class="metrics"><div class="metric"><small>Fee</small><b>₹${fee}</b></div><div class="metric"><small>Demo/day</small><b>${demo}</b></div><div class="metric"><small>Validity</small><b>${days} Days</b></div></div><button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="demoPayLearning('${key}','${lang}','${trackId}')">Pay ₹${fee} Securely · Unlock Folder</button></div>`;
+       return;
+     }
+   }catch(e){showToast(e.message);return}
+   return latestRender(lang,trackId);
+ };
+ const pricingWithoutLearning=window.pricing;
+ window.pricing=async function(){
+   await pricingWithoutLearning.apply(this,arguments);
+   const page=document.querySelector('#app .page');if(!page)return;
+   page.querySelectorAll('#fxLearningPricing').forEach(x=>x.remove());
+   [...page.querySelectorAll('.page-title h1')].filter(h=>/Learning Pricing|Learning Access/i.test(h.textContent||'')).forEach(h=>{const head=h.closest('.page-title');const grid=head?.nextElementSibling;if(grid?.classList.contains('overall-plan-grid'))grid.remove();head?.remove()});
  };
 })();
 </script>
