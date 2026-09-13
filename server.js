@@ -141,7 +141,7 @@ function certPayload(c,reg){return [c.certificate_id,reg,c.user_id,c.course_key,
 function certProof(c,reg){return crypto.createHmac('sha256',CERT_SECRET).update(certPayload(c,reg)).digest('base64url')}
 function certFingerprint(token){return crypto.createHash('sha256').update(String(token)).digest('hex').slice(0,20).toUpperCase()}
 function learningCourseKey(k=''){k=String(k).toLowerCase();if(!k.includes('hindi'))return 'english';if(k.includes('remington')||k.includes('gail'))return 'hindi-remington-gail';if(k.includes('kruti'))return 'hindi-kruti-dev';if(k.includes('devlys'))return 'hindi-devlys';if(k.includes('chanakya'))return 'hindi-chanakya';return 'hindi-inscript'}
-function learningAccessState(uid,key){const plan=db.prepare('SELECT * FROM learning_plans WHERE course_key=?').get(key)||{paid_enabled:0,fee_amount:0,daily_demo_limit:4,validity_days:30};if(!plan.paid_enabled)return {allowed:true,source:'free',plan,demo_remaining:plan.daily_demo_limit};const a=db.prepare("SELECT * FROM user_learning_access WHERE user_id=? AND course_key=? AND status='approved' AND (valid_until IS NULL OR date(valid_until)>=date('now'))").get(uid,key);if(a)return {allowed:true,source:a.access_type||'paid',plan,access:a,demo_remaining:plan.daily_demo_limit};const patt=key==='english'?'%english%':key==='hindi-remington-gail'?'%remington-gail%':key==='hindi-kruti-dev'?'%krutidev%':key==='hindi-devlys'?'%devlys%':key==='hindi-chanakya'?'%chanakya%':'%inscript%';const used=db.prepare("SELECT COUNT(*) c FROM learning_attempts WHERE user_id=? AND date(created_at)=date('now') AND lesson_key LIKE ?").get(uid,patt).c||0;const rem=Math.max(0,Number(plan.daily_demo_limit||0)-used);return {allowed:rem>0,source:'demo',plan,demo_used:used,demo_remaining:rem}}
+function learningAccessState(uid,key){const plan=db.prepare('SELECT * FROM learning_plans WHERE course_key=?').get(key)||{paid_enabled:0,fee_amount:0,daily_demo_limit:4,validity_days:30};const overall=activeOverallAccess(uid);if(overall)return {allowed:true,source:'overall',plan,overall_access:true,overall_valid_until:overall.valid_until,demo_remaining:Number.MAX_SAFE_INTEGER};if(!plan.paid_enabled)return {allowed:true,source:'free',plan,demo_remaining:plan.daily_demo_limit};const a=db.prepare("SELECT * FROM user_learning_access WHERE user_id=? AND course_key=? AND status='approved' AND (valid_until IS NULL OR date(valid_until)>=date('now'))").get(uid,key);if(a)return {allowed:true,source:a.access_type||'paid',plan,access:a,demo_remaining:plan.daily_demo_limit};const patt=key==='english'?'%english%':key==='hindi-remington-gail'?'%remington-gail%':key==='hindi-kruti-dev'?'%krutidev%':key==='hindi-devlys'?'%devlys%':key==='hindi-chanakya'?'%chanakya%':'%inscript%';const used=db.prepare("SELECT COUNT(*) c FROM learning_attempts WHERE user_id=? AND date(created_at)=date('now') AND lesson_key LIKE ?").get(uid,patt).c||0;const rem=Math.max(0,Number(plan.daily_demo_limit||0)-used);return {allowed:rem>0,source:'demo',plan,demo_used:used,demo_remaining:rem}}
 
 const CERT_SIGN_DIR=path.join(data,'certificate-signatures');if(!fs.existsSync(CERT_SIGN_DIR))fs.mkdirSync(CERT_SIGN_DIR,{recursive:true});
 const certSignStorage=multer.diskStorage({destination:(req,file,cb)=>cb(null,CERT_SIGN_DIR),filename:(req,file,cb)=>{const ext=path.extname(file.originalname||'').toLowerCase().replace(/[^.a-z0-9]/g,'').slice(0,8)||'.png';cb(null,'sign-'+Date.now()+'-'+crypto.randomBytes(4).toString('hex')+ext)}});
@@ -1580,4 +1580,27 @@ app.get('/api/admin/certificates/:id/skill-tests',auth,admin,(req,res)=>{
     WHERE t.certificate_id=? AND t.user_id=? AND t.status<>'replaced'
     ORDER BY t.id DESC`).all(c.id,c.user_id);
   res.json(rows);
+});
+
+// OWNER PASSAGE DIRECTORY PERFORMANCE FIX 2026-09-13
+// Lightweight counts + server-side 50-row paging. Never send all 7k+ passage rows to the dashboard.
+app.get('/api/admin/passage-directory',auth,admin,(req,res)=>{
+  const exams=db.prepare(`SELECT e.id,e.name,e.slug,e.language,e.layout,e.active,COUNT(p.id) passage_count
+    FROM exams e LEFT JOIN passages p ON p.exam_id=e.id GROUP BY e.id ORDER BY e.name,e.language,e.id`).all();
+  const free=db.prepare('SELECT COUNT(*) n FROM passages WHERE exam_id IS NULL').get()?.n||0;
+  res.json({exams,free_count:free});
+});
+app.get('/api/admin/passages-page',auth,admin,(req,res)=>{
+  const page=Math.max(1,Number(req.query.page)||1),limit=50,offset=(page-1)*limit;
+  const examId=Number(req.query.exam_id)||0,free=String(req.query.free||'')==='1';
+  const q=String(req.query.q||'').trim(),lang=String(req.query.lang||'').trim();
+  const where=[],args=[];
+  if(free)where.push('p.exam_id IS NULL'); else if(examId){where.push('p.exam_id=?');args.push(examId)}
+  if(lang){where.push('p.language=?');args.push(lang)}
+  if(q){where.push('(p.title LIKE ? OR CAST(p.id AS TEXT) LIKE ?)');args.push('%'+q+'%','%'+q+'%')}
+  const w=where.length?'WHERE '+where.join(' AND '):'';
+  const total=db.prepare(`SELECT COUNT(*) n FROM passages p ${w}`).get(...args)?.n||0;
+  const rows=db.prepare(`SELECT p.id,p.title,p.language,p.layout,p.difficulty,p.active,p.exam_id,e.name exam_name
+    FROM passages p LEFT JOIN exams e ON e.id=p.exam_id ${w} ORDER BY p.id DESC LIMIT ? OFFSET ?`).all(...args,limit,offset);
+  res.json({rows,total,page,pages:Math.max(1,Math.ceil(total/limit)),limit});
 });
