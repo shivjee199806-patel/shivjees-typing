@@ -3462,40 +3462,49 @@ input,select,textarea,button{max-width:100%}
 .owner-passage-scroll,.owner-folder-scroll{overscroll-behavior:contain}
 </style>
 
-<!-- Owner "Chhota Bhai" Matter Helper: isolated owner-only utility; no payment/certificate code touched -->
+<!-- Owner "Chhota Bhai" Topic Matter Helper: Owner gives only topic/about matter -->
 <style>
 .jp-brother-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.jp-brother-grid textarea{min-height:280px;resize:vertical}.jp-brother-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}@media(max-width:800px){.jp-brother-grid{grid-template-columns:1fr}.jp-brother-grid textarea{min-height:220px}}
 </style>
 <script>
 (function(){
  const prevOwnerTabBrother=window.ownerTab;
- function ensureBrotherTab(){
-   const tabs=document.querySelector('.owner-control-tabs');if(!tabs||tabs.querySelector('[data-jp-brother]'))return;
-   const b=document.createElement('button');b.className='tab';b.dataset.jpBrother='1';b.textContent='🤝 छोटा भाई';b.onclick=function(){window.ownerTab('brother',b)};
-   const learn=[...tabs.querySelectorAll('.tab')].find(x=>x.textContent.includes('Learning Control'));
-   if(learn)tabs.insertBefore(b,learn);else tabs.appendChild(b);
- }
- window.ownerTab=async function(tab,btn){
-   if(tab!=='brother'){
-     const r=await prevOwnerTabBrother(tab,btn);setTimeout(ensureBrotherTab,0);return r;
-   }
-   ensureBrotherTab();document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.toggle('active',x===btn||x.dataset.jpBrother==='1'));
-   const pane=document.getElementById('ownerPane');if(!pane)return;
-   pane.innerHTML=`<div class="card" style="padding:20px;margin-bottom:16px"><h2 style="margin:0">🤝 अपना छोटा भाई — Matter Helper</h2><p class="muted">आप अपना raw matter दें। यह उसी content को साफ, exam-oriented format में तैयार करेगा। कोई passage अपने-आप publish/delete नहीं होगा; final control Owner का रहेगा.</p></div>
-   <div class="jp-brother-grid"><div class="card" style="padding:18px"><label><b>Title / Topic</b><input id="jpbTitle" class="input" style="width:100%;margin-top:6px" placeholder="जैसे: Computer Memory"></label><div class="form-grid" style="margin-top:10px"><label><b>Exam</b><input id="jpbExam" class="input" placeholder="UP Police Computer Operator"></label><label><b>Language</b><select id="jpbLang" class="select"><option>Bilingual (Hindi + English)</option><option>Hindi</option><option>English</option></select></label><label><b>Format</b><select id="jpbType" class="select"><option value="typing">Typing Practice Matter</option><option value="notes">Study Notes</option><option value="questions">Practice Questions</option></select></label></div><label style="display:block;margin-top:10px"><b>आपका Raw Matter</b><textarea id="jpbRaw" class="input" style="width:100%;margin-top:6px" placeholder="Matter यहाँ paste/type करें…"></textarea></label><div class="jp-brother-actions"><button class="btn btn-primary" onclick="jpBrotherFormat()">✨ Exam-oriented Format बनाओ</button><button class="btn btn-white" onclick="jpbRaw.value='';jpbOut.value=''">Clear</button></div></div>
-   <div class="card" style="padding:18px"><div class="panel-head"><div><b>Prepared Matter</b><div class="muted">Publish करने से पहले आप edit/check कर सकते हैं.</div></div></div><textarea id="jpbOut" class="input" style="width:100%;margin-top:8px" placeholder="Formatted matter यहाँ आएगा…"></textarea><div class="jp-brother-actions"><button class="btn btn-primary" onclick="jpBrotherCopy()">Copy Matter</button><button class="btn btn-soft" onclick="jpBrotherOpenPassages()">Passages खोलें →</button></div></div></div>`;
- };
- window.jpBrotherFormat=function(){
-   const raw=String(document.getElementById('jpbRaw')?.value||'').trim(),title=String(document.getElementById('jpbTitle')?.value||'').trim()||'Practice Matter',exam=String(document.getElementById('jpbExam')?.value||'').trim(),lang=document.getElementById('jpbLang')?.value||'Bilingual (Hindi + English)',type=document.getElementById('jpbType')?.value||'typing';
-   if(!raw){showToast('पहले raw matter डालें');return}
-   const clean=raw.replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();let out='';
-   if(type==='typing')out=`${title}\n${exam?'Exam: '+exam+'\n':''}Language: ${lang}\n\n${clean}`;
-   else if(type==='notes')out=`${title}\n${exam?'Exam Focus: '+exam+'\n':''}Language: ${lang}\n\n★ Important / महत्वपूर्ण\n${clean}\n\nRevision Check / पुनरावृत्ति: मुख्य facts, definitions और exam points दोबारा देखें।`;
-   else out=`${title}\n${exam?'Exam: '+exam+'\n':''}Language: ${lang}\n\nSource Matter / आधार सामग्री:\n${clean}\n\nPractice Set / अभ्यास प्रश्न:\n1. ____________________________________\n2. ____________________________________\n3. ____________________________________\n4. ____________________________________\n5. ____________________________________`;
-   document.getElementById('jpbOut').value=out;showToast('Matter formatted — Owner review के बाद ही use करें');
- };
+ function ensureBrotherTab(){const tabs=document.querySelector('.owner-control-tabs');if(!tabs||tabs.querySelector('[data-jp-brother]'))return;const b=document.createElement('button');b.className='tab';b.dataset.jpBrother='1';b.textContent='🤝 छोटा भाई';b.onclick=function(){window.ownerTab('brother',b)};const learn=[...tabs.querySelectorAll('.tab')].find(x=>x.textContent.includes('Learning Control'));if(learn)tabs.insertBefore(b,learn);else tabs.appendChild(b)}
+ window.ownerTab=async function(tab,btn){if(tab!=='brother'){const r=await prevOwnerTabBrother(tab,btn);setTimeout(ensureBrotherTab,0);return r}ensureBrotherTab();document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.toggle('active',x===btn||x.dataset.jpBrother==='1'));const pane=document.getElementById('ownerPane');if(!pane)return;
+ pane.innerHTML=`<div class="card" style="padding:20px;margin-bottom:16px"><h2 style="margin:0">🤝 अपना छोटा भाई — Topic से Matter</h2><p class="muted">आप केवल किस विषय पर matter चाहिए यह बताइए। छोटा भाई draft तैयार करेगा। Publish अपने-आप नहीं होगा; final control Owner का रहेगा.</p></div>
+ <div class="jp-brother-grid"><div class="card" style="padding:18px"><label><b>About Matter / Topic *</b><textarea id="jpbAbout" class="input" style="width:100%;min-height:150px;margin-top:6px" placeholder="जैसे: UP Police Computer Operator के लिए OSI Model पर 500 words का English typing matter"></textarea></label><div class="form-grid" style="margin-top:10px"><label><b>Exam</b><input id="jpbExam" class="input" placeholder="UP Police Computer Operator"></label><label><b>Language</b><select id="jpbLang" class="select"><option>English</option><option>Hindi</option><option>Bilingual (Hindi + English)</option></select></label><label><b>Approx. Words</b><input id="jpbWords" type="number" min="100" max="2000" value="500" class="input"></label><label><b>Format</b><select id="jpbType" class="select"><option value="typing">Typing Practice Matter</option><option value="notes">Study Notes</option><option value="questions">Practice Questions</option></select></label></div><div class="jp-brother-actions"><button id="jpbGenerateBtn" class="btn btn-primary" onclick="jpBrotherGenerate()">✨ Matter तैयार करो</button><button class="btn btn-white" onclick="jpbAbout.value='';jpbOut.value='';jpbStatus.textContent=''">Clear</button></div><div id="jpbStatus" class="muted" style="margin-top:8px"></div></div>
+ <div class="card" style="padding:18px"><div class="panel-head"><div><b>Prepared Matter</b><div class="muted">पहले check/edit करें; आपकी approval के बिना publish नहीं होगा.</div></div></div><textarea id="jpbOut" class="input" style="width:100%;margin-top:8px" placeholder="Prepared matter यहाँ आएगा…"></textarea><div class="jp-brother-actions"><button class="btn btn-primary" onclick="jpBrotherCopy()">Copy Matter</button><button class="btn btn-soft" onclick="jpBrotherOpenPassages()">Passages खोलें →</button></div></div></div>`};
+ window.jpBrotherGenerate=async function(){const about=String(document.getElementById('jpbAbout')?.value||'').trim(),exam=String(document.getElementById('jpbExam')?.value||'').trim(),language=document.getElementById('jpbLang')?.value||'English',format=document.getElementById('jpbType')?.value||'typing',words=Number(document.getElementById('jpbWords')?.value||500),st=document.getElementById('jpbStatus'),btn=document.getElementById('jpbGenerateBtn');if(!about)return showToast('About Matter / Topic बताइए');btn.disabled=true;st.textContent='छोटा भाई matter तैयार कर रहा है…';try{const r=await fetch('/api/admin/brother/generate',{method:'POST',headers:{'Content-Type':'application/json',...authHeader()},body:JSON.stringify({about,exam,language,format,words})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Matter तैयार नहीं हुआ');document.getElementById('jpbOut').value=d.text||'';st.textContent='✓ Draft तैयार है — check/edit करके ही use करें';showToast('Matter तैयार हो गया')}catch(e){st.textContent='✕ '+e.message;showToast(e.message)}finally{btn.disabled=false}};
  window.jpBrotherCopy=async function(){const t=document.getElementById('jpbOut')?.value||'';if(!t)return showToast('पहले matter तैयार करें');try{await navigator.clipboard.writeText(t);showToast('Matter copied')}catch(e){document.getElementById('jpbOut').select();document.execCommand('copy');showToast('Matter copied')}};
- window.jpBrotherOpenPassages=function(){window.ownerTab('passages');};
- setTimeout(ensureBrotherTab,0);
+ window.jpBrotherOpenPassages=function(){window.ownerTab('passages')};setTimeout(ensureBrotherTab,0);
+})();
+</script>
+
+<!-- MOBILE HAMBURGER SINGLE-HANDLER FIX 2026-09-13
+Root cause: the button had BOTH inline onclick="toggleSide()" and an added click listener,
+so one tap opened and immediately closed the menu. Keep exactly one handler. -->
+<script id="mobileHamburgerSingleHandlerFix20260913">
+(function(){
+  function installSingleHamburgerHandler(){
+    const oldBtn=document.querySelector('.menuBtn');
+    if(!oldBtn || oldBtn.dataset.singleHandler==='1') return;
+    const btn=oldBtn.cloneNode(true); // drops previously attached addEventListener handlers
+    btn.removeAttribute('onclick');   // also drop inline handler; bind one clean handler below
+    btn.dataset.singleHandler='1';
+    btn.type='button';
+    btn.setAttribute('aria-controls','side');
+    btn.setAttribute('aria-expanded','false');
+    btn.setAttribute('aria-label','Open menu');
+    btn.textContent='☰';
+    oldBtn.replaceWith(btn);
+    btn.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      window.toggleSide();
+    },{passive:false});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',installSingleHamburgerHandler);
+  else installSingleHamburgerHandler();
+  window.addEventListener('pageshow',installSingleHamburgerHandler);
 })();
 </script>
