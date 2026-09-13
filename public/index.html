@@ -1351,25 +1351,9 @@ validateSavedSession();
 <script>window.addEventListener('beforeunload',function(e){if(typeof S!=='undefined'&&S.started&&!S.done){e.preventDefault();e.returnValue='';}});
 
 /* ============================================================
-   EXAM HIERARCHY v6 — Parent Exam Folder -> Subfolders -> Passages
+   EXAM HIERARCHY v7 — Main Folder -> searchable ID Subfolders -> Passages
    ============================================================ */
-function parentExamName(g){
-  const n=String(g?.name||'').trim(), low=n.toLowerCase();
-  // State/UT directory entries are stored as: "Main Folder - Exam Sub-folder".
-  // Keep the left side as the main folder so every state/UT gets its own directory.
-  const knownStateParents=new Set([
-    'UP','Uttarakhand','Delhi','Haryana','Himachal Pradesh','Punjab','Rajasthan','Jammu & Kashmir','Ladakh','Chandigarh'
-  ]);
-  const statePrefix=n.includes(' - ')?n.split(' - ')[0].trim():'';
-  if(knownStateParents.has(statePrefix)) return statePrefix;
-  // Existing broad exam families remain unchanged.
-  if(/\bssc\b/i.test(n)) return 'SSC';
-  if(/\b(rrb|railway|ntpc)\b/i.test(n)) return 'Railway';
-  if(/(^|[^a-z])(up|upp|uppsc|upsssc)([^a-z]|$)/i.test(n) || low.includes('up police') || low.includes('uttar pradesh')) return 'UP';
-  if(/\b(ro\/?aro|ro-aro|court|high court)\b/i.test(n)) return 'Court / RO-ARO';
-  const first=n.split(/\s+/)[0];
-  return first || 'Other Exams';
-}
+function parentExamName(g){ return jpExamParent(g); }
 function subfolderDisplayName(parentName,childName){
   const p=String(parentName||'').trim(), c=String(childName||'').trim();
   const prefix=p+' - ';
@@ -1377,22 +1361,45 @@ function subfolderDisplayName(parentName,childName){
 }
 function parentExamGroups(rows){
   const children=examFolderGroups(rows||[]), m=new Map();
-  for(const c of children){const name=parentExamName(c),key=name.toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g,'-');if(!m.has(key))m.set(key,{key,name,children:[],passage_count:0});const p=m.get(key);p.children.push(c);p.passage_count+=Number(c.passage_count||0)}
-  return [...m.values()];
+  for(const c of children){
+    const name=parentExamName(c), key=String(name).toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g,'-');
+    if(!m.has(key))m.set(key,{key,name,children:[],passage_count:0});
+    const p=m.get(key); p.children.push(c); p.passage_count+=Number(c.passage_count||0);
+  }
+  return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name));
 }
-function parentCard(p){return `<div class="browse-exam-card" onclick="openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')" role="button"><div class="meta"><span>EXAM FOLDER</span><span>${p.children.length} subfolder${p.children.length===1?'':'s'}</span></div><h3>📁 ${esc(p.name)}</h3><p>${p.children.map(x=>esc(x.name)).slice(0,3).join(' • ')}${p.children.length>3?' …':''}</p><div class="bottom"><span class="count">${p.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')">Open Exam →</button></div></div>`}
+function parentCard(p){
+  return `<div class="browse-exam-card" onclick="openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')" role="button"><div class="meta"><span>📁 MAIN EXAM FOLDER</span><span>${p.children.length} subfolder${p.children.length===1?'':'s'}</span></div><h3>${esc(p.name)}</h3><p>${p.children.slice(0,3).map(x=>esc(subfolderDisplayName(p.name,x.name))).join(' • ')}${p.children.length>3?' …':''}</p><div class="bottom"><span class="count">${p.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')">Open Folder →</button></div></div>`;
+}
 loadExamDirectory = function(){
- const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(),type=document.getElementById('examType')?.value||'',order=document.getElementById('examOrder')?.value||'relevance';
- let rows=parentExamGroups(window.EXAM_OPTIONS||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||p.children.some(c=>c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)));
- if(type)rows=rows.filter(p=>p.children.some(c=>c.category===type));
- if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')rows.sort((a,b)=>b.passage_count-a.passage_count);
- document.getElementById('examCountLine').textContent=`${rows.length} main exam folder${rows.length===1?'':'s'} found`;
- document.getElementById('examGrid').innerHTML=rows.map(parentCard).join('')||'<div class="card exam-empty">No exam folder found.</div>';
+  const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(), order=document.getElementById('examOrder')?.value||'relevance';
+  const all=examFolderGroups(window.EXAM_OPTIONS||[]);
+  let matches=all.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)||jpExamPublicId(c).toLowerCase().includes(q)||parentExamName(c).toLowerCase().includes(q));
+  const grid=document.getElementById('examGrid'), line=document.getElementById('examCountLine'); if(!grid||!line)return;
+  if(q){
+    if(order==='az')matches.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')matches.sort((a,b)=>b.passage_count-a.passage_count);
+    line.textContent=`${matches.length} typing exam subfolder${matches.length===1?'':'s'} found`;
+    grid.innerHTML=matches.map(browseExamFolderCard).join('')||'<div class="card exam-empty">No exam found by this Name / ID.</div>';
+    return;
+  }
+  let rows=parentExamGroups(window.EXAM_OPTIONS||[]);
+  if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')rows.sort((a,b)=>b.passage_count-a.passage_count);
+  line.textContent=`${rows.length} main folders · ${all.length} unique typing exam subfolders`;
+  grid.innerHTML=rows.map(parentCard).join('')||'<div class="card exam-empty">No exam folder found.</div>';
+}
+function renderParentSubfolders(){
+  const p=window.ACTIVE_PARENT_EXAM;if(!p)return;
+  const q=(document.getElementById('subfolderSearch')?.value||'').trim().toLowerCase();
+  const rows=p.children.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)||jpExamPublicId(c).toLowerCase().includes(q));
+  const count=document.getElementById('subfolderCount'), grid=document.getElementById('subfolderGrid');if(!count||!grid)return;
+  count.textContent=`${rows.length} subfolder${rows.length===1?'':'s'} found · ${p.passage_count} total passages`;
+  grid.innerHTML=rows.map(c=>`<div class="browse-exam-card" onclick="openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')"><div class="meta"><span>SUBFOLDER</span><span>${esc((c.languages||[]).join(' / ')||'Typing')}</span></div><h3>▭ ${esc(subfolderDisplayName(p.name,c.name))}</h3><div style="margin:8px 0"><span class="badge green">Exam ID: ${esc(jpExamPublicId(c))}</span></div><p>${esc(c.description||'Typing passage collection')}</p><div class="bottom"><span class="count">${c.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')">View Passages →</button></div></div>`).join('')||'<div class="card exam-empty">No subfolder found by this Name / ID.</div>';
 }
 function openParentExamFolder(key){
- const p=parentExamGroups(window.EXAM_OPTIONS||[]).find(x=>x.key===key);if(!p)return showToast('Exam folder not found');
- window.ACTIVE_PARENT_EXAM=p; activeNav('exams');
- setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Main Exam Folder</small><h1>📁 ${esc(p.name)}</h1><p class="muted">नीचे इस main folder के specific exam sub-folders हैं। Payment/Access इन्हीं sub-folders पर लागू होगा; passages पर अलग payment नहीं होगा.</p></div><div class="picker-panel"><div class="exam-count-line">${p.children.length} subfolder${p.children.length===1?'':'s'} • ${p.passage_count} total passages</div><div class="exam-browser-grid">${p.children.map(c=>`<div class="browse-exam-card" onclick="openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')"><div class="meta"><span>SUBFOLDER</span><span>${esc((c.languages||[]).join(' / '))}</span></div><h3>▭ ${esc(subfolderDisplayName(p.name,c.name))}</h3><p>${esc(c.description||'Typing passage collection')}</p><div class="bottom"><span class="count">${c.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')">View Passages →</button></div></div>`).join('')}</div><div style="margin-top:18px"><button class="btn btn-white" onclick="exams()">← All Exams</button></div></div></div>`);
+  const p=parentExamGroups(window.EXAM_OPTIONS||[]).find(x=>x.key===key);if(!p)return showToast('Exam folder not found');
+  window.ACTIVE_PARENT_EXAM=p; activeNav('exams');
+  setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Main Exam Folder</small><h1>📁 ${esc(p.name)}</h1><p class="muted">इस folder के अंदर केवल typing वाले exam subfolders हैं। हर subfolder की unique Exam ID नीचे दिखाई गई है.</p></div><div class="picker-panel"><div class="exam-searchbar" style="grid-template-columns:1fr"><div class="exam-searchbox"><span>⌕</span><input id="subfolderSearch" class="input" placeholder="Search subfolder by Exam Name or ID (e.g. JP-EX-0012)" autocomplete="off"></div></div><div id="subfolderCount" class="exam-count-line"></div><div id="subfolderGrid" class="exam-browser-grid"></div><div style="margin-top:18px"><button class="btn btn-white" onclick="exams()">← All Exams</button></div></div></div>`);
+  renderParentSubfolders(); document.getElementById('subfolderSearch').oninput=renderParentSubfolders;
 }
 </script>
 
@@ -4015,27 +4022,37 @@ window.prepareSelectedPassage = async function(id){
   }
   renderInstructions();
 };
-// Replace instruction screen: selectors sit beside Terms/Conditions and are always manually adjustable.
+// FINAL FIX: Instructions selectors live beside Terms/Conditions. Highlight defaults OFF unless the exam itself is explicitly configured otherwise.
+// The Start Practice button uses a direct inline handler as well as JS binding so it cannot become a dead button after later wrappers.
 window.renderInstructions = function(){
- const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}
+ const e=S.exam,p=S.passage; const isExam=S.mode==='exam'||S.mode==='live'; if(!isExam){renderTest();return}
  const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
- const hm=['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)?S.attemptHighlightMode:'none';
- const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[e?.highlight_mode||'none']||'Highlight Off';
- setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li><b>Theme</b> Light/Dark/System website की extra सुविधा है; Theme बदलते समय ही timer थोड़ी देर pause रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol>
+ // Never invent visual highlighting as an "actual exam" feature. Existing exam config may explicitly set a mode; otherwise OFF.
+ const configured=['current_char','current_word','errors_only','none'].includes(e?.highlight_mode)?e.highlight_mode:'none';
+ if(!['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)) S.attemptHighlightMode=configured;
+ const hm=S.attemptHighlightMode||'none';
+ const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[configured]||'Highlight Off';
+ setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Main Exam से पहले 2-minute keyboard practice मिलेगी; यह final result में count नहीं होगी और Skip की जा सकती है.</li><li>Practice के बाद <b>Enter Main Exam</b> दबाते ही exam typing screen खुलेगी.</li><li>Submit/End Exam से पहले confirmation मिलेगा.</li></ol>
  <div class="exam-checks">
    <div class="candidate-attempt-options">
-    <label>Backspace<select id="instructionBackspace" class="select" style="display:block;min-width:190px;margin-top:6px"><option value="1" ${S.attemptBackspaceAllowed?'selected':''}>Backspace On</option><option value="0" ${!S.attemptBackspaceAllowed?'selected':''}>Backspace Off</option></select></label>
-    <label>Highlight<select id="instructionHighlight" class="select" style="display:block;min-width:210px;margin-top:6px"><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option></select></label>
-    <small><b>Default = Actual Exam Behavior:</b> ${e?.backspace_allowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}. आप चाहें तो इसी attempt के लिए ऊपर manually बदल सकते हैं। Highlight में Current Character/Word केवल selected position दिखाता है; Errors Only में गलती highlight होती है; Off में highlight नहीं होगा.</small>
+    <label><b>Backspace</b><select id="instructionBackspace" class="select" style="display:block;min-width:190px;margin-top:6px"><option value="1" ${S.attemptBackspaceAllowed?'selected':''}>Backspace On</option><option value="0" ${!S.attemptBackspaceAllowed?'selected':''}>Backspace Off</option></select></label>
+    <label><b>Highlight (Practice Display)</b><select id="instructionHighlight" class="select" style="display:block;min-width:210px;margin-top:6px"><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option></select></label>
+    <small><b>Default exam setting:</b> ${e?.backspace_allowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}. Highlight केवल practice display सुविधा है; जहाँ official/configured highlight rule नहीं है वहाँ default <b>Off</b> रहेगा. Candidate इस attempt के लिए manually बदल सकता है.</small>
    </div>
    <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
- </div><button id="goPractice" class="btn btn-primary">Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
+ </div><button id="goPractice" type="button" class="btn btn-primary" onclick="return jpEnterTwoMinutePractice(event)">Start 2-Minute Practice →</button> <button type="button" class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
  const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
  if(bs)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1'};
  if(hs)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value};
- const canProceed=()=>{const a=!!document.getElementById('readCheck')?.checked,b=!hindi||!!document.getElementById('hindiCheck')?.checked;return a&&b};
- const go=document.getElementById('goPractice');
- if(go)go.onclick=(ev)=>{ev.preventDefault();if(!canProceed()){showToast(hindi?'पहले दोनों instruction checkboxes tick करें।':'पहले instructions वाला checkbox tick करें।');return;}renderPrePractice();};
+};
+window.jpEnterTwoMinutePractice=function(ev){
+ if(ev){ev.preventDefault();ev.stopPropagation()}
+ const hindi=String(S.exam?.language||S.passage?.language||'').toLowerCase().includes('hindi');
+ const read=!!document.getElementById('readCheck')?.checked;
+ const hindiOk=!hindi||!!document.getElementById('hindiCheck')?.checked;
+ if(!read||!hindiOk){showToast(hindi?'पहले दोनों instruction checkboxes tick करें।':'पहले instructions वाला checkbox tick करें।');return false}
+ try{renderPrePractice()}catch(err){console.error('2-minute practice start failed',err);showToast('Practice start नहीं हुई: '+(err?.message||'Unknown error'))}
+ return false;
 };
 })();
 </script>

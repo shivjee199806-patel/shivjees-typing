@@ -597,6 +597,9 @@ ensureVerifiedTypingExamDirectory();
 // No official highlight behaviour is claimed without documentary support, so normalize legacy guesses to OFF.
 db.prepare("UPDATE exams SET highlight_mode='none' WHERE highlight_mode IN ('current_char','current_word')").run();
 db.prepare("UPDATE passages SET highlight_mode='none' WHERE highlight_mode IN ('current_char','current_word')").run();
+// Safety baseline: visual highlight is not assumed to be an official exam feature. Owner may explicitly configure a verified exam later.
+db.prepare("UPDATE exams SET highlight_mode='none' WHERE highlight_mode IS NULL OR highlight_mode NOT IN ('errors_only','none')").run();
+db.prepare("UPDATE passages SET highlight_mode='none' WHERE highlight_mode IS NULL OR highlight_mode NOT IN ('errors_only','none')").run();
 // Real-exam default policy: if the authority does not publish a live-highlight UI rule, keep highlight OFF by default.
 // Candidate may still choose a different display behaviour later where candidate changes are allowed.
 db.prepare("UPDATE exams SET highlight_mode='none' WHERE slug IN ('upp-co-english','upp-co-hindi','ssc-chsl-ldc-jsa-typing','ssc-selection-post-typing','delhi-police-hcm-typing','up-police-ministerial-typing','railway-rrb-ntpc-typing-skill-test')").run();
