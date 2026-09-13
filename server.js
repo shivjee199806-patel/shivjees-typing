@@ -822,7 +822,7 @@ app.post('/api/auth/owner-otp-start',authRateLimit,async(req,res)=>{try{
  let delivered={dev:true};
  try{delivered=await deliverOtp(phone,code,u.email,'owner_login')}catch(otpErr){console.log(`[OWNER SCREEN OTP] ${phone}: ${code}`);delivered={dev:true}}
  const challenge=jwt.sign({ownerOtp:u.id,phone,otp_hash:otpHash(phone,'owner_login',code)},SECRET,{expiresIn:'5m'});
- res.json({challenge,phone_masked:maskPhone(phone),email_masked:delivered.email_masked||maskEmail(u.email),dev_otp:delivered?.dev?code:undefined});
+ res.json({challenge,phone_masked:maskPhone(phone),email_masked:delivered.email_masked||maskEmail(u.email),otp_provider:delivered?.provider||'dev',otp_destination:delivered?.provider==='resend'?'email':(delivered?.provider==='msg91'?'mobile':(delivered?.provider==='webhook'?'provider':'screen')),dev_otp:delivered?.dev?code:undefined});
  }catch(e){res.status(503).json({error:e.message||'Could not start Owner OTP login'})}});
 app.post('/api/auth/owner-otp-verify',authRateLimit,(req,res)=>{try{
  let c;try{c=jwt.verify(String(req.body?.challenge||''),SECRET)}catch{return res.status(401).json({error:'Owner OTP expired. Start login again.'})}
