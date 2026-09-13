@@ -591,7 +591,6 @@ function guestHome(){
  <section class="public-section alt"><div class="public-title"><small>Why choose Shivjee's Typing?</small><h2>एक complete learning partner</h2></div><div class="reason-grid"><div class="reason"><div class="ico">🎯</div><h3>Exam Oriented</h3><p>Government-style test modules.</p></div><div class="reason"><div class="ico">🌐</div><h3>Bilingual Support</h3><p>English + Hindi typing.</p></div><div class="reason"><div class="ico">⏱️</div><h3>Real-time Performance</h3><p>WPM, accuracy, errors.</p></div><div class="reason"><div class="ico">📋</div><h3>Detailed Analysis</h3><p>Full attempt history.</p></div><div class="reason"><div class="ico">🚀</div><h3>Smart Learning</h3><p>Basic to advanced lessons.</p></div><div class="reason"><div class="ico">🔐</div><h3>Secure Platform</h3><p>Account-based progress.</p></div><div class="reason"><div class="ico">🧾</div><h3>Fresh Passages</h3><p>Regular exam practice content.</p></div><div class="reason"><div class="ico">⭐</div><h3>Dedicated Support</h3><p>Simple, focused experience.</p></div></div></section>
  <section class="public-section" id="motivation"><div class="motivation-panel"><div class="motivation-photo"><img src="/logo-new.png" alt="Shivjee's Typing"></div><div><div class="public-title"><small>Motivation for your journey</small><h2>Small steps. Big progress.</h2></div><div class="motivation-list"><div>Consistency beats talent.</div><div>Small daily practice gives big results.</div><div>Typing is not just a skill, it is an advantage.</div><div>Every key you press takes you closer to your goal.</div><div>Be better than yesterday.</div><div>Your speed can open new opportunities.</div><div>Learn today, lead tomorrow.</div></div></div><div><div class="big-quote">“आज का अभ्यास <strong>कल की सफलता</strong> की नींव है। रुकिए मत, क्योंकि आप कर सकते हैं।”</div><div class="keyboard-show">${['A','S','D','F','J','K','L',';'].map(x=>`<span>${x}</span>`).join('')}</div></div></div></section>
  <section class="public-section alt"><div class="public-title"><small>What our learners say</small><h2>Practice से confidence बनता है</h2></div><div class="testimonials"><div class="testimonial"><b>Amit Kumar</b><small> · UP Police Aspirant</small><p>“Daily practice से speed और confidence दोनों improve हुए।”</p></div><div class="testimonial"><b>Ritika Sharma</b><small> · SSC Aspirant</small><p>“Simple interface और exam-style passages practice को आसान बनाते हैं।”</p></div><div class="testimonial"><b>Sandeep Yadav</b><small> · Student</small><p>“History और analysis देखकर अपनी कमजोरी समझना आसान हुआ।”</p></div></div><div class="community"><div><b>10,000+</b>Learners Goal</div><div><b>50,000+</b>Practice Attempts Goal</div><div><b>95%+</b>Accuracy Target</div><div><b>100+</b>Passage Capacity</div></div></section>
- <section class="public-section alt" id="free-typing-tools"><div class="public-title"><small>Free tools for typing candidates</small><h2>Check your speed, accuracy & take a free challenge</h2><p>Google से आने वाले students के लिए free public tools — बिना login basic result check करें और फिर exam-oriented practice शुरू करें।</p></div><div class="reason-grid"><a class="reason" href="/wpm-calculator.html"><div class="ico">⚡</div><h3>WPM Calculator</h3><p>Typing speed तुरंत calculate करें।</p></a><a class="reason" href="/typing-accuracy-calculator.html"><div class="ico">🎯</div><h3>Accuracy Calculator</h3><p>अपनी typing accuracy percentage check करें।</p></a><a class="reason" href="/35-wpm-typing-challenge.html"><div class="ico">⌨️</div><h3>35 WPM Challenge</h3><p>35+ WPM target के लिए practice शुरू करें।</p></a><a class="reason" href="/uppco-typing-test.html"><div class="ico">📝</div><h3>UP Police CO Practice</h3><p>Computer Operator typing practice page खोलें।</p></a></div></section>
  <section class="public-section"><div class="public-cta"><h2>Ready to Improve Your Typing?</h2><p>Account बनाइए और Learning, Practice, Exam, History तथा Detailed Analysis unlock कीजिए।</p><div class="public-actions" style="justify-content:center"><button class="btn btn-primary" onclick="auth('register')">🚀 Create Free Account →</button><button class="btn btn-white" onclick="auth('login')">👤 Candidate Login</button></div></div></section>
  <footer class="public-footer"><div><div class="footer-brand">Shivjee's <span>Typing</span></div><p>Learn • Practice • Improve • Succeed</p><p>A focused typing-learning platform for daily improvement and exam readiness.</p></div><div><h3>Quick Links</h3><a href="#home">Home</a><a href="javascript:void(0)" onclick="showHomeAbout(event)">About</a><a href="#how">How to Learn</a><a href="#motivation">Motivation</a></div><div><h3>Support</h3><a href="javascript:void(0)" onclick="showContactCard()">Contact Us</a><a href="javascript:void(0)">FAQ</a><a href="javascript:void(0)">Privacy Policy</a><a href="javascript:void(0)">Terms & Conditions</a></div><div><h3>Remember</h3><p>“Better Typing, A Brighter Future.”</p><p>© 2026 Shivjee's Typing. All rights reserved.</p></div></footer>
  </div>`);
@@ -633,31 +632,11 @@ async function quickStart(id){if(!S.user){auth('login');return}try{const e=await
 function showExamFeeLock(a){document.body.classList.add('exam-mode');activeNav('exams');setApp(`<div class="page"><div class="card fee-lock"><div style="font-size:48px">🔒</div><h1>${esc(a.exam.name)}</h1><p>आज के ${a.exam.daily_demo_limit} free demo attempts पूरे हो गए हैं। इस exam को जारी रखने के लिए access unlock करें।</p><div class="fee-price">₹${Number(a.exam.fee_amount||0).toFixed(0)}</div><p class="muted">Validity: ${a.exam.validity_days} days</p><div class="notice"><b>Demo used:</b> ${a.demo_used} / ${a.exam.daily_demo_limit}. Logout/Login करने से यह daily count reset नहीं होगा।</div><button class="btn btn-primary" onclick="showContactCard()">Contact for Access</button> <button class="btn btn-white" onclick="exams()">Back to Exams</button></div></div>`)}
 async function ensureExamCanStart(){if(!S.exam||!S.user)return true;if(typeof clientIsMasterOwner==='function'&&clientIsMasterOwner())return true;const a=await api('/api/exam-access/'+S.exam.id);if(!a.can_start){showToast('Payment required for this exam sub-folder');setTimeout(()=>{if(typeof showPaymentGate==='function')showPaymentGate(S.exam.id,a);else showExamFeeLock(a)},2050);return false}return true}
 async function openPassagePicker(){if(!S.exam)return;try{S.exam=await api('/api/exams/'+S.exam.id);if(!(await ensureExamCanStart()))return}catch(err){showToast(err.message);return}document.body.classList.add('exam-mode');S.pickerDifficulty='';S.pickerSearch='';S.inputLimit=510;if(S.attemptBackspaceAllowed===undefined||S.attemptBackspaceAllowed===null){const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}const examHM=S.exam.highlight_mode||'current_char';if(S.attemptHighlightMode===undefined||S.attemptHighlightMode===null)S.attemptHighlightMode=examHM==='none'?'none':examHM;if(examHM==='none')S.attemptHighlightMode='none';renderPassagePicker()}
-function renderPassagePicker(){const e=S.exam,all=Array.isArray(e.passages)?e.passages:[];const q=(S.pickerSearch||'').toLowerCase(),diff=S.pickerDifficulty||'';const rows=all.filter(p=>(!diff||p.difficulty===diff)&&(!q||p.title.toLowerCase().includes(q)||p.content.toLowerCase().includes(q)));const ownerHighlight=(e.highlight_mode||'current_char')!=='none';const highlightChangeAllowed=Number(e.highlight_user_change_allowed??1)===1;if(!ownerHighlight&&!highlightChangeAllowed)S.attemptHighlightMode='none';const hm=S.attemptHighlightMode||'none';setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Select passage for the typing exam</small><h1>${esc(e.name)}</h1><p class="muted">Choose a passage, duration and word limit before entering the exam hall.</p></div><div class="picker-panel"><div class="picker-controls"><label>Search Passage<input class="input" id="pickerSearch" value="${esc(S.pickerSearch||'')}" placeholder="Search title or passage..." style="width:100%;margin-top:6px"></label><label>Time Duration<select id="pickerDuration" class="select" style="width:100%;margin-top:6px"><option value="${e.duration}" selected>${e.duration} minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label>Input Limit<input id="pickerLimit" class="input" type="number" min="50" max="5000" value="${S.inputLimit||510}" style="width:100%;margin-top:6px"><small class="muted">Words</small></label></div><div class="topic-keyword-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0">${['Abhibhashan','Budget','CPCT','Health','History','Legal','NCERT','Parliament','Plants','President','Prime Minister','Science','UPSSSC','Vocab','Women'].map(k=>`<button type="button" class="keyword-chip" onclick="S.pickerSearch='${k}';renderPassagePicker()">${k}</button>`).join('')}<button type="button" class="keyword-chip" onclick="S.pickerSearch='';renderPassagePicker()">All Topics</button></div><div class="notice" style="margin:14px 0"><b>${esc(e.name)}:</b> नीचे केवल इसी exam को Owner द्वारा assign किए गए passages दिख रहे हैं। Topic chip चुनने पर उसी विषय का matter filter होगा.</div><div class="difficulty-row"><b>Difficulty Level:</b>${['','Easy','Medium','Hard'].map(d=>{const cls=d==='Easy'?'diff-easy':d==='Medium'?'diff-medium':d==='Hard'?'diff-hard':'diff-all';return `<button class="${cls} ${diff===d?'active':''}" onclick="S.pickerDifficulty='${d}';renderPassagePicker()">${d||'All'}</button>`}).join('')}</div><div class="passage-list"><table><thead><tr><th>Sl.No.</th><th>Passage Id</th><th>Passage Title</th><th>Passage Date</th><th>Status</th></tr></thead><tbody>${rows.map((p,i)=>`<tr><td>${i+1}</td><td>${p.id}</td><td><b>${esc(p.title)}</b> <span class="badge ${p.difficulty==='Hard'?'amber':''}">${esc((p.difficulty||'M')[0])}</span></td><td>${p.created_at?new Date(p.created_at).toLocaleDateString():'—'}</td><td><button type="button" class="btn btn-soft passage-start-btn" data-passage-id="${p.id}">Start Typing</button></td></tr>`).join('')||'<tr><td colspan="5">No passage is assigned to this exam. Owner → Passages में इस passage का Exam Name यही exam चुनकर Save करें.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><small><b style="color:#1849d6">B</b> - Basic, <b style="color:#16803c">E</b> - Easy, <b style="color:#d97706">M</b> - Medium, <b style="color:#dc2626">H</b> - Hard</small><button class="btn btn-white" onclick="cancelTypingFlow('exams')">Choose another exam</button></div></div></div>`);const se=document.getElementById('pickerSearch');if(se)se.oninput=()=>{S.pickerSearch=se.value;renderPassagePicker()};document.querySelectorAll('.passage-start-btn').forEach(btn=>{btn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const id=Number(btn.dataset.passageId);if(!id)return showToast('Passage id missing');try{prepareSelectedPassage(id)}catch(err){console.error(err);showToast(err.message||'Could not open typing instructions')}})})}
+function renderPassagePicker(){const e=S.exam,all=Array.isArray(e.passages)?e.passages:[];const q=(S.pickerSearch||'').toLowerCase(),diff=S.pickerDifficulty||'';const rows=all.filter(p=>(!diff||p.difficulty===diff)&&(!q||p.title.toLowerCase().includes(q)||p.content.toLowerCase().includes(q)));const ownerHighlight=(e.highlight_mode||'current_char')!=='none';const highlightChangeAllowed=Number(e.highlight_user_change_allowed??1)===1;if(!ownerHighlight&&!highlightChangeAllowed)S.attemptHighlightMode='none';const hm=S.attemptHighlightMode||'none';setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Select passage for the typing exam</small><h1>${esc(e.name)}</h1><p class="muted">Choose a passage, duration and word limit before entering the exam hall.</p></div><div class="picker-panel"><div class="picker-controls"><label>Search Passage<input class="input" id="pickerSearch" value="${esc(S.pickerSearch||'')}" placeholder="Search title or passage..." style="width:100%;margin-top:6px"></label><label>Time Duration<select id="pickerDuration" class="select" style="width:100%;margin-top:6px"><option value="${e.duration}" selected>${e.duration} minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label>Input Limit<input id="pickerLimit" class="input" type="number" min="50" max="5000" value="${S.inputLimit||510}" style="width:100%;margin-top:6px"><small class="muted">Words</small></label></div><div class="topic-keyword-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0">${['Abhibhashan','Budget','CPCT','Health','History','Legal','NCERT','Parliament','Plants','President','Prime Minister','Science','UPSSSC','Vocab','Women'].map(k=>`<button type="button" class="keyword-chip" onclick="S.pickerSearch='${k}';renderPassagePicker()">${k}</button>`).join('')}<button type="button" class="keyword-chip" onclick="S.pickerSearch='';renderPassagePicker()">All Topics</button></div><div class="notice" style="margin:14px 0"><b>${esc(e.name)}:</b> नीचे केवल इसी exam को Owner द्वारा assign किए गए passages दिख रहे हैं। Topic chip चुनने पर उसी विषय का matter filter होगा.</div><div class="notice" style="margin:14px 0;border:2px solid #f59e0b;background:#fff7d6;padding:14px 16px;border-radius:14px;box-shadow:0 6px 18px rgba(245,158,11,.16)"><div style="font-weight:900;font-size:16px;color:#9a3412">⚠️ Practice सुविधा — Official Exam Feature नहीं</div><div style="margin-top:5px;font-weight:800">क्या आप इस attempt में Word Highlight सुविधा चाहते हैं?</div><div style="margin-top:4px">चाहते हैं तो नीचे Highlight चुनें; नहीं चाहते तो <b>Highlight Off</b> चुनकर आगे बढ़ें। यह Shivjee’s Typing की अतिरिक्त सुविधा है; वास्तविक परीक्षा में यह सुविधा उपलब्ध हो, यह जरूरी नहीं है।</div></div><div class="picker-optionbar" style="display:grid;gap:10px"><label class="opt"><input id="pickerBackspace" type="checkbox" ${S.attemptBackspaceAllowed?'checked':''} onchange="S.attemptBackspaceAllowed=this.checked;localStorage.setItem('st_backspace_choice',this.checked?'1':'0')"> Backspace <span class="muted">(Your choice for this attempt)</span></label><div><label style="font-weight:700;margin-right:8px">Highlight</label><select id="pickerHighlight" class="select" ${highlightChangeAllowed?'':'disabled'} onchange="S.attemptHighlightMode=this.value"><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option></select><span class="muted" style="margin-left:8px">${highlightChangeAllowed?'Candidate can change highlight for this attempt.':'Owner has locked highlight for this exam.'}</span></div></div><div class="difficulty-row"><b>Difficulty Level:</b>${['','Easy','Medium','Hard'].map(d=>{const cls=d==='Easy'?'diff-easy':d==='Medium'?'diff-medium':d==='Hard'?'diff-hard':'diff-all';return `<button class="${cls} ${diff===d?'active':''}" onclick="S.pickerDifficulty='${d}';renderPassagePicker()">${d||'All'}</button>`}).join('')}</div><div class="passage-list"><table><thead><tr><th>Sl.No.</th><th>Passage Id</th><th>Passage Title</th><th>Passage Date</th><th>Status</th></tr></thead><tbody>${rows.map((p,i)=>`<tr><td>${i+1}</td><td>${p.id}</td><td><b>${esc(p.title)}</b> <span class="badge ${p.difficulty==='Hard'?'amber':''}">${esc((p.difficulty||'M')[0])}</span> <span class="badge ${(p.highlight_mode==='none'||!ownerHighlight)?'amber':'green'}">Highlight ${(p.highlight_mode==='none'||!ownerHighlight)?'Off':'On'}</span></td><td>${p.created_at?new Date(p.created_at).toLocaleDateString():'—'}</td><td><button type="button" class="btn btn-soft passage-start-btn" data-passage-id="${p.id}">Start Typing</button></td></tr>`).join('')||'<tr><td colspan="5">No passage is assigned to this exam. Owner → Passages में इस passage का Exam Name यही exam चुनकर Save करें.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><small><b style="color:#1849d6">B</b> - Basic, <b style="color:#16803c">E</b> - Easy, <b style="color:#d97706">M</b> - Medium, <b style="color:#dc2626">H</b> - Hard</small><button class="btn btn-white" onclick="cancelTypingFlow('exams')">Choose another exam</button></div></div></div>`);const se=document.getElementById('pickerSearch');if(se)se.oninput=()=>{S.pickerSearch=se.value;renderPassagePicker()};document.querySelectorAll('.passage-start-btn').forEach(btn=>{btn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const id=Number(btn.dataset.passageId);if(!id)return showToast('Passage id missing');try{prepareSelectedPassage(id)}catch(err){console.error(err);showToast(err.message||'Could not open typing instructions')}})})}
 function truncateWords(text,limit){const s=String(text??'');const max=Math.max(1,Math.floor(Number(limit)||510));let count=0,end=s.length,m;const re=/\S+/g;while((m=re.exec(s))){count++;if(count===max){end=m.index+m[0].length;break}}return count>=max?s.slice(0,end):s}
 async function prepareSelectedPassage(id){if(!(await ensureExamCanStart()))return;const base=(S.exam.passages||[]).find(x=>x.id===id);if(!base)return;S.inputLimit=Math.max(50,Math.min(5000,Number(document.getElementById('pickerLimit')?.value)||510));const mins=Math.max(1,Number(base.duration_override)||Number(document.getElementById('pickerDuration')?.value)||S.exam.duration);S.attemptBackspaceAllowed=!!document.getElementById('pickerBackspace')?.checked;const examHM=S.exam.highlight_mode||'current_char',passHM=base.highlight_mode||examHM;const ownerAllows=examHM!=='none'&&passHM!=='none';const chosen=document.getElementById('pickerHighlight')?.value||S.attemptHighlightMode||passHM;S.attemptHighlightMode=ownerAllows?chosen:'none';S.passage={...base,highlight_mode:S.attemptHighlightMode,content:truncateWords(base.content,S.inputLimit)};S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions()}
-function renderInstructions(){
- const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}
- const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
- const examKey=String(e?.id||e?.slug||'default'),hasCompleted=localStorage.getItem('st_exam_completed_'+examKey)==='1';
- const changeAllowed=Number(e?.highlight_user_change_allowed??1)===1;
- const hm=['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)?S.attemptHighlightMode:'none';
- const locked=!hasCompleted;
- const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[hm]||'Highlight Off';
- setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li><b>Theme</b> Light/Dark/System website की extra सुविधा है; Theme बदलते समय ही timer थोड़ी देर pause रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol>
- <div class="exam-checks">
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:12px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc">
-    <label><b>Backspace</b><select id="instructionBackspace" class="select" style="width:100%;margin-top:6px" ${locked?'disabled':''}><option value="1" ${S.attemptBackspaceAllowed?'selected':''}>Backspace On</option><option value="0" ${!S.attemptBackspaceAllowed?'selected':''}>Backspace Off</option></select></label>
-    <label><b>Highlight</b><select id="instructionHighlight" class="select" style="width:100%;margin-top:6px" ${(locked||!changeAllowed)?'disabled':''}><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option></select></label>
-   </div>
-   ${locked?`<small class="muted">First attempt: Backspace और Highlight actual exam setting के अनुसार fixed हैं (${S.attemptBackspaceAllowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}). पहला attempt पूरा होने के बाद अगली बार candidate अपनी choice रख सकता है.</small>`:''}
-   <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
- </div><button id="goPractice" class="btn btn-primary">Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
- const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
- if(bs&&!locked)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1';localStorage.setItem('st_backspace_choice_exam_'+examKey,bs.value)};
- if(hs&&!locked&&changeAllowed)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value;localStorage.setItem('st_highlight_choice_exam_'+examKey,hs.value)};
- const update=()=>{const a=document.getElementById('readCheck')?.checked,b=!hindi||document.getElementById('hindiCheck')?.checked;document.getElementById('goPractice').disabled=!(a&&b)};document.getElementById('readCheck').onchange=update;if(hindi)document.getElementById('hindiCheck').onchange=update;document.getElementById('goPractice').onclick=renderPrePractice
-}
+function renderInstructions(){const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा. यह website की extra सुविधा है, real exam में जरूरी नहीं.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li><b>Theme</b> Light/Dark/System website की extra सुविधा है; real exam में जरूरी नहीं. Theme बदलते समय ही timer थोड़ी देर pause रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol><div class="exam-checks"><label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}</div><button id="goPractice" class="btn btn-primary" disabled>Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);const update=()=>{const a=document.getElementById('readCheck')?.checked,b=!hindi||document.getElementById('hindiCheck')?.checked;document.getElementById('goPractice').disabled=!(a&&b)};document.getElementById('readCheck').onchange=update;if(hindi)document.getElementById('hindiCheck').onchange=update;document.getElementById('goPractice').onclick=renderPrePractice}
+function randomPracticeText(){const hindi=String(S.exam?.language||S.passage?.language||'').toLowerCase().includes('hindi');const a=hindi?[`नियमित अभ्यास से टाइपिंग की गति और शुद्धता दोनों बेहतर होती हैं। परीक्षा से पहले कीबोर्ड और भाषा इनपुट को ध्यान से जाँच लें।`,`सफलता के लिए एकाग्रता, सही उंगली संचालन और निरंतर अभ्यास आवश्यक है। शांत रहकर स्पष्ट और सही टाइप करें।`]:[`The quick brown fox jumps over the lazy dog. This familiar sentence uses every letter of the English alphabet and is useful for checking the complete keyboard before a typing examination. Type it carefully, then continue with a steady rhythm. Keep your eyes on the passage, use the correct fingers, maintain a comfortable posture, and avoid unnecessary corrections. Accuracy, concentration, and consistent key movement are more important than rushing. Use this two-minute practice to check every key, space, punctuation mark, and your keyboard response before entering the main examination.`,`The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. A quick movement of the enemy will jeopardize five gunboats. These keyboard-check sentences help cover the alphabet before the main examination. Continue typing at a natural pace, keep your hands relaxed, check the spacebar and punctuation keys, and make sure the keyboard responds correctly. This practice is not included in your final score; it is only for warming up and confirming that your keyboard is ready.`];return a[Math.floor(Math.random()*a.length)]}
 function renderPrePractice(){S.practiceLeft=120;const txt=randomPracticeText();setApp(`<div class="card practice-stage"><h1>⌨️ 2-Minute Practice / Keyboard Check</h1><div class="notice">Practice only — final result में count नहीं होगी.</div><h2 id="practiceClock">02:00</h2><div class="passage-box" style="height:auto;min-height:120px">${esc(txt)}</div><textarea id="practiceTyping" class="typing-area" placeholder="Practice typing here..." spellcheck="false"></textarea><div style="margin-top:12px"><button class="btn btn-primary" onclick="practiceCompleteWarning()">Submit Practice</button> <button class="btn btn-white" onclick="practiceCompleteWarning()">Skip Practice →</button></div></div>`);clearInterval(S.practiceTimer);S.practiceTimer=setInterval(()=>{S.practiceLeft--;const x=document.getElementById('practiceClock');if(x)x.textContent=fmt(Math.max(0,S.practiceLeft));if(S.practiceLeft<=0){clearInterval(S.practiceTimer);const t=document.getElementById('practiceTyping');if(t)t.disabled=true;practiceCompleteWarning()}},1000);document.getElementById('practiceTyping')?.focus()}
 function practiceCompleteWarning(){clearInterval(S.practiceTimer);setApp(`<div class="exam-warning-modal"><div class="exam-warning-card"><h2>⚠️ Main Exam Entry</h2><p>Practice समाप्त हो गई है। <b>Enter Main Exam</b> दबाते ही exam Full Screen में खुलेगा, cursor typing pane में रहेगा और actual timer तुरंत शुरू हो जाएगा.</p><p>Keyboard/input तैयार रखें। Sound/Zoom timer चलते समय manage होंगे; Theme बदलते समय ही timer temporarily pause होगा.</p><button class="btn btn-primary" onclick="beginMainExam()">Enter Main Exam →</button></div></div>`)}
 function beginMainExam(){S.left=S.total;S.started=false;S.done=false;S.submitting=false;S.backspaces=0;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest(true);requestExamFullscreen();const el=document.getElementById('typing');el?.focus();S.started=true;S.startTime=Date.now();S.deadline=S.startTime+S.total*1000;clearInterval(S.timer);S.timer=setInterval(timerTick,250);timerTick()}
@@ -1200,26 +1179,13 @@ function examFolderGroups(rows,passages){
 function examFolderByKey(key,rows,passages){return examFolderGroups(rows,passages).find(g=>g.key===key)}
 function variantPassageCount(examId){return (window.OWNER?.p||[]).filter(p=>+p.exam_id===+examId && p.active!==0).length}
 
-function jpExamPublicId(g){return 'JP-EX-'+String(Number(g?.id||0)).padStart(4,'0')}
-function jpExamParent(g){
- const n=String(g?.name||''); const first=(n.split(' - ')[0]||'Other').trim();
- if(/^SSC$/i.test(first))return 'Central / SSC';
- if(/^Railway$/i.test(first))return 'Railway / RRB';
- if(/^Delhi Police$/i.test(first))return 'Delhi';
- if(/^UP Police$/i.test(first))return 'UP';
- const map={'Madhya Pradesh':'MP','Himachal Pradesh':'Himachal Pradesh','Jammu & Kashmir':'Jammu & Kashmir','Andhra Pradesh':'Andhra Pradesh','West Bengal':'West Bengal','Tamil Nadu':'Tamil Nadu'};
- return map[first]||first||'Other';
-}
-function jpExamCategories(groups){const m=new Map();for(const g of groups){const c=jpExamParent(g);if(!m.has(c))m.set(c,[]);m.get(c).push(g)}return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]))}
-function jpOpenExamCategory(name){window.JP_EXAM_CATEGORY=name;loadExamDirectory()}
-function jpBackExamCategories(){window.JP_EXAM_CATEGORY='';loadExamDirectory()}
-
 // Candidate: top Exams page shows ONE card per exam folder, never one card per passage/language replica.
 exams = async function(){
-  activeNav('exams'); window.JP_EXAM_CATEGORY='';
-  setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>All India Typing Exams</h1><p>केवल उन exams/posts के folders जिनमें computer typing / typing skill stage है. पहले State / Board folder खोलें, फिर exam sub-folder.</p></div></div><div class="exam-directory"><div class="exam-searchbar" style="grid-template-columns:minmax(280px,1fr) 190px"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search Exam Name or ID (e.g. JP-EX-0012)" autocomplete="off"></div><select id="examOrder" class="select"><option value="relevance">Order: Relevance</option><option value="az">Order: A-Z</option><option value="passages">Most Passages</option><option value="newest">Newest Added</option></select></div><div class="notice" style="margin:12px 0"><b>🔎 Easy Search:</b> हर exam sub-folder की unique ID है. Name या ID दोनों से search करें.</div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);
-  window.EXAM_OPTIONS=await api('/api/exams?candidate=1');
-  loadExamDirectory(); examSearch.oninput=loadExamDirectory; examOrder.onchange=loadExamDirectory;
+  activeNav('exams');
+  setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>Typing Exams</h1><p>एक exam = एक folder. Folder खोलने पर English/Hindi passages अंदर मिलेंगे.</p></div></div><div class="exam-directory"><div class="exam-searchbar"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search exam..." autocomplete="off"></div><select id="examType" class="select"><option value="">Exam Type</option><option>UP Exams</option><option>Railway</option><option>SSC</option><option>Court / RO-ARO</option><option>Other Exams</option></select><select id="examOrder" class="select"><option value="relevance">Order by: Relevance</option><option value="az">Order by: A-Z</option><option value="passages">Most Passages</option><option value="newest">Newest Added</option></select></div><div class="keyword-wrap"><div class="keyword-title">🔍 Popular Search Keywords <span style="float:right;display:flex;gap:8px"><button class="btn btn-soft" style="padding:8px 16px" onclick="addStateFilter()">＋ Add State</button><button class="btn btn-soft" style="padding:8px 16px" onclick="addDistrictFilter()">＋ Add District</button></span></div><div id="examKeywords" class="keyword-chips"></div></div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);
+  window.EXAM_OPTIONS=await api('/api/exams?candidate=1'); window.EXAM_KEYWORD='';
+  renderExamKeywordsFolder(); loadExamDirectory();
+  examSearch.oninput=()=>{window.EXAM_KEYWORD='';renderExamKeywordsFolder();loadExamDirectory()}; examType.onchange=loadExamDirectory; examOrder.onchange=loadExamDirectory;
 }
 function renderExamKeywordsFolder(){
   const box=document.getElementById('examKeywords'); if(!box)return;
@@ -1229,20 +1195,15 @@ function renderExamKeywordsFolder(){
 }
 function setExamKeywordFolder(k){window.EXAM_KEYWORD=k;const inp=document.getElementById('examSearch');if(inp)inp.value=k;renderExamKeywordsFolder();loadExamDirectory()}
 function browseExamFolderCard(g){
-  const langs=(g.languages||[]).join(' / '),pc=Number(g.passage_count||0),eid=jpExamPublicId(g);
-  return `<div class="browse-exam-card" onclick="openExamFolder('${esc(g.key).replace(/'/g,"\\'")}')" role="button" tabindex="0"><div class="meta"><span>${esc(jpExamParent(g))}</span><span>${esc(langs||'Typing')}</span></div><h3>${esc(g.name)}</h3><p>${esc(g.description||'Typing exam practice sub-folder')}</p><div style="margin:9px 0"><span class="badge green">ID: ${eid}</span></div><div class="bottom"><span class="count">${pc} passage${pc===1?'':'s'}</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(g.key).replace(/'/g,"\\'")}')">Open Sub-folder →</button></div></div>`;
+  const langs=(g.languages||[]).join(' / '),pc=Number(g.passage_count||0);
+  return `<div class="browse-exam-card" onclick="openExamFolder('${esc(g.key).replace(/'/g,"\\'")}')" role="button" tabindex="0"><div class="meta"><span>${esc(g.category)}</span><span>${esc(langs||'Typing')}</span></div><h3>${esc(g.name)}</h3><p>${esc(g.description||'Typing exam practice folder')}</p><div class="bottom"><span class="count">${pc} passage${pc===1?'':'s'}</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(g.key).replace(/'/g,"\\'")}')">Open Folder →</button></div></div>`;
 }
 loadExamDirectory = function(){
-  const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(),order=document.getElementById('examOrder')?.value||'relevance';
-  let groups=examFolderGroups(window.EXAM_OPTIONS||[]).filter(g=>!q||g.name.toLowerCase().includes(q)||(g.description||'').toLowerCase().includes(q)||jpExamPublicId(g).toLowerCase().includes(q)||jpExamParent(g).toLowerCase().includes(q));
-  if(order==='az')groups.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')groups.sort((a,b)=>b.passage_count-a.passage_count||a.name.localeCompare(b.name));else if(order==='newest')groups.sort((a,b)=>Math.max(...b.variants.map(v=>+v.id))-Math.max(...a.variants.map(v=>+v.id)));
-  const grid=document.getElementById('examGrid'), line=document.getElementById('examCountLine'); if(!grid||!line)return;
-  // A direct name/ID search jumps across every parent folder and shows matching exam sub-folders.
-  if(q){line.textContent=`${groups.length} typing exam sub-folder${groups.length===1?'':'s'} found`;grid.innerHTML=groups.map(browseExamFolderCard).join('')||`<div class="card exam-empty">No typing exam found for this Name / ID.</div>`;return}
-  const cat=window.JP_EXAM_CATEGORY||'';
-  if(cat){const rows=groups.filter(g=>jpExamParent(g)===cat);line.innerHTML=`<button class="btn btn-white" onclick="jpBackExamCategories()">← All India Folders</button> &nbsp; <b>${esc(cat)}</b> · ${rows.length} typing exam sub-folders`;grid.innerHTML=rows.map(browseExamFolderCard).join('')||'<div class="card exam-empty">No typing exam sub-folder.</div>';return}
-  const cats=jpExamCategories(groups);line.textContent=`${cats.length} main folders · ${groups.length} typing exam sub-folders`;
-  grid.innerHTML=cats.map(([name,rows])=>`<div class="browse-exam-card" onclick="jpOpenExamCategory('${esc(name).replace(/'/g,"\\'")}')" role="button"><div class="meta"><span>📁 Main Folder</span><span>Typing Only</span></div><h3>${esc(name)}</h3><p>${rows.length} typing exam sub-folder${rows.length===1?'':'s'} inside</p><div class="bottom"><span class="count">${rows.reduce((n,g)=>n+Number(g.passage_count||0),0)} passages</span><button class="open-btn" onclick="event.stopPropagation();jpOpenExamCategory('${esc(name).replace(/'/g,"\\'")}')">Open Folder →</button></div></div>`).join('');
+  const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(),type=document.getElementById('examType')?.value||'',order=document.getElementById('examOrder')?.value||'relevance';
+  let rows=examFolderGroups(window.EXAM_OPTIONS||[]).filter(g=>(!q||g.name.toLowerCase().includes(q)||(g.description||'').toLowerCase().includes(q)||examKeyword({name:g.name}).toLowerCase().includes(q))&&(!type||g.category===type));
+  if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name)); else if(order==='passages')rows.sort((a,b)=>b.passage_count-a.passage_count||a.name.localeCompare(b.name)); else if(order==='newest')rows.sort((a,b)=>Math.max(...b.variants.map(v=>+v.id))-Math.max(...a.variants.map(v=>+v.id)));
+  document.getElementById('examCountLine').textContent=`${rows.length} exam folder${rows.length===1?'':'s'} found`;
+  document.getElementById('examGrid').innerHTML=rows.map(browseExamFolderCard).join('')||`<div class="card exam-empty">No exam folder found. Owner → Exams से नया exam folder add करें.</div>`;
 }
 async function openExamFolder(key){
   if(!S.user){auth('login');return}
@@ -1351,9 +1312,25 @@ validateSavedSession();
 <script>window.addEventListener('beforeunload',function(e){if(typeof S!=='undefined'&&S.started&&!S.done){e.preventDefault();e.returnValue='';}});
 
 /* ============================================================
-   EXAM HIERARCHY v7 — Main Folder -> searchable ID Subfolders -> Passages
+   EXAM HIERARCHY v6 — Parent Exam Folder -> Subfolders -> Passages
    ============================================================ */
-function parentExamName(g){ return jpExamParent(g); }
+function parentExamName(g){
+  const n=String(g?.name||'').trim(), low=n.toLowerCase();
+  // State/UT directory entries are stored as: "Main Folder - Exam Sub-folder".
+  // Keep the left side as the main folder so every state/UT gets its own directory.
+  const knownStateParents=new Set([
+    'UP','Uttarakhand','Delhi','Haryana','Himachal Pradesh','Punjab','Rajasthan','Jammu & Kashmir','Ladakh','Chandigarh'
+  ]);
+  const statePrefix=n.includes(' - ')?n.split(' - ')[0].trim():'';
+  if(knownStateParents.has(statePrefix)) return statePrefix;
+  // Existing broad exam families remain unchanged.
+  if(/\bssc\b/i.test(n)) return 'SSC';
+  if(/\b(rrb|railway|ntpc)\b/i.test(n)) return 'Railway';
+  if(/(^|[^a-z])(up|upp|uppsc|upsssc)([^a-z]|$)/i.test(n) || low.includes('up police') || low.includes('uttar pradesh')) return 'UP';
+  if(/\b(ro\/?aro|ro-aro|court|high court)\b/i.test(n)) return 'Court / RO-ARO';
+  const first=n.split(/\s+/)[0];
+  return first || 'Other Exams';
+}
 function subfolderDisplayName(parentName,childName){
   const p=String(parentName||'').trim(), c=String(childName||'').trim();
   const prefix=p+' - ';
@@ -1361,45 +1338,22 @@ function subfolderDisplayName(parentName,childName){
 }
 function parentExamGroups(rows){
   const children=examFolderGroups(rows||[]), m=new Map();
-  for(const c of children){
-    const name=parentExamName(c), key=String(name).toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g,'-');
-    if(!m.has(key))m.set(key,{key,name,children:[],passage_count:0});
-    const p=m.get(key); p.children.push(c); p.passage_count+=Number(c.passage_count||0);
-  }
-  return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  for(const c of children){const name=parentExamName(c),key=name.toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g,'-');if(!m.has(key))m.set(key,{key,name,children:[],passage_count:0});const p=m.get(key);p.children.push(c);p.passage_count+=Number(c.passage_count||0)}
+  return [...m.values()];
 }
-function parentCard(p){
-  return `<div class="browse-exam-card" onclick="openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')" role="button"><div class="meta"><span>📁 MAIN EXAM FOLDER</span><span>${p.children.length} subfolder${p.children.length===1?'':'s'}</span></div><h3>${esc(p.name)}</h3><p>${p.children.slice(0,3).map(x=>esc(subfolderDisplayName(p.name,x.name))).join(' • ')}${p.children.length>3?' …':''}</p><div class="bottom"><span class="count">${p.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')">Open Folder →</button></div></div>`;
-}
+function parentCard(p){return `<div class="browse-exam-card" onclick="openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')" role="button"><div class="meta"><span>EXAM FOLDER</span><span>${p.children.length} subfolder${p.children.length===1?'':'s'}</span></div><h3>📁 ${esc(p.name)}</h3><p>${p.children.map(x=>esc(x.name)).slice(0,3).join(' • ')}${p.children.length>3?' …':''}</p><div class="bottom"><span class="count">${p.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openParentExamFolder('${esc(p.key).replace(/'/g,"\\'")}')">Open Exam →</button></div></div>`}
 loadExamDirectory = function(){
-  const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(), order=document.getElementById('examOrder')?.value||'relevance';
-  const all=examFolderGroups(window.EXAM_OPTIONS||[]);
-  let matches=all.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)||jpExamPublicId(c).toLowerCase().includes(q)||parentExamName(c).toLowerCase().includes(q));
-  const grid=document.getElementById('examGrid'), line=document.getElementById('examCountLine'); if(!grid||!line)return;
-  if(q){
-    if(order==='az')matches.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')matches.sort((a,b)=>b.passage_count-a.passage_count);
-    line.textContent=`${matches.length} typing exam subfolder${matches.length===1?'':'s'} found`;
-    grid.innerHTML=matches.map(browseExamFolderCard).join('')||'<div class="card exam-empty">No exam found by this Name / ID.</div>';
-    return;
-  }
-  let rows=parentExamGroups(window.EXAM_OPTIONS||[]);
-  if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')rows.sort((a,b)=>b.passage_count-a.passage_count);
-  line.textContent=`${rows.length} main folders · ${all.length} unique typing exam subfolders`;
-  grid.innerHTML=rows.map(parentCard).join('')||'<div class="card exam-empty">No exam folder found.</div>';
-}
-function renderParentSubfolders(){
-  const p=window.ACTIVE_PARENT_EXAM;if(!p)return;
-  const q=(document.getElementById('subfolderSearch')?.value||'').trim().toLowerCase();
-  const rows=p.children.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)||jpExamPublicId(c).toLowerCase().includes(q));
-  const count=document.getElementById('subfolderCount'), grid=document.getElementById('subfolderGrid');if(!count||!grid)return;
-  count.textContent=`${rows.length} subfolder${rows.length===1?'':'s'} found · ${p.passage_count} total passages`;
-  grid.innerHTML=rows.map(c=>`<div class="browse-exam-card" onclick="openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')"><div class="meta"><span>SUBFOLDER</span><span>${esc((c.languages||[]).join(' / ')||'Typing')}</span></div><h3>▭ ${esc(subfolderDisplayName(p.name,c.name))}</h3><div style="margin:8px 0"><span class="badge green">Exam ID: ${esc(jpExamPublicId(c))}</span></div><p>${esc(c.description||'Typing passage collection')}</p><div class="bottom"><span class="count">${c.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')">View Passages →</button></div></div>`).join('')||'<div class="card exam-empty">No subfolder found by this Name / ID.</div>';
+ const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(),type=document.getElementById('examType')?.value||'',order=document.getElementById('examOrder')?.value||'relevance';
+ let rows=parentExamGroups(window.EXAM_OPTIONS||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||p.children.some(c=>c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)));
+ if(type)rows=rows.filter(p=>p.children.some(c=>c.category===type));
+ if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')rows.sort((a,b)=>b.passage_count-a.passage_count);
+ document.getElementById('examCountLine').textContent=`${rows.length} main exam folder${rows.length===1?'':'s'} found`;
+ document.getElementById('examGrid').innerHTML=rows.map(parentCard).join('')||'<div class="card exam-empty">No exam folder found.</div>';
 }
 function openParentExamFolder(key){
-  const p=parentExamGroups(window.EXAM_OPTIONS||[]).find(x=>x.key===key);if(!p)return showToast('Exam folder not found');
-  window.ACTIVE_PARENT_EXAM=p; activeNav('exams');
-  setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Main Exam Folder</small><h1>📁 ${esc(p.name)}</h1><p class="muted">इस folder के अंदर केवल typing वाले exam subfolders हैं। हर subfolder की unique Exam ID नीचे दिखाई गई है.</p></div><div class="picker-panel"><div class="exam-searchbar" style="grid-template-columns:1fr"><div class="exam-searchbox"><span>⌕</span><input id="subfolderSearch" class="input" placeholder="Search subfolder by Exam Name or ID (e.g. JP-EX-0012)" autocomplete="off"></div></div><div id="subfolderCount" class="exam-count-line"></div><div id="subfolderGrid" class="exam-browser-grid"></div><div style="margin-top:18px"><button class="btn btn-white" onclick="exams()">← All Exams</button></div></div></div>`);
-  renderParentSubfolders(); document.getElementById('subfolderSearch').oninput=renderParentSubfolders;
+ const p=parentExamGroups(window.EXAM_OPTIONS||[]).find(x=>x.key===key);if(!p)return showToast('Exam folder not found');
+ window.ACTIVE_PARENT_EXAM=p; activeNav('exams');
+ setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Main Exam Folder</small><h1>📁 ${esc(p.name)}</h1><p class="muted">नीचे इस main folder के specific exam sub-folders हैं। Payment/Access इन्हीं sub-folders पर लागू होगा; passages पर अलग payment नहीं होगा.</p></div><div class="picker-panel"><div class="exam-count-line">${p.children.length} subfolder${p.children.length===1?'':'s'} • ${p.passage_count} total passages</div><div class="exam-browser-grid">${p.children.map(c=>`<div class="browse-exam-card" onclick="openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')"><div class="meta"><span>SUBFOLDER</span><span>${esc((c.languages||[]).join(' / '))}</span></div><h3>▭ ${esc(subfolderDisplayName(p.name,c.name))}</h3><p>${esc(c.description||'Typing passage collection')}</p><div class="bottom"><span class="count">${c.passage_count} passages</span><button class="open-btn" onclick="event.stopPropagation();openExamFolder('${esc(c.key).replace(/'/g,"\\'")}')">View Passages →</button></div></div>`).join('')}</div><div style="margin-top:18px"><button class="btn btn-white" onclick="exams()">← All Exams</button></div></div></div>`);
 }
 </script>
 
@@ -2379,7 +2333,7 @@ prepareSelectedPassage=async function(id){
   const mins=Math.max(1,Number(document.getElementById('pickerDuration')?.value)||Number(base.duration_override)||Number(S.exam.duration)||10);
   const wordLimit=requiredMatterWords(S.exam,mins);
   S.inputLimit=wordLimit;
-  {const examKey=String(S.exam?.id||S.exam?.slug||'default'),completed=localStorage.getItem('st_exam_completed_'+examKey)==='1',k='st_backspace_choice_exam_'+examKey,bp=localStorage.getItem(k);S.attemptBackspaceAllowed=completed&&bp!==null?bp==='1':!!S.exam?.backspace_allowed;}
+  {const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}
   const examHM=S.exam.highlight_mode||'none';
   const changeAllowed=Number(S.exam.highlight_user_change_allowed??1)===1;
   const examKey=String(S.exam?.id||S.exam?.slug||'default');
@@ -2804,7 +2758,6 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
 
 
 
-<section id="jpSeoDiscover" style="max-width:1100px;margin:24px auto;padding:20px"><h2>Free Typing Tests & Exam Practice</h2><p>Practice English and Hindi typing, check WPM and accuracy, and prepare with timed typing tests.</p><p><a href="/typing-test">Online Typing Test</a> · <a href="/english-typing-test">English Typing Test</a> · <a href="/hindi-typing-test">Hindi Typing Test</a> · <a href="/15-minute-typing-test">15 Minute Typing Test</a> · <a href="/35-wpm-typing-test">35 WPM Challenge</a> · <a href="/up-police-computer-operator-typing-test">UP Police Computer Operator Typing</a> · <a href="/ssc-typing-test">SSC Typing</a> · <a href="/railway-typing-test">Railway/RRB Typing</a> · <a href="/wpm-calculator">WPM Calculator</a></p></section>
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 /* ownerEditableLearning20260913 */
 (function(){
@@ -3065,8 +3018,7 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
 </script>
 
 
-
-<style id="learning-folder-paylock-20260913">
+\n<style id="learning-folder-paylock-20260913">
 .jp-learn-access{margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
 .jp-learn-lock{font-weight:900}.jp-learn-open{font-weight:800}
 </style>
@@ -3092,9 +3044,7 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
  const oldRender=window.renderLearningCourseV3;
  window.renderLearningCourseV3=async function(lang,track){const key=keyFor(lang,track);try{const g=await state(key);if(!g.allowed){const box=document.getElementById('learningFolder');const fee=Number(g.plan?.fee_amount||0),days=Number(g.plan?.validity_days||30);if(box)box.innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="${lang==='Hindi'?"openLearningFolderV3('Hindi')":"learning()"}">← Back</button></div><div class="card" style="padding:24px"><div class="jp-learn-lock">🔒 ${esc(g.plan?.title||'Learning')} Locked</div><p>Daily demo समाप्त है। केवल यह Learning खरीद सकते हैं, या Full Access लेने पर सभी Exams + Learning खुलेंगे.</p><div class="metrics"><div class="metric"><small>Fee</small><b>₹${fee}</b></div><div class="metric"><small>Validity</small><b>${days} Days</b></div></div><button class="btn btn-primary" style="margin-top:12px" onclick="demoPayLearning('${key}','${lang}','${track}')">Pay ₹${fee} · Buy Learning</button></div>`;return}}catch(e){showToast(e.message);return}return oldRender(lang,track)};
 })();
-</script>
-
-<style id="candidate-learning-folder-lock-final-20260913">
+</script>\n\n<style id="candidate-learning-folder-lock-final-20260913">
 .jp-final-learn-card{position:relative;text-align:left;display:flex;flex-direction:column;gap:8px;min-height:170px}.jp-final-learn-actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}.jp-final-lock{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft);font-weight:800}.jp-final-folder-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.jp-final-status{margin-top:4px}.jp-final-status .muted{margin-top:4px}
 </style>
 <script id="candidate-learning-folder-lock-final-20260913">
@@ -3166,8 +3116,7 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
    try{const rows=await api('/api/learning/matters/'+encodeURIComponent(key));const m=(rows||[]).find(x=>+x.id===+id);if(!m)throw Error('Learning matter not found');S.learning={key:'custom-'+m.id,title:m.title||'Practice Matter',level:m.level||'Practice',day:'Owner',text:m.content||'',start:0,errors:0};renderLearningStage(S.learning,false)}catch(e){showToast(e.message)}
  };
 })();
-</script>
-<style id="exam-id-final">.jp-exam-id-badge{display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:12px;font-weight:800}.jp-exam-id-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}</style>
+</script>\n<style id="exam-id-final">.jp-exam-id-badge{display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:12px;font-weight:800}.jp-exam-id-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}</style>
 <script id="exam-id-final-script">
 (function(){
 function G(a){const m=new Map();(a||[]).forEach(e=>{let n=String(e.name||'').replace(/\s*[-–]\s*(English|Hindi)\s*$/i,'').trim(),k=n.toLowerCase();if(!m.has(k))m.set(k,{name:n,variants:[],folderId:Number(e.id)});let g=m.get(k);g.variants.push(e);g.folderId=Math.min(g.folderId,Number(e.id))});return [...m.values()]}
@@ -3187,8 +3136,7 @@ let ob=window.renderBrotherHelper;if(typeof ob==='function')window.renderBrother
 @media(max-width:420px){#googleSignInButton{width:100%;box-shadow:0 6px 18px rgba(66,133,244,.20)}}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-<script id="paymentMasterControl20260913">
+\n<script id="paymentMasterControl20260913">
 (function(){
  window.PAYMENT_SYSTEM_ENABLED=false;
  async function refreshPaymentMasterUI(){
@@ -3994,69 +3942,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-
-<script id="exam-behavior-default-manual-final-20260914">
-(function(){
-// Every new exam attempt starts from the Owner-configured ACTUAL exam behavior.
-// Candidate may manually change Backspace/Highlight on the Instructions screen for that attempt only.
-const _openPickerBehavior = window.openPassagePicker;
-window.openPassagePicker = async function(){
-  if(S.exam){
-    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
-    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
-  }
-  return _openPickerBehavior.apply(this, arguments);
-};
-const _prepareBehavior = window.prepareSelectedPassage;
-window.prepareSelectedPassage = async function(id){
-  if(S.exam){
-    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
-    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
-  }
-  await _prepareBehavior.call(this,id);
-  // Older wrappers may restore a saved choice; force actual defaults before Instructions.
-  if(S.exam){
-    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
-    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
-    if(S.passage) S.passage.highlight_mode = S.attemptHighlightMode;
-  }
-  renderInstructions();
-};
-// FINAL FIX: Instructions selectors live beside Terms/Conditions. Highlight defaults OFF unless the exam itself is explicitly configured otherwise.
-// The Start Practice button uses a direct inline handler as well as JS binding so it cannot become a dead button after later wrappers.
-window.renderInstructions = function(){
- const e=S.exam,p=S.passage; const isExam=S.mode==='exam'||S.mode==='live'; if(!isExam){renderTest();return}
- const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
- // Never invent visual highlighting as an "actual exam" feature. Existing exam config may explicitly set a mode; otherwise OFF.
- const configured=['current_char','current_word','errors_only','none'].includes(e?.highlight_mode)?e.highlight_mode:'none';
- if(!['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)) S.attemptHighlightMode=configured;
- const hm=S.attemptHighlightMode||'none';
- const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[configured]||'Highlight Off';
- setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Main Exam से पहले 2-minute keyboard practice मिलेगी; यह final result में count नहीं होगी और Skip की जा सकती है.</li><li>Practice के बाद <b>Enter Main Exam</b> दबाते ही exam typing screen खुलेगी.</li><li>Submit/End Exam से पहले confirmation मिलेगा.</li></ol>
- <div class="exam-checks">
-   <div class="candidate-attempt-options">
-    <label><b>Backspace</b><select id="instructionBackspace" class="select" style="display:block;min-width:190px;margin-top:6px"><option value="1" ${S.attemptBackspaceAllowed?'selected':''}>Backspace On</option><option value="0" ${!S.attemptBackspaceAllowed?'selected':''}>Backspace Off</option></select></label>
-    <label><b>Highlight (Practice Display)</b><select id="instructionHighlight" class="select" style="display:block;min-width:210px;margin-top:6px"><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option></select></label>
-    <small><b>Default exam setting:</b> ${e?.backspace_allowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}. Highlight केवल practice display सुविधा है; जहाँ official/configured highlight rule नहीं है वहाँ default <b>Off</b> रहेगा. Candidate इस attempt के लिए manually बदल सकता है.</small>
-   </div>
-   <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
- </div><button id="goPractice" type="button" class="btn btn-primary" onclick="return jpEnterTwoMinutePractice(event)">Start 2-Minute Practice →</button> <button type="button" class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
- const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
- if(bs)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1'};
- if(hs)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value};
-};
-window.jpEnterTwoMinutePractice=function(ev){
- if(ev){ev.preventDefault();ev.stopPropagation()}
- const hindi=String(S.exam?.language||S.passage?.language||'').toLowerCase().includes('hindi');
- const read=!!document.getElementById('readCheck')?.checked;
- const hindiOk=!hindi||!!document.getElementById('hindiCheck')?.checked;
- if(!read||!hindiOk){showToast(hindi?'पहले दोनों instruction checkboxes tick करें।':'पहले instructions वाला checkbox tick करें।');return false}
- try{renderPrePractice()}catch(err){console.error('2-minute practice start failed',err);showToast('Practice start नहीं हुई: '+(err?.message||'Unknown error'))}
- return false;
-};
-})();
-</script>
-<section id="jpSeoDiscover" style="max-width:1100px;margin:24px auto;padding:20px"><h2>Free Typing Tests & Exam Practice</h2><p>Practice English and Hindi typing, check WPM and accuracy, and prepare with timed typing tests.</p><p><a href="/typing-test">Online Typing Test</a> · <a href="/english-typing-test">English Typing Test</a> · <a href="/hindi-typing-test">Hindi Typing Test</a> · <a href="/15-minute-typing-test">15 Minute Typing Test</a> · <a href="/35-wpm-typing-test">35 WPM Challenge</a> · <a href="/up-police-computer-operator-typing-test">UP Police Computer Operator Typing</a> · <a href="/ssc-typing-test">SSC Typing</a> · <a href="/railway-typing-test">Railway/RRB Typing</a> · <a href="/wpm-calculator">WPM Calculator</a></p></section>
 </body>
 </html>
 <style id="jp-topnav-light-theme-final">
