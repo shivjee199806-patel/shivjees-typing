@@ -912,7 +912,7 @@ async function auth(mode){
 function setAuthMethod(method){const m=document.getElementById('authModal');m.dataset.method=method;passwordLoginFields.style.display=method==='password'?'block':'none';otpLoginFields.style.display=method==='otp'?'block':'none';authContinueBtn.style.display=method==='password'?'block':(otpCodeWrap.style.display==='block'?'block':'none');passwordTab.className='btn '+(method==='password'?'btn-primary':'btn-white');otpTab.className='btn '+(method==='otp'?'btn-primary':'btn-white');authError.textContent=''}
 async function requestLoginOtp(){try{authError.textContent='';const d=await api('/api/auth/request-otp',{method:'POST',body:JSON.stringify({phone:otpPhone.value})});otpCodeWrap.style.display='block';authContinueBtn.style.display='block';sendOtpBtn.textContent='Resend OTP';if(d.dev_otp){devOtpHint.style.display='block';devOtpHint.textContent='Local testing OTP: '+d.dev_otp+' (production में यह दिखाई नहीं देगा)'}if(d.email_masked){const lab=otpCodeWrap.querySelector('label');if(lab)lab.textContent='6-digit Email OTP';}showToast('OTP sent to email')}catch(e){authError.textContent=e.message}}
 function openForgotPassword(prefill=''){closeModal('authModal');const m=document.getElementById('forgotModal');m.classList.add('show');forgotPasswordReset();if(prefill)document.getElementById('forgotLoginId').value=prefill}
-async function forgotPasswordStart(){try{forgotError.textContent='';const login_id=forgotLoginId.value.trim();if(!login_id)throw Error('Registered email या Master Owner ID डालें');const d=await api('/api/auth/forgot-password-start',{method:'POST',body:JSON.stringify({login_id})});window.FORGOT_CHALLENGE=d.challenge||'';forgotStep1.style.display='none';forgotStep2.style.display='block';forgotOtpHint.textContent=`${d.account_type||'Account'} reset OTP ${d.phone_masked||'registered mobile'} पर भेजा गया है।`;if(d.dev_otp){forgotDevOtp.style.display='block';forgotDevOtp.textContent='Local testing OTP: '+d.dev_otp}else forgotDevOtp.style.display='none';forgotOtp.focus()}catch(e){forgotError.textContent=e.message}}
+async function forgotPasswordStart(){try{forgotError.textContent='';const login_id=forgotLoginId.value.trim();if(!login_id)throw Error('Registered email या Master Owner ID डालें');const d=await api('/api/auth/forgot-password-start',{method:'POST',body:JSON.stringify({login_id})});window.FORGOT_CHALLENGE=d.challenge||'';forgotStep1.style.display='none';forgotStep2.style.display='block';forgotOtpHint.textContent=`${d.account_type||'Account'} reset OTP आपके registered Email पर भेजा गया है।`;if(d.dev_otp){forgotDevOtp.style.display='block';forgotDevOtp.textContent='Local testing OTP: '+d.dev_otp}else forgotDevOtp.style.display='none';forgotOtp.focus()}catch(e){forgotError.textContent=e.message}}
 async function forgotPasswordComplete(){try{forgotError.textContent='';const d=await api('/api/auth/forgot-password-complete',{method:'POST',body:JSON.stringify({challenge:window.FORGOT_CHALLENGE||'',otp:forgotOtp.value,new_password:forgotNewPassword.value})});showToast(d.message||'Password changed');closeModal('forgotModal');auth('login')}catch(e){forgotError.textContent=e.message}}
 function forgotPasswordReset(){window.FORGOT_CHALLENGE='';const a=document.getElementById('forgotStep1'),b=document.getElementById('forgotStep2'),e=document.getElementById('forgotError'),d=document.getElementById('forgotDevOtp');if(a)a.style.display='block';if(b)b.style.display='none';if(e)e.textContent='';if(d)d.style.display='none';const o=document.getElementById('forgotOtp'),n=document.getElementById('forgotNewPassword');if(o)o.value='';if(n)n.value=''}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
@@ -2664,6 +2664,8 @@ window.demoPayCertificate=async function(id){try{const txn=document.getElementBy
 // Print/download ONLY the certificate, never the surrounding application page.
 window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
 
+
+
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 /* ownerEditableLearning20260913 */
 (function(){
@@ -3176,5 +3178,116 @@ window.savePurchaseV3=async function(id){try{await api('/api/admin/overall-payme
   // Remove old demo transaction controls from visible payment gates after rendering.
   const clean=()=>{document.querySelectorAll('#payTxn,#payMethod,#learnTxn,#overallTxn,#overallMethod').forEach(x=>x.style.display='none');document.querySelectorAll('button').forEach(b=>{if(/Demo Pay|Submit Payment/i.test(b.textContent||'')){if((b.getAttribute('onclick')||'').includes('demoPayLearning'))b.textContent=(b.textContent||'').replace('Demo Pay','Pay Securely');else if((b.getAttribute('onclick')||'').includes('submitOverallPayment'))b.textContent='Pay Securely & Activate';else if((b.getAttribute('onclick')||'').includes('submitPaymentRequest'))b.textContent='Pay Securely'}})};
   new MutationObserver(clean).observe(document.body,{childList:true,subtree:true});setTimeout(clean,0);
+})();
+</script>
+
+<style id="finalConsolidatedResponsive20260913">
+/* User-requested final mobile/tablet containment: no page-wide horizontal spill; owner tabs wrap into visible rows. */
+html,body{max-width:100%;overflow-x:hidden}
+#app,.shell,.page,.owner-full-page,.card,.section,.content{min-width:0;max-width:100%;box-sizing:border-box}
+.owner-full-page .owner-control-tabs{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important;gap:7px!important;width:100%!important;overflow:visible!important}
+.owner-full-page .owner-control-tabs .tab{width:100%!important;min-width:0!important;max-width:none!important;white-space:normal!important;overflow-wrap:anywhere!important}
+.owner-full-page .table-wrap{width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+.owner-full-page .table{width:max-content!important;min-width:100%!important;max-width:none!important}
+.owner-full-page input,.owner-full-page select,.owner-full-page textarea{max-width:100%!important;min-width:0!important}
+.learning-folder-grid-final{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.learning-folder-final{padding:18px;text-align:left;cursor:pointer;border:1px solid var(--line);border-radius:14px;background:#fff}
+.learning-folder-final:hover{box-shadow:0 8px 22px rgba(0,0,0,.08)}
+.learning-folder-final h3{margin:5px 0}.learning-folder-final .muted{font-size:12px}
+@media(max-width:780px){.owner-full-page .owner-control-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}.owner-full-page .page-title{display:block!important}.owner-full-page .page-title>div:last-child{margin-top:10px}.owner-full-page .admin-grid,.owner-full-page .form-grid{grid-template-columns:1fr!important}.learning-folder-grid-final{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.owner-full-page .owner-control-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}.owner-full-page{padding-left:8px!important;padding-right:8px!important}.owner-full-page .metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}.learning-folder-grid-final{grid-template-columns:1fr}}
+</style>
+<script id="finalLearningFolderAndCertificatePay20260913">
+(function(){
+  /* Learning Control now follows Exam behavior: first folders, then one folder's access + matters. */
+  const labels={english:'English Learning','hindi-inscript':'Hindi Unicode InScript','hindi-remington-gail':'Hindi Unicode Remington / GAIL','hindi-kruti-dev':'Hindi Kruti Dev','hindi-devlys':'Hindi DevLys','hindi-chanakya':'Hindi Chanakya'};
+  window.OWNER_LEARN_FOLDER='';
+  window.openOwnerLearningFolder=function(key){window.OWNER_LEARN_FOLDER=key;renderOwnerLearningControl()};
+  window.closeOwnerLearningFolder=function(){window.OWNER_LEARN_FOLDER='';renderOwnerLearningControl()};
+  window.renderOwnerLearningControl=async function(){
+    const pane=document.getElementById('ownerPane');if(!pane)return;pane.innerHTML='<div class="card" style="padding:20px">Loading Learning folders…</div>';
+    try{
+      const [plans,matters]=await Promise.all([api('/api/admin/learning-plans'),api('/api/admin/learning-matters')]);window.OWNER_LEARN={plans,matters};
+      const key=window.OWNER_LEARN_FOLDER;
+      if(!key){
+        const folderHtml=plans.map(x=>{const n=matters.filter(m=>m.course_key===x.course_key).length;return '<button class="learning-folder-final" onclick="openOwnerLearningFolder(&quot;'+x.course_key+'&quot;)"><span class="badge">LEARNING FOLDER</span><h3>📁 '+esc(x.title||labels[x.course_key]||x.course_key)+'</h3><div class="muted">'+n+' practice matters · '+(Number(x.paid_enabled)?'Paid ₹'+Number(x.fee_amount||0):'Free')+' · '+Number(x.daily_demo_limit||0)+' demo/day · '+Number(x.validity_days||30)+' days</div><div style="margin-top:10px"><span class="btn btn-primary">Open Folder →</span></div></button>'}).join('');
+        pane.innerHTML='<div class="card" style="padding:20px;margin-bottom:16px"><h2 style="margin:0">📚 Learning Control</h2><div class="muted">Exam की तरह पहले Learning folder खोलें; उसी folder में access conditions और practice matters manage करें.</div></div><div class="learning-folder-grid-final">'+folderHtml+'</div>';return;
+      }
+      const x=plans.find(p=>p.course_key===key);if(!x){window.OWNER_LEARN_FOLDER='';return renderOwnerLearningControl()}
+      const rows=matters.filter(m=>m.course_key===key);
+      const rowHtml=rows.length?rows.map((m,i)=>'<tr><td><b>'+(i+1)+'</b></td><td><b>'+esc(m.title)+'</b><div class="muted">'+esc(String(m.content||'').slice(0,100))+(String(m.content||'').length>100?'…':'')+'</div></td><td>'+esc(m.level||'Practice')+' · '+esc(m.matter_type||'passage')+'</td><td>'+Number(m.sort_order||0)+'</td><td>'+(m.active?'<span class="badge green">Active</span>':'<span class="badge amber">Hidden</span>')+'</td><td><button class="btn btn-soft" onclick="openLearningMatterEditor('+m.id+')">Edit</button> <button class="btn btn-white" onclick="deleteLearningMatter('+m.id+')">Delete</button></td></tr>').join(''):'<tr><td colspan="6">इस Learning folder में अभी कोई custom matter नहीं है.</td></tr>';
+      pane.innerHTML=`<div class="card" style="padding:20px;margin-bottom:16px"><div class="panel-head"><div><button class="btn btn-white" onclick="closeOwnerLearningFolder()">← Learning Folders</button><h2 style="margin:12px 0 3px">📁 ${esc(x.title||labels[key]||key)}</h2><div class="muted">इसी folder के fee/demo/validity और matters.</div></div><button class="btn btn-primary" onclick="openLearningMatterEditorForFolder('${key}')">+ Add Matter in this Folder</button></div><div class="form-grid" style="margin-top:14px"><select class="select" id="lpaid-${key}"><option value="0" ${!x.paid_enabled?'selected':''}>Free</option><option value="1" ${x.paid_enabled?'selected':''}>Paid after demos</option></select><input class="input" id="lfee-${key}" type="number" min="0" value="${Number(x.fee_amount||0)}" placeholder="Fee ₹"><input class="input" id="ldemo-${key}" type="number" min="0" value="${Number(x.daily_demo_limit||0)}" placeholder="Demo/day"><input class="input" id="ldays-${key}" type="number" min="1" value="${Number(x.validity_days||30)}" placeholder="Validity days"></div><button class="btn btn-soft" style="margin-top:10px" onclick="saveOwnerLearningPlan('${key}')">Save Access Conditions</button></div><div class="card table-wrap"><table class="table"><thead><tr><th>Sl.No.</th><th>Title</th><th>Level / Type</th><th>Order</th><th>Status</th><th>Action</th></tr></thead><tbody>${rowHtml}</tbody></table></div>`;
+    }catch(e){pane.innerHTML=`<div class="notice">${esc(e.message)}</div>`}
+  };
+  window.openLearningMatterEditorForFolder=function(key){window.openLearningMatterEditor();setTimeout(()=>{const el=document.getElementById('lmCourse');if(el){el.value=key;el.disabled=true}},0)};
+
+  /* Certificate: one click opens the real Razorpay checkout; UPI QR is shown by Razorpay when available for the device/method. */
+  window.showCertificatePayBox=function(id,fee){const d=document.getElementById('certPayBox'+id);if(d)d.innerHTML=`<div class="notice" style="margin-top:12px"><b>Secure Razorpay Checkout</b><br>UPI / QR (जहाँ Razorpay उपलब्ध कराए) / Card / Netbanking.</div>`;return window.demoPayCertificate(id)};
+})();
+</script>
+
+<!-- ===== FINAL ALL-SCREEN RESPONSIVE AUDIT 2026-09-13 ===== -->
+<style id="allScreenResponsiveAudit20260913">
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+img,video,canvas,svg,iframe{max-width:100%;height:auto}
+input,select,textarea,button{max-width:100%}
+.content,.shell,.page,.section,.card,.modal-box,.owner-full-page,.public-section,.exam-portfolio-page,.learning-stage{min-width:0;max-width:100%}
+.table-wrap{width:100%;max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+.table{max-width:none}.toolbar,.page-title,.panel-head,.section-head,.top-actions,.hero-actions,.card-actions,.analysis-actions,.guide-actions{flex-wrap:wrap}
+pre,code,.analysis-text,.learning-prompt,.passage-box{max-width:100%;overflow-wrap:anywhere}
+
+/* Large desktop / laptop: use available screen without stretching content beyond readability. */
+@media (min-width:1400px){.shell{max-width:1600px}.page{max-width:1380px}.owner-full-view .shell{max-width:1800px}.owner-full-view .owner-full-page{max-width:1680px!important;margin:auto!important}}
+@media (min-width:781px) and (max-width:1100px){.topbar{padding-left:16px;padding-right:16px;gap:12px}.topnav{overflow-x:auto;scrollbar-width:thin}.topnav a{flex:0 0 auto}.side{width:205px}.page{padding:22px 18px}.hero{margin-left:18px;margin-right:18px}.section,.stats-strip{padding-left:18px;padding-right:18px}}
+
+/* Tablet and mobile navigation: hamburger always usable and sidebar always above page. */
+@media (max-width:780px){
+ .topbar{height:64px!important;padding:0 10px!important;gap:8px!important;z-index:10020!important}
+ .menuBtn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;padding:0!important;position:relative!important;z-index:10030!important;touch-action:manipulation!important;pointer-events:auto!important;font-size:22px!important}
+ .brand{min-width:0!important;overflow:hidden}.brand strong{font-size:14px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand img{width:38px!important;height:38px!important;flex:0 0 38px}.top-actions{margin-left:auto;min-width:0}.user-chip{max-width:92px;overflow:hidden}.topnav{display:none!important}
+ .side{display:block!important;position:fixed!important;top:64px!important;bottom:0!important;left:0!important;width:min(82vw,290px)!important;max-width:290px!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:10010!important;transform:translateX(-105%)!important;transition:transform .22s ease!important;box-shadow:14px 0 36px rgba(0,0,0,.22)!important;visibility:visible!important;pointer-events:none!important}
+ .side.open{transform:translateX(0)!important;left:0!important;pointer-events:auto!important}
+ .mobile-overlay{display:none!important;position:fixed!important;inset:64px 0 0!important;background:rgba(0,0,0,.38)!important;z-index:10000!important}
+ .mobile-overlay.show{display:block!important}
+ body.mobile-menu-open{overflow:hidden!important;touch-action:none}.side.open{touch-action:auto}
+ .shell{display:block!important;width:100%!important}.content{width:100%!important}.page{width:100%!important;padding:16px 12px!important}.section{padding-left:12px!important;padding-right:12px!important}.hero{margin:12px!important;padding:22px 16px!important}.stats-strip{padding:12px!important}
+ .page-title,.panel-head,.section-head,.exam-detail-head,.test-header,.portfolio-test-top{align-items:flex-start!important;flex-direction:column!important}.page-title>*{max-width:100%}
+ .grid4,.metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}.grid3,.features,.admin-grid,.form-grid,.rules-list,.analysis-two,.guide-panel,.cert-apply-grid,.cert-assess-grid{grid-template-columns:1fr!important}
+ .owner-full-page .owner-control-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;gap:6px!important}.owner-full-page .owner-control-tabs .tab{min-width:0!important;width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;padding:9px 5px!important;font-size:11px!important}
+ .owner-full-page .table-wrap{margin-left:0!important;margin-right:0!important}.owner-full-page .table{min-width:680px!important}
+ .modal,.auth-modal,.overall-pay-modal,.daily-draft-editor-modal,.full-edit-overlay{padding:10px!important}.modal-box,.auth-modal-box,.overall-pay-card,.daily-draft-editor-card,.full-edit-card{width:100%!important;max-width:100%!important;max-height:92dvh!important;overflow:auto!important}
+ .portfolio-info-grid{grid-template-columns:1fr!important}.portfolio-live-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}.portfolio-live-row>div{min-width:0!important}.portfolio-submit-btn{grid-column:1/-1!important;width:100%!important}
+ .exam-portfolio-page{padding-left:10px!important;padding-right:10px!important}.portfolio-read-card .passage-box,.portfolio-typing{height:auto!important;max-height:none!important;min-height:180px!important}
+ .sjt-pin-cert{transform-origin:top left}.cert-preview-wrap{max-width:100%!important;overflow:auto!important;-webkit-overflow-scrolling:touch}
+}
+@media (max-width:520px){
+ .grid4,.metrics,.stats-strip,.live-metrics,.result-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .owner-full-page .owner-control-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .owner-full-page{padding:12px 8px 24px!important}.owner-full-page .table{min-width:620px!important}
+ .btn{white-space:normal!important}.toolbar>.input,.toolbar>.select,.toolbar>input,.toolbar>select{width:100%!important;min-width:0!important}
+ .hero h1,.public-hero h1{font-size:clamp(30px,10vw,40px)!important}.page-title h1{font-size:24px!important}.portfolio-timer{min-width:0!important;width:100%!important}
+ .learning-folder-grid-final,.learning-grid,.learn-track-grid,.learn-stage-list{grid-template-columns:1fr!important}
+}
+@media (max-width:360px){.owner-full-page .owner-control-tabs{grid-template-columns:1fr 1fr!important}.top-actions .btn{padding:8px!important;font-size:11px!important}.brand strong{font-size:12px!important}.page{padding-left:8px!important;padding-right:8px!important}}
+</style>
+<script id="mobileNavigationHardFix20260913">
+(function(){
+ function els(){return {side:document.getElementById('side'),overlay:document.getElementById('overlay'),btn:document.querySelector('.menuBtn')}}
+ window.toggleSide=function(force){
+   const {side,overlay,btn}=els(); if(!side||!overlay)return;
+   const open=force===undefined?!side.classList.contains('open'):!!force;
+   side.classList.toggle('open',open); overlay.classList.toggle('show',open);
+   document.body.classList.toggle('mobile-menu-open',open&&innerWidth<=780);
+   if(btn){btn.setAttribute('aria-expanded',String(open));btn.setAttribute('aria-label',open?'Close menu':'Open menu');btn.textContent=open?'✕':'☰'}
+ };
+ function bind(){
+   const {side,overlay,btn}=els();
+   if(btn&&!btn.dataset.responsiveBound){btn.dataset.responsiveBound='1';btn.type='button';btn.setAttribute('aria-controls','side');btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();window.toggleSide()})}
+   if(overlay&&!overlay.dataset.responsiveBound){overlay.dataset.responsiveBound='1';overlay.addEventListener('click',()=>window.toggleSide(false))}
+   if(side&&!side.dataset.responsiveAuditBound){side.dataset.responsiveAuditBound='1';side.addEventListener('click',e=>{if(innerWidth<=780&&e.target.closest('a,[data-route]'))setTimeout(()=>window.toggleSide(false),0)})}
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+ window.addEventListener('pageshow',bind);window.addEventListener('resize',()=>{if(innerWidth>780)window.toggleSide(false)});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')window.toggleSide(false)});
 })();
 </script>
