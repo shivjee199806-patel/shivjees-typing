@@ -2730,13 +2730,6 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
 
 
 
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/service-worker.js').catch(function () {});
-  });
-}
-</script>
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 /* ownerEditableLearning20260913 */
 (function(){
@@ -3912,6 +3905,14 @@ html,body{overscroll-behavior:auto!important;scroll-behavior:auto}
  new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
  window.addEventListener('resize',bind,{passive:true});
 })();
+</script>
+
+<script id="pwa-service-worker-register">
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+  });
+}
 </script>
 </body>
 </html>
