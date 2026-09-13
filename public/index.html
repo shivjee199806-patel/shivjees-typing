@@ -641,7 +641,7 @@ function renderInstructions(){
  const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
  const examKey=String(e?.id||e?.slug||'default'),hasCompleted=localStorage.getItem('st_exam_completed_'+examKey)==='1';
  const changeAllowed=Number(e?.highlight_user_change_allowed??1)===1;
- const hm=S.attemptHighlightMode||e?.highlight_mode||'none';
+ const hm=['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)?S.attemptHighlightMode:'none';
  const locked=!hasCompleted;
  const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[hm]||'Highlight Off';
  setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li><b>Theme</b> Light/Dark/System website की extra सुविधा है; Theme बदलते समय ही timer थोड़ी देर pause रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol>
@@ -652,7 +652,7 @@ function renderInstructions(){
    </div>
    ${locked?`<small class="muted">First attempt: Backspace और Highlight actual exam setting के अनुसार fixed हैं (${S.attemptBackspaceAllowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}). पहला attempt पूरा होने के बाद अगली बार candidate अपनी choice रख सकता है.</small>`:''}
    <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
- </div><button id="goPractice" class="btn btn-primary" disabled>Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
+ </div><button id="goPractice" class="btn btn-primary">Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
  const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
  if(bs&&!locked)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1';localStorage.setItem('st_backspace_choice_exam_'+examKey,bs.value)};
  if(hs&&!locked&&changeAllowed)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value;localStorage.setItem('st_highlight_choice_exam_'+examKey,hs.value)};
@@ -2797,6 +2797,7 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
 
 
 
+<section id="jpSeoDiscover" style="max-width:1100px;margin:24px auto;padding:20px"><h2>Free Typing Tests & Exam Practice</h2><p>Practice English and Hindi typing, check WPM and accuracy, and prepare with timed typing tests.</p><p><a href="/typing-test">Online Typing Test</a> · <a href="/english-typing-test">English Typing Test</a> · <a href="/hindi-typing-test">Hindi Typing Test</a> · <a href="/15-minute-typing-test">15 Minute Typing Test</a> · <a href="/35-wpm-typing-test">35 WPM Challenge</a> · <a href="/up-police-computer-operator-typing-test">UP Police Computer Operator Typing</a> · <a href="/ssc-typing-test">SSC Typing</a> · <a href="/railway-typing-test">Railway/RRB Typing</a> · <a href="/wpm-calculator">WPM Calculator</a></p></section>
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 /* ownerEditableLearning20260913 */
 (function(){
@@ -4018,7 +4019,7 @@ window.prepareSelectedPassage = async function(id){
 window.renderInstructions = function(){
  const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}
  const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
- const hm=S.attemptHighlightMode||e?.highlight_mode||'none';
+ const hm=['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)?S.attemptHighlightMode:'none';
  const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[e?.highlight_mode||'none']||'Highlight Off';
  setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li><b>Theme</b> Light/Dark/System website की extra सुविधा है; Theme बदलते समय ही timer थोड़ी देर pause रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol>
  <div class="exam-checks">
@@ -4028,15 +4029,17 @@ window.renderInstructions = function(){
     <small><b>Default = Actual Exam Behavior:</b> ${e?.backspace_allowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}. आप चाहें तो इसी attempt के लिए ऊपर manually बदल सकते हैं। Highlight में Current Character/Word केवल selected position दिखाता है; Errors Only में गलती highlight होती है; Off में highlight नहीं होगा.</small>
    </div>
    <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
- </div><button id="goPractice" class="btn btn-primary" disabled>Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
+ </div><button id="goPractice" class="btn btn-primary">Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
  const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
  if(bs)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1'};
  if(hs)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value};
- const update=()=>{const a=document.getElementById('readCheck')?.checked,b=!hindi||document.getElementById('hindiCheck')?.checked;document.getElementById('goPractice').disabled=!(a&&b)};
- document.getElementById('readCheck').onchange=update;if(hindi)document.getElementById('hindiCheck').onchange=update;document.getElementById('goPractice').onclick=renderPrePractice;
+ const canProceed=()=>{const a=!!document.getElementById('readCheck')?.checked,b=!hindi||!!document.getElementById('hindiCheck')?.checked;return a&&b};
+ const go=document.getElementById('goPractice');
+ if(go)go.onclick=(ev)=>{ev.preventDefault();if(!canProceed()){showToast(hindi?'पहले दोनों instruction checkboxes tick करें।':'पहले instructions वाला checkbox tick करें।');return;}renderPrePractice();};
 };
 })();
 </script>
+<section id="jpSeoDiscover" style="max-width:1100px;margin:24px auto;padding:20px"><h2>Free Typing Tests & Exam Practice</h2><p>Practice English and Hindi typing, check WPM and accuracy, and prepare with timed typing tests.</p><p><a href="/typing-test">Online Typing Test</a> · <a href="/english-typing-test">English Typing Test</a> · <a href="/hindi-typing-test">Hindi Typing Test</a> · <a href="/15-minute-typing-test">15 Minute Typing Test</a> · <a href="/35-wpm-typing-test">35 WPM Challenge</a> · <a href="/up-police-computer-operator-typing-test">UP Police Computer Operator Typing</a> · <a href="/ssc-typing-test">SSC Typing</a> · <a href="/railway-typing-test">Railway/RRB Typing</a> · <a href="/wpm-calculator">WPM Calculator</a></p></section>
 </body>
 </html>
 <style id="jp-topnav-light-theme-final">

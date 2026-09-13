@@ -1,0 +1,1 @@
+Added crawlable, unique public typing landing pages with clean URLs, unique titles/descriptions, internal links, canonical URLs, structured data, sitemap entries, SSC/Railway pages, and redirect from old UPP CO URL. Search indexing/ranking is not guaranteed; submit sitemap and inspect URLs in Google Search Console after deployment.
