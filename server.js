@@ -332,6 +332,7 @@ const passageCols=db.prepare("PRAGMA table_info(passages)").all().map(x=>x.name)
 if(!passageCols.includes('highlight_mode')) db.exec("ALTER TABLE passages ADD COLUMN highlight_mode TEXT NOT NULL DEFAULT 'none'");
 if(!passageCols.includes('exam_id')) db.exec("ALTER TABLE passages ADD COLUMN exam_id INTEGER");
 db.exec("CREATE INDEX IF NOT EXISTS idx_passages_exam_id ON passages(exam_id)");
+try{db.exec("CREATE INDEX IF NOT EXISTS idx_results_created_at ON results(created_at); CREATE INDEX IF NOT EXISTS idx_results_user_id ON results(user_id); CREATE INDEX IF NOT EXISTS idx_live_tests_start_at ON live_tests(start_at);")}catch(e){}
 // Final batch: dynamic exam fees, passage-specific qualification and per-user exam access
 const examColsFinal=db.prepare("PRAGMA table_info(exams)").all().map(x=>x.name);
 if(!examColsFinal.includes('fee_amount')) db.exec("ALTER TABLE exams ADD COLUMN fee_amount REAL NOT NULL DEFAULT 0");
@@ -1005,12 +1006,12 @@ app.post('/api/admin/users/:id/extend',auth,admin,(req,res)=>{
  const base=(u.valid_until&&new Date(u.valid_until+'T23:59:59')>new Date())?new Date(u.valid_until+'T00:00:00'):new Date();base.setDate(base.getDate()+days);const valid=base.toISOString().slice(0,10);db.prepare("UPDATE users SET valid_until=?,active=1,plan=CASE WHEN plan='Free' THEN 'Paid' ELSE plan END WHERE id=?").run(valid,id);res.json({ok:true,valid_until:valid});
 });
 app.get('/api/admin/recent-logins',auth,admin,(req,res)=>res.json(db.prepare("SELECT id,name,email,plan,active,last_login FROM users WHERE role='student' AND last_login IS NOT NULL ORDER BY datetime(last_login) DESC LIMIT 25").all()));
-app.get('/api/admin/results',auth,admin,(req,res)=>res.json(db.prepare(`SELECT r.*,u.name user_name,u.email user_email,e.name exam_name,p.title passage_title FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id ORDER BY r.id DESC`).all()));
+app.get('/api/admin/results',auth,admin,(req,res)=>{const limit=Math.max(1,Math.min(500,Number(req.query.limit||200)));res.json(db.prepare(`SELECT r.*,u.name user_name,u.email user_email,e.name exam_name,p.title passage_title FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id ORDER BY r.id DESC LIMIT ?`).all(limit))});
 app.get('/api/admin/passages',auth,admin,(req,res)=>{
   // Performance: owner/admin list views do not need thousands of full passage bodies.
   // ?summary=1 keeps every row and all management fields, but omits the large content text.
   const summary=String(req.query.summary||'')==='1';
-  const cols=summary?`p.id,p.title,p.language,p.layout,p.difficulty,p.active,p.highlight_mode,p.exam_id,p.required_wpm,p.required_accuracy,p.min_words,p.min_chars,p.duration_override,p.instructions,p.qualification_method,p.auto_scroll,p.created_at`:'p.*';
+  const cols=summary?`p.id,p.title,p.language,p.layout,p.difficulty,p.active,p.highlight_mode,p.exam_id,p.required_wpm,p.required_accuracy,p.min_words,p.min_chars,p.duration_override,p.qualification_method,p.auto_scroll,p.created_at`:'p.*';
   res.json(db.prepare(`SELECT ${cols},e.name exam_name,e.duration exam_duration,e.required_wpm exam_wpm,e.required_accuracy exam_accuracy,e.backspace_allowed exam_backspace FROM passages p LEFT JOIN exams e ON e.id=p.exam_id ORDER BY p.id DESC`).all());
 });
 app.get('/api/admin/passages/:id',auth,admin,(req,res)=>{
@@ -1209,7 +1210,7 @@ app.post('/api/admin/certificates/demo-both',auth,admin,(req,res)=>{
 
 // Certificate assigned skill-test workflow.
 db.exec(`CREATE TABLE IF NOT EXISTS certificate_skill_tests(id INTEGER PRIMARY KEY AUTOINCREMENT,certificate_id INTEGER NOT NULL,user_id INTEGER NOT NULL,passage_id INTEGER,language TEXT NOT NULL DEFAULT 'English',difficulty TEXT DEFAULT 'Medium',duration INTEGER NOT NULL DEFAULT 10,required_wpm REAL NOT NULL DEFAULT 30,required_accuracy REAL NOT NULL DEFAULT 85,status TEXT NOT NULL DEFAULT 'assigned',typed_text TEXT,wpm REAL DEFAULT 0,accuracy REAL DEFAULT 0,passed INTEGER DEFAULT 0,assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,submitted_at TEXT,FOREIGN KEY(certificate_id) REFERENCES certificates(id),FOREIGN KEY(user_id) REFERENCES users(id));`);
-app.post('/api/admin/certificates/:id/assign-skill-test',auth,admin,(req,res)=>{const c=db.prepare('SELECT * FROM certificates WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Certificate request not found'});const b=req.body||{},lang=String(b.language||'English'),diff=String(b.difficulty||'Medium'),dur=Math.max(1,Number(b.duration)||10),wpm=Math.max(0,Number(b.required_wpm)||0),acc=Math.max(0,Math.min(100,Number(b.required_accuracy)||0));let p=db.prepare('SELECT * FROM passages WHERE active=1 AND language=? AND difficulty=? ORDER BY RANDOM() LIMIT 1').get(lang,diff)||db.prepare('SELECT * FROM passages WHERE active=1 AND language=? ORDER BY RANDOM() LIMIT 1').get(lang);if(!p)return res.status(400).json({error:'Selected language के लिए कोई active matter नहीं मिला'});db.prepare("UPDATE certificate_skill_tests SET status='replaced' WHERE certificate_id=? AND status='assigned'").run(c.id);const id=db.prepare('INSERT INTO certificate_skill_tests(certificate_id,user_id,passage_id,language,difficulty,duration,required_wpm,required_accuracy) VALUES(?,?,?,?,?,?,?,?)').run(c.id,c.user_id,p.id,lang,diff,dur,wpm,acc).lastInsertRowid;db.prepare("UPDATE certificates SET test_requested=1,test_status='assigned',test_notes=? WHERE id=?").run(`${lang} · ${dur} min · ${wpm} WPM · ${acc}%`,c.id);audit(req,'certificate_test_assigned','certificate',c.id,String(id));res.json({id,message:'Skill test assigned'})});
+app.post('/api/admin/certificates/:id/assign-skill-test',auth,admin,(req,res)=>{const c=db.prepare('SELECT * FROM certificates WHERE id=?').get(req.params.id);if(!c)return res.status(404).json({error:'Certificate request not found'});const b=req.body||{},lang=String(b.language||'English'),diff=String(b.difficulty||'Medium'),dur=Math.max(1,Number(b.duration)||10),wpm=Math.max(0,Number(b.required_wpm)||0),acc=Math.max(0,Math.min(100,Number(b.required_accuracy)||0));let p=db.prepare('SELECT * FROM passages WHERE active=1 AND language=? AND difficulty=? ORDER BY RANDOM() LIMIT 1').get(lang,diff)||db.prepare('SELECT * FROM passages WHERE active=1 AND language=? ORDER BY RANDOM() LIMIT 1').get(lang);if(!p)return res.status(400).json({error:'Selected language के लिए कोई active matter नहीं मिला'});db.prepare("UPDATE certificate_skill_tests SET status='replaced' WHERE certificate_id=? AND status='assigned'").run(c.id);const id=db.prepare('INSERT INTO certificate_skill_tests(certificate_id,user_id,passage_id,language,difficulty,duration,required_wpm,required_accuracy,given_text_snapshot,passage_title_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?)').run(c.id,c.user_id,p.id,lang,diff,dur,wpm,acc,String(p.content||''),String(p.title||'' )).lastInsertRowid;db.prepare("UPDATE certificates SET test_requested=1,test_status='assigned',test_notes=? WHERE id=?").run(`${lang} · ${dur} min · ${wpm} WPM · ${acc}%`,c.id);audit(req,'certificate_test_assigned','certificate',c.id,String(id));res.json({id,message:'Skill test assigned'})});
 app.get('/api/certificates/skill-tests',auth,(req,res)=>res.json(db.prepare('SELECT id,certificate_id,language,difficulty,duration,required_wpm,required_accuracy,status,wpm,accuracy,passed,assigned_at,submitted_at FROM certificate_skill_tests WHERE user_id=? ORDER BY id DESC').all(req.user.id)));
 app.get('/api/certificates/panel',auth,(req,res)=>{const reg=ensureRegistrationNo(req.user.id);const certs=db.prepare("SELECT id,course_key,course_name,certificate_id,status,final_score,completion_date,approved_at,signature_url,download_count,last_download_at,created_at,payment_required,certificate_fee,payment_status,payment_txn,payment_method,paid_at,auth_token,auth_fingerprint FROM certificates WHERE user_id=? ORDER BY id DESC").all(req.user.id).map(x=>{const reqd=Number(x.payment_required)===1;const paid=reqd&&String(x.payment_status||'').toLowerCase()==='paid'&&!!(x.payment_txn||x.paid_at);const waived=!reqd&&String(x.payment_status||'').toLowerCase()==='waived'&&String(x.payment_method||'')==='owner-waived';const access=paid||waived;return {...x,certificate_access:access?'unlocked':'locked',payment_configured:reqd||waived,registration_no:reg,verify_url:access&&x.certificate_id&&x.auth_token?'/verify-certificate?id='+encodeURIComponent(x.certificate_id)+'&proof='+encodeURIComponent(x.auth_token):null}});const tests=db.prepare("SELECT id,certificate_id,language,difficulty,duration,required_wpm,required_accuracy,status,wpm,accuracy,passed,assigned_at,submitted_at FROM certificate_skill_tests WHERE user_id=? AND status<>'replaced' ORDER BY CASE status WHEN 'assigned' THEN 0 ELSE 1 END,id DESC").all(req.user.id);res.json({certificates:certs,skill_tests:tests});});
 app.get('/api/certificates/skill-tests/:id',auth,(req,res)=>{const t=db.prepare('SELECT t.*,p.title,p.content FROM certificate_skill_tests t JOIN passages p ON p.id=t.passage_id WHERE t.id=? AND t.user_id=?').get(req.params.id,req.user.id);if(!t)return res.status(404).json({error:'Assigned test not found'});if(t.status!=='assigned')return res.status(400).json({error:'This test is already submitted'});res.json(t)});
@@ -1504,13 +1505,23 @@ function ensureFreePracticeFourDayRotation(){
 }
 ensureFreePracticeFourDayRotation();
 
+// CERTIFICATE ASSIGNED MATTER SNAPSHOT FIX 2026-09-13
+// Preserve the exact matter used for every future assigned certificate test, even if a passage is later edited/moved/deleted.
+try{db.exec("ALTER TABLE certificate_skill_tests ADD COLUMN given_text_snapshot TEXT")}catch(e){}
+try{db.exec("ALTER TABLE certificate_skill_tests ADD COLUMN passage_title_snapshot TEXT")}catch(e){}
+// Backfill snapshots for existing tests whose passage still exists.
+try{db.exec(`UPDATE certificate_skill_tests SET
+  given_text_snapshot=COALESCE(NULLIF(given_text_snapshot,''),(SELECT content FROM passages WHERE passages.id=certificate_skill_tests.passage_id)),
+  passage_title_snapshot=COALESCE(NULLIF(passage_title_snapshot,''),(SELECT title FROM passages WHERE passages.id=certificate_skill_tests.passage_id))
+  WHERE passage_id IS NOT NULL`)}catch(e){}
+
 // CERTIFICATE REVIEW DETAIL FIX 2026-09-13 — owner can inspect the exact assigned matter + candidate typed matter/result.
 app.get('/api/admin/certificates/:id/skill-tests',auth,admin,(req,res)=>{
   const c=db.prepare('SELECT id,user_id FROM certificates WHERE id=?').get(req.params.id);
   if(!c)return res.status(404).json({error:'Certificate request not found'});
   const rows=db.prepare(`SELECT t.id,t.certificate_id,t.language,t.difficulty,t.duration,t.required_wpm,t.required_accuracy,
     t.status,t.typed_text,t.wpm,t.accuracy,t.passed,t.assigned_at,t.submitted_at,
-    p.title passage_title,p.content given_text
+    COALESCE(NULLIF(t.passage_title_snapshot,''),p.title,'Assigned Typing Matter') passage_title,COALESCE(NULLIF(t.given_text_snapshot,''),p.content,'') given_text
     FROM certificate_skill_tests t LEFT JOIN passages p ON p.id=t.passage_id
     WHERE t.certificate_id=? AND t.user_id=? AND t.status<>'replaced'
     ORDER BY t.id DESC`).all(c.id,c.user_id);
