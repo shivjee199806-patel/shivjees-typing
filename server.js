@@ -1179,7 +1179,15 @@ function examAccessState(user,exam){
  const folderBlocked=db.prepare('SELECT * FROM user_exam_folder_blocks WHERE user_id=? AND folder_key=? ORDER BY id DESC LIMIT 1').get(userId,folderKey);
  const blocked=folderBlocked||(siblingIds.length?db.prepare(`SELECT * FROM user_exam_blocks WHERE user_id=? AND exam_id IN (${ph}) ORDER BY id DESC LIMIT 1`).get(userId,...siblingIds):null);
  if(blocked)return {has_access:false,access:null,demo_used:0,demo_remaining:0,bonus_remaining:0,can_start:false,blocked:true,block_reason:blocked.reason||'Blocked by Owner',source:'blocked'};
- const a=siblingIds.length?db.prepare(`SELECT * FROM user_exam_access WHERE user_id=? AND exam_id IN (${ph}) AND (valid_until IS NULL OR date(valid_until)>=date('now')) ORDER BY CASE WHEN exam_id=? THEN 0 ELSE 1 END,id DESC LIMIT 1`).get(userId,...siblingIds,exam.id):null;
+ const rawAccess=siblingIds.length?db.prepare(`SELECT * FROM user_exam_access WHERE user_id=? AND exam_id IN (${ph}) AND (valid_until IS NULL OR date(valid_until)>=date('now')) ORDER BY CASE WHEN exam_id=? THEN 0 ELSE 1 END,id DESC LIMIT 1`).get(userId,...siblingIds,exam.id):null;
+ // Paid folders must not trust legacy/free-era access rows. A folder access is valid only
+ // when it is backed by an approved payment record or was explicitly granted by Owner/Admin.
+ let a=null;
+ if(rawAccess){
+   const paidProof=siblingIds.length?db.prepare(`SELECT id FROM payment_requests WHERE user_id=? AND exam_id IN (${ph}) AND status='approved' ORDER BY id DESC LIMIT 1`).get(userId,...siblingIds):null;
+   const ownerGranted=Number(rawAccess.granted_by||0)>0;
+   if(paidProof||ownerGranted)a=rawAccess;
+ }
  const cfg=examFolderConfig(exam);
  const bonus=siblingIds.length?Number(db.prepare(`SELECT COALESCE(SUM(remaining),0) remaining FROM user_exam_demo_bonus WHERE user_id=? AND exam_id IN (${ph})`).get(userId,...siblingIds)?.remaining||0):0;
  const [start,end]=indiaDayBoundsUtc();
@@ -1303,7 +1311,7 @@ app.post('/api/razorpay/verify',auth,async(req,res)=>{try{if(!paymentSystemEnabl
  else if(kind==='certificate'){db.prepare("UPDATE certificates SET payment_status='paid',payment_txn=?,payment_method='razorpay',paid_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?").run(txn,t.row.id,req.user.id)}})();audit(req,'RAZORPAY_PAYMENT','payment',ref,`${kind} ${ref}; ${txn}; ₹${t.amount}`);res.json({status:'paid',kind,ref_id:ref,valid_until})}catch(e){res.status(400).json({error:e.message||'Payment verification failed'})}});
 
 app.get('/api/overall-plans',(req,res)=>{res.json(db.prepare("SELECT code,title,days,price,old_price,badge FROM overall_access_plans WHERE active=1 ORDER BY sort_order,id").all())});
-app.get('/api/overall-access/me',auth,(req,res)=>{const access=activeOverallAccess(req.user.id);res.json({active:!!access,access:access||null})});
+app.get('/api/overall-access/me',auth,(req,res)=>{res.set('Cache-Control','no-store');const access=activeOverallAccess(req.user.id);res.json({active:!!access,access:access||null,fallback:access?'full':'exam_or_learning_rules'})});
 app.post('/api/overall-payment',auth,(req,res)=>{if(!paymentSystemEnabled())return res.status(503).json({error:'Payment system is currently OFF by Owner',code:'PAYMENT_SYSTEM_OFF'});
  if(String(req.user?.role||'').toLowerCase()==='admin')return res.status(403).json({error:'Full Access plans are for candidates only'});
  const b=req.body||{},code=String(b.plan_code||'').trim(),plan=db.prepare("SELECT * FROM overall_access_plans WHERE code=? AND active=1").get(code);
@@ -1339,13 +1347,13 @@ app.put('/api/admin/overall-payments/:id',auth,admin,(req,res)=>{
    db.transaction(()=>{db.prepare('UPDATE overall_payment_requests SET amount=?,valid_until=?,notes=COALESCE(notes,\'\')||?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?').run(amount,until,` | Owner edit: ₹${amount}, valid till ${until}`,id);db.prepare(`INSERT INTO user_overall_access(user_id,plan_code,amount,valid_from,valid_until,txn_ref,method,status) VALUES(?,?,?,?,?,?,?,'approved') ON CONFLICT(user_id) DO UPDATE SET plan_code=excluded.plan_code,amount=excluded.amount,valid_from=excluded.valid_from,valid_until=excluded.valid_until,txn_ref=excluded.txn_ref,method=excluded.method,status='approved',updated_at=CURRENT_TIMESTAMP`).run(row.user_id,row.plan_code,amount,row.valid_from||new Date().toISOString().slice(0,10),until,row.txn_ref,row.method)})();audit(req,'MANAGE','overall_payment',id,`amount ${amount}; valid till ${until}`);return res.json({ok:true,status:'approved',valid_until:until});
  }
  if(action==='block'){
-   const reason=String(b.reason||'Owner blocked Full Access').trim().slice(0,500)||'Owner blocked Full Access';db.transaction(()=>{db.prepare("UPDATE overall_payment_requests SET status='blocked',notes=COALESCE(notes,'')||?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(` | BLOCKED: ${reason}`,id);db.prepare("UPDATE user_overall_access SET status='blocked',updated_at=CURRENT_TIMESTAMP WHERE user_id=?").run(row.user_id)})();audit(req,'BLOCK','overall_payment',id,reason);return res.json({ok:true,status:'blocked'});
+   const reason=String(b.reason||'Owner blocked Full Access').trim().slice(0,500)||'Owner blocked Full Access';db.transaction(()=>{db.prepare("UPDATE overall_payment_requests SET status='blocked',notes=COALESCE(notes,'')||?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(` | BLOCKED: ${reason}`,id);db.prepare("UPDATE user_overall_access SET status='blocked',updated_at=CURRENT_TIMESTAMP WHERE user_id=?").run(row.user_id)})();audit(req,'BLOCK','overall_payment',id,reason);return res.json({ok:true,status:'blocked',full_access:false,fallback:'partial_access_requires_own_exam_or_learning_rule'});
  }
  if(action==='unblock'){
    db.transaction(()=>{db.prepare("UPDATE overall_payment_requests SET status='approved',notes=COALESCE(notes,'')||' | UNBLOCKED',reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(id);db.prepare(`INSERT INTO user_overall_access(user_id,plan_code,amount,valid_from,valid_until,txn_ref,method,status) VALUES(?,?,?,?,?,?,?,'approved') ON CONFLICT(user_id) DO UPDATE SET plan_code=excluded.plan_code,amount=excluded.amount,valid_from=excluded.valid_from,valid_until=excluded.valid_until,txn_ref=excluded.txn_ref,method=excluded.method,status='approved',updated_at=CURRENT_TIMESTAMP`).run(row.user_id,row.plan_code,row.amount,row.valid_from||new Date().toISOString().slice(0,10),row.valid_until,row.txn_ref,row.method)})();audit(req,'UNBLOCK','overall_payment',id,'restored immediately');return res.json({ok:true,status:'approved',valid_until:row.valid_until});
  }
  if(action==='remove'){
-   db.transaction(()=>{db.prepare("UPDATE overall_payment_requests SET status='cancelled',notes=COALESCE(notes,'')||' | ACCESS REMOVED BY OWNER',reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(id);db.prepare('DELETE FROM user_overall_access WHERE user_id=?').run(row.user_id)})();audit(req,'REMOVE','overall_payment',id,'access removed immediately');return res.json({ok:true,status:'cancelled'});
+   db.transaction(()=>{db.prepare("UPDATE overall_payment_requests SET status='cancelled',notes=COALESCE(notes,'')||' | ACCESS REMOVED BY OWNER',reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(id);db.prepare('DELETE FROM user_overall_access WHERE user_id=?').run(row.user_id)})();audit(req,'REMOVE','overall_payment',id,'access removed immediately');return res.json({ok:true,status:'cancelled',full_access:false,fallback:'partial_access_requires_own_exam_or_learning_rule'});
  }
  return res.status(400).json({error:'Unknown action'});
 });
