@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /owner
+
+Sitemap: https://jptyping.in/sitemap.xml
