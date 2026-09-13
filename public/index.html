@@ -2417,13 +2417,14 @@ showLoginCelebration=function(user){
  window.dailyQueueRowHTML=function(x){return `<tr><td><b>${esc(x.queue_date)}</b><div class="muted">#${x.queue_no} · ID ${x.id}</div></td><td>${x.target_type==='live'?'<span class="badge amber">LIVE</span>':'<span class="badge">EXAM</span>'}</td><td>${esc(x.exam_name||'Live Typing')}<div class="muted">Exam ID: ${x.exam_id??'-'}</div></td><td>${esc(x.language)}</td><td><span class="badge ${x.difficulty==='Hard'?'amber':x.difficulty==='Easy'?'green':''}">${esc(x.difficulty)}</span></td><td class="queue-matter"><b>${esc(x.title)}</b><div class="muted" style="margin-top:5px">${esc(String(x.content||'').slice(0,230))}${String(x.content||'').length>230?'…':''}</div></td><td>${x.status==='published'?'<span class="badge green">Published</span>':'<span class="badge amber">Pending</span>'}</td><td><div class="queue-actions">${x.status==='pending'?`<button class="btn btn-soft btn-mini" onclick="editDailyDraft(${x.id})">Edit Full Matter</button><button class="btn btn-primary btn-mini" onclick="publishDailyDraft(${x.id})">Add / Publish</button>${x.target_type==='live'?`<button class="btn btn-primary btn-mini" onclick="scheduleDailyLive(${x.id})">Schedule Live</button>`:''}<button class="btn btn-danger btn-mini" onclick="deleteDailyDraft(${x.id})">Delete</button>`:`${x.target_type==='live'?'<span class="muted">Live result will save in Results/Test History after attempt.</span>':'<span class="muted">Added to passage library.</span>'}`}</div></td></tr>`};
  window.filterDailyQueueRows=function(){const q=String(document.getElementById('dailyQueueSearch')?.value||'').trim().toLowerCase();const rows=window.DAILY_QUEUE_ROWS||[];const filtered=!q?rows:rows.filter(x=>[x.id,x.exam_id,x.exam_name,x.title,x.content,x.language,x.difficulty,x.queue_date,x.target_type].some(v=>String(v??'').toLowerCase().includes(q)));const body=document.getElementById('dailyQueueBody');if(body)body.innerHTML=filtered.map(window.dailyQueueRowHTML).join('')||'<tr><td colspan="8">No matching matter / exam / ID found.</td></tr>';const c=document.getElementById('dailyQueueSearchCount');if(c)c.textContent=`${filtered.length} shown`;};
  window.toggleDailyQueue=async function(enabled){try{await api('/api/admin/daily-passage-queue-control',{method:'PUT',body:JSON.stringify({enabled})});showToast(enabled?'Daily passages ON — next eligible day से फिर आएँगे':'Daily passages OFF — आज के automatic drafts हटा दिए गए');renderDailyQueue()}catch(e){showToast(e.message)}};
+ window.toggleLiveDaily=async function(enabled){try{const r=await api('/api/admin/live-daily-control',{method:'PUT',body:JSON.stringify({enabled})});showToast(enabled?'LIVE automatic matter ON — आगे daily Live drafts आएँगे':`LIVE automatic matter OFF — ${r.removed||0} pending auto Live drafts हटे`);renderDailyQueue()}catch(e){showToast(e.message)}};
  window.renderDailyQueue=async function(){
    const pane=document.getElementById('ownerPane');if(!pane)return;
    pane.innerHTML='<div class="card" style="padding:22px">Loading Daily Matter Queue...</div>';
    try{
-     const [rows,ctrl]=await Promise.all([api('/api/admin/daily-passage-queue?status=all'),api('/api/admin/daily-passage-queue-control')]);
+     const [rows,ctrl,liveCtrl]=await Promise.all([api('/api/admin/daily-passage-queue?status=all'),api('/api/admin/daily-passage-queue-control'),api('/api/admin/live-daily-control')]);
      const pending=rows.filter(x=>x.status==='pending');window.DAILY_QUEUE_ROWS=rows;
-     pane.innerHTML=`<div class="daily-queue-note"><b>🗓 Daily Matter Queue — 10:00 AM IST</b><div class="muted" style="margin-top:6px">हर active exam में रोज 12 drafts: English/Hindi variant के अनुसार Easy 2 + Medium 2 + Hard 2. Live के लिए अलग 12 drafts: English 6 + Hindi 6. कोई draft candidate को तब तक नहीं दिखेगा जब तक आप Publish/Schedule न करें। Date, numbers और reference values matter में शामिल रहते हैं.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-primary" onclick="generateDailyQueueNow()">Generate Today Now</button><button class="btn btn-soft" onclick="addDailyDraft()">+ Add Draft</button><button class="btn ${ctrl.enabled?'btn-danger':'btn-primary'}" onclick="toggleDailyQueue(${ctrl.enabled?'false':'true'})">${ctrl.enabled?'Turn Daily OFF Today':'Turn Daily ON'}</button><span class="daily-queue-toggle ${ctrl.enabled?'on':'off'}">● ${ctrl.enabled?'Daily Auto ON':'Daily Auto OFF'}</span><span class="badge amber">${pending.length} Pending Review</span><span class="badge green">${rows.filter(x=>x.status==='published').length} Published</span></div>${ctrl.skip_date===ctrl.today?'<div class="muted" style="margin-top:8px"><b>Today skipped:</b> automatic daily drafts आज नहीं आएँगे. ON करने पर अगली eligible date से फिर शुरू होंगे.</div>':''}</div><div class="daily-queue-toolbar"><input id="dailyQueueSearch" class="input daily-queue-search" placeholder="Search by matter, title, Exam ID, Queue ID, exam name..." oninput="filterDailyQueueRows()"><span id="dailyQueueSearchCount" class="badge">${rows.length} shown</span></div><div class="card table-wrap"><table class="table"><thead><tr><th>Date / No.</th><th>Type</th><th>Exam</th><th>Language</th><th>Level</th><th>Matter</th><th>Status</th><th>Review / Action</th></tr></thead><tbody id="dailyQueueBody">${rows.map(window.dailyQueueRowHTML).join('')||'<tr><td colspan="8">No daily drafts yet. Generate Today Now.</td></tr>'}</tbody></table></div>`;
+     pane.innerHTML=`<div class="daily-queue-note"><b>🗓 Daily Matter Queue — 10:00 AM IST</b><div class="muted" style="margin-top:6px">हर active exam में रोज 12 drafts: English/Hindi variant के अनुसार Easy 2 + Medium 2 + Hard 2. Live के लिए अलग 12 drafts: English 6 + Hindi 6. कोई draft candidate को तब तक नहीं दिखेगा जब तक आप Publish/Schedule न करें। Date, numbers और reference values matter में शामिल रहते हैं.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-primary" onclick="generateDailyQueueNow()">Generate Today Now</button><button class="btn btn-soft" onclick="addDailyDraft()">+ Add Draft</button><button class="btn ${ctrl.enabled?'btn-danger':'btn-primary'}" onclick="toggleDailyQueue(${ctrl.enabled?'false':'true'})">${ctrl.enabled?'Turn Daily OFF Today':'Turn Daily ON'}</button><span class="daily-queue-toggle ${ctrl.enabled?'on':'off'}">● ${ctrl.enabled?'Daily Auto ON':'Daily Auto OFF'}</span><button class="btn ${liveCtrl.enabled?'btn-danger':'btn-primary'}" onclick="toggleLiveDaily(${liveCtrl.enabled?'false':'true'})">${liveCtrl.enabled?'Turn LIVE Auto OFF':'Turn LIVE Auto ON'}</button><span class="daily-queue-toggle ${liveCtrl.enabled?'on':'off'}">● ${liveCtrl.enabled?'LIVE Auto ON':'LIVE Auto OFF'}</span><span class="badge amber">${pending.length} Pending Review</span><span class="badge green">${rows.filter(x=>x.status==='published').length} Published</span></div>${ctrl.skip_date===ctrl.today?'<div class="muted" style="margin-top:8px"><b>Today skipped:</b> automatic daily drafts आज नहीं आएँगे. ON करने पर अगली eligible date से फिर शुरू होंगे.</div>':''}</div><div class="daily-queue-toolbar"><input id="dailyQueueSearch" class="input daily-queue-search" placeholder="Search by matter, title, Exam ID, Queue ID, exam name..." oninput="filterDailyQueueRows()"><span id="dailyQueueSearchCount" class="badge">${rows.length} shown</span></div><div class="card table-wrap"><table class="table"><thead><tr><th>Date / No.</th><th>Type</th><th>Exam</th><th>Language</th><th>Level</th><th>Matter</th><th>Status</th><th>Review / Action</th></tr></thead><tbody id="dailyQueueBody">${rows.map(window.dailyQueueRowHTML).join('')||'<tr><td colspan="8">No daily drafts yet. Generate Today Now.</td></tr>'}</tbody></table></div>`;
    }catch(e){pane.innerHTML=`<div class="notice">${esc(e.message)}</div>`}
  };
  window.generateDailyQueueNow=async()=>{try{const r=await api('/api/admin/daily-passage-queue/generate',{method:'POST',body:'{}'});showToast(r.created?`${r.created} drafts prepared for review`:'Today’s drafts already prepared');renderDailyQueue()}catch(e){showToast(e.message)}};
@@ -2677,6 +2678,7 @@ window.myCertificates=async function(){
 window.demoPayCertificate=async function(id){try{const txn=document.getElementById('certTxn'+id)?.value.trim();if(!txn)return showToast('Demo Transaction Number भरें');await api('/api/certificates/'+id+'/demo-pay',{method:'POST',body:JSON.stringify({txn_ref:txn,method:'demo'})});showToast('✅ Payment successful — Download unlocked');myCertificates()}catch(e){showToast(e.message)}};
 // Print/download ONLY the certificate, never the surrounding application page.
 window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
+
 
 
 
@@ -2966,7 +2968,88 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
  const oldRender=window.renderLearningCourseV3;
  window.renderLearningCourseV3=async function(lang,track){const key=keyFor(lang,track);try{const g=await state(key);if(!g.allowed){const box=document.getElementById('learningFolder');const fee=Number(g.plan?.fee_amount||0),days=Number(g.plan?.validity_days||30);if(box)box.innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="${lang==='Hindi'?"openLearningFolderV3('Hindi')":"learning()"}">← Back</button></div><div class="card" style="padding:24px"><div class="jp-learn-lock">🔒 ${esc(g.plan?.title||'Learning')} Locked</div><p>Daily demo समाप्त है। केवल यह Learning खरीद सकते हैं, या Full Access लेने पर सभी Exams + Learning खुलेंगे.</p><div class="metrics"><div class="metric"><small>Fee</small><b>₹${fee}</b></div><div class="metric"><small>Validity</small><b>${days} Days</b></div></div><button class="btn btn-primary" style="margin-top:12px" onclick="demoPayLearning('${key}','${lang}','${track}')">Pay ₹${fee} · Buy Learning</button></div>`;return}}catch(e){showToast(e.message);return}return oldRender(lang,track)};
 })();
-</script>\n</body>
+</script>\n\n<style id="candidate-learning-folder-lock-final-20260913">
+.jp-final-learn-card{position:relative;text-align:left;display:flex;flex-direction:column;gap:8px;min-height:170px}.jp-final-learn-actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}.jp-final-lock{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft);font-weight:800}.jp-final-folder-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.jp-final-status{margin-top:4px}.jp-final-status .muted{margin-top:4px}
+</style>
+<script id="candidate-learning-folder-lock-final-20260913">
+(function(){
+ const keyFor=(lang,track)=>lang==='English'?'english':({'inscript':'hindi-inscript','remington-gail':'hindi-remington-gail','krutidev':'hindi-kruti-dev','devlys':'hindi-devlys','chanakya':'hindi-chanakya'}[track]||'hindi-inscript');
+ const currentCourseRenderer=window.renderLearningCourseV3;
+ async function accessState(key){
+   if(S.user?.role==='admin') return {allowed:true,source:'owner',demo_remaining:999999,plan:{course_key:key,paid_enabled:0,fee_amount:0,validity_days:30}};
+   return api('/api/learning/access/'+encodeURIComponent(key));
+ }
+ function statusHtml(g){
+   if(g.source==='owner') return `<div class="jp-final-status"><span class="badge green">OWNER ACCESS</span></div>`;
+   if(g.overall_access||g.source==='overall') return `<div class="jp-final-status"><span class="badge green">FULL ACCESS ACTIVE</span><div class="muted">All Exams + Learning included${g.overall_valid_until?' · Valid till '+esc(g.overall_valid_until):''}</div></div>`;
+   if(g.allowed){
+     const rem=Number(g.demo_remaining);
+     if(g.source==='free') return `<div class="jp-final-status"><span class="badge green">FREE · OPEN</span></div>`;
+     if(g.source==='paid') return `<div class="jp-final-status"><span class="badge green">PURCHASED · OPEN</span></div>`;
+     return `<div class="jp-final-status"><span class="badge green">DEMO · OPEN</span>${Number.isFinite(rem)&&rem<999999?`<div class="muted">Demo remaining today: ${rem}</div>`:''}</div>`;
+   }
+   const fee=Number(g.plan?.fee_amount||0),days=Number(g.plan?.validity_days||30);
+   return `<div class="jp-final-lock">🔒 Paid Learning · ₹${fee}<div class="muted">Validity ${days} Days</div></div>`;
+ }
+ function actionHtml(g,key,lang,track){
+   if(g.allowed||g.source==='owner') return `<button class="btn btn-primary" onclick="event.stopPropagation();jpOpenLearningCourse('${lang}','${track}')">Open Folder →</button>`;
+   const fee=Number(g.plan?.fee_amount||0);
+   return `<button class="btn btn-primary" onclick="event.stopPropagation();demoPayLearning('${key}','${lang}','${track}')">Pay ₹${fee} · Buy Learning</button>`;
+ }
+ window.learning=async function(){
+   if(!S.user){auth('login');return} activeNav('learning');
+   setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Practice / Typing Learning</div><h1>Typing Learning Path</h1><p>पहले Learning folder खोलें. Paid folder पर payment/lock यहीं दिखेगा.</p></div></div><div id="jpLearningRoot"><div class="card" style="padding:20px">Loading Learning folders…</div></div><div class="kids-entry-main"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><div style="font-size:38px">🎮🧒</div><h2 style="margin:4px 0">Kids Typing Games · Age 5–12</h2><p style="margin:0">6 voice-guided typing games · English + Hindi · play while learning.</p></div><button class="btn btn-primary" onclick="openKidsTypingGames()">Play & Learn →</button></div></div><div id="learningFolder" style="margin-top:18px"></div></div>`);
+   try{
+     const en=await accessState('english');
+     const root=document.getElementById('jpLearningRoot'); if(!root)return;
+     root.innerHTML=`<div class="jp-final-folder-grid"><div class="card jp-final-learn-card"><span class="badge">English</span><h2>📁 English Learning</h2><p>QWERTY · 20-stage guided course + Owner practice matters</p>${statusHtml(en)}<div class="jp-final-learn-actions">${actionHtml(en,'english','English','qwerty')}</div></div><div class="card jp-final-learn-card"><span class="badge">Hindi</span><h2>📁 Hindi Learning</h2><p>InScript, Remington/GAIL, Kruti Dev, DevLys और Chanakya के अलग folders.</p><div class="jp-final-status"><span class="badge">CHOOSE HINDI FOLDER</span></div><div class="jp-final-learn-actions"><button class="btn btn-primary" onclick="openLearningFolderV3('Hindi')">Open Hindi Folders →</button></div></div></div>`;
+   }catch(e){const root=document.getElementById('jpLearningRoot');if(root)root.innerHTML=`<div class="notice">${esc(e.message)}</div>`}
+ };
+ window.openLearningFolderV3=async function(lang){
+   if(lang!=='Hindi') return window.jpOpenLearningCourse('English','qwerty');
+   const box=document.getElementById('learningFolder');if(!box)return;box.innerHTML='<div class="card" style="padding:20px">Loading Hindi Learning folders…</div>';
+   try{
+     const tracks=await Promise.all(HINDI_LEARNING_TRACKS.map(async t=>({t,key:keyFor('Hindi',t.id),g:await accessState(keyFor('Hindi',t.id))})));
+     box.innerHTML=`<div class="card" style="padding:20px"><div class="toolbar"><button class="btn btn-white" onclick="learning()">← Back</button><div><h2 style="margin:0">📁 Hindi Learning Folders</h2><div class="muted">हर folder का access अलग है; Full Access होने पर सभी Open होंगे.</div></div></div><div class="jp-final-folder-grid" style="margin-top:14px">${tracks.map(({t,key,g})=>`<div class="card jp-final-learn-card"><h3>📁 ${esc(t.name)}</h3><p>${esc(t.note||'Hindi typing learning')}</p>${statusHtml(g)}<div class="jp-final-learn-actions">${actionHtml(g,key,'Hindi',t.id)}</div></div>`).join('')}</div></div>`;
+   }catch(e){box.innerHTML=`<div class="notice">${esc(e.message)}</div>`}
+ };
+ window.jpOpenLearningCourse=async function(lang,track){
+   const key=keyFor(lang,track);
+   try{
+     const g=await accessState(key);
+     if(!(g.allowed||g.source==='owner')){
+       const box=document.getElementById('learningFolder');if(!box)return;
+       const fee=Number(g.plan?.fee_amount||0),days=Number(g.plan?.validity_days||30);
+       box.innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="${lang==='Hindi'?"openLearningFolderV3('Hindi')":"learning()"}">← Back</button></div><div class="card" style="padding:24px"><h2>🔒 ${esc(g.plan?.title||'Learning')} Locked</h2><p>इस Learning folder का demo समाप्त है. केवल यह folder खरीद सकते हैं; Full Access लेने पर सभी Exams + Learning खुलेंगे.</p><div class="metrics"><div class="metric"><small>Fee</small><b>₹${fee}</b></div><div class="metric"><small>Validity</small><b>${days} Days</b></div></div><button class="btn btn-primary" style="margin-top:12px" onclick="demoPayLearning('${key}','${lang}','${track}')">Pay ₹${fee} · Buy Learning</button></div>`;return;
+     }
+     currentCourseRenderer(lang,track);
+     // Owner-added practice matters appear only after the folder is opened.
+     try{
+       const matters=await api('/api/learning/matters/'+encodeURIComponent(key));
+       const box=document.getElementById('learningFolder');
+       if(box&&Array.isArray(matters)&&matters.length){
+         const sec=document.createElement('div');sec.className='card';sec.style.cssText='padding:20px;margin-top:18px';
+         sec.innerHTML=`<h2>Owner Practice Matters</h2><div class="learn-stage-list">${matters.filter(m=>Number(m.active)!==0).map(m=>`<div class="card lesson-card"><span class="badge">${esc(m.level||'Practice')}</span><h3>${esc(m.title||'Practice Matter')}</h3><p>${esc(String(m.content||'').slice(0,140))}${String(m.content||'').length>140?'…':''}</p><button class="btn btn-primary" onclick="startOwnerLearningMatter(${m.id},'${key}')">Start Practice</button></div>`).join('')}</div>`;box.appendChild(sec);
+       }
+     }catch(e){}
+   }catch(e){showToast(e.message)}
+ };
+ // All existing calls to renderLearningCourseV3 must pass through the access gate.
+ window.renderLearningCourseV3=function(lang,track){return window.jpOpenLearningCourse(lang,track)};
+ window.startOwnerLearningMatter=async function(id,key){
+   try{const rows=await api('/api/learning/matters/'+encodeURIComponent(key));const m=(rows||[]).find(x=>+x.id===+id);if(!m)throw Error('Learning matter not found');S.learning={key:'custom-'+m.id,title:m.title||'Practice Matter',level:m.level||'Practice',day:'Owner',text:m.content||'',start:0,errors:0};renderLearningStage(S.learning,false)}catch(e){showToast(e.message)}
+ };
+})();
+</script>\n<style id="exam-id-final">.jp-exam-id-badge{display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:12px;font-weight:800}.jp-exam-id-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}</style>
+<script id="exam-id-final-script">
+(function(){
+function G(a){const m=new Map();(a||[]).forEach(e=>{let n=String(e.name||'').replace(/\s*[-–]\s*(English|Hindi)\s*$/i,'').trim(),k=n.toLowerCase();if(!m.has(k))m.set(k,{name:n,variants:[],folderId:Number(e.id)});let g=m.get(k);g.variants.push(e);g.folderId=Math.min(g.folderId,Number(e.id))});return [...m.values()]}
+window.jpOpenExamFolderById=function(){let id=Number(document.getElementById('jpExamIdJump')?.value||0);if(!id)return showToast('Valid Exam ID डालें');let a=G((window.JP_PASS_DIR||{}).exams),i=a.findIndex(g=>g.folderId===id||g.variants.some(v=>Number(v.id)===id));if(i<0)return showToast('यह Exam ID नहीं मिला');let g=a[i],v=g.variants.find(x=>Number(x.id)===id)||g.variants[0];window.JP_DASH_FOLDER={variants:g.variants,title:g.name,free:false,variant:v.id};window.JP_DASH_PAGE=1;jpDashRenderFolder()};
+let old=window.jpDashPassageDirectory;if(typeof old==='function')window.jpDashPassageDirectory=async function(){await old();setTimeout(()=>{let a=G((window.JP_PASS_DIR||{}).exams),h=document.getElementById('jpDashFolders');if(!h)return;let c=[...h.querySelectorAll('.jp-folder')];a.forEach((g,i)=>{let x=c[i+1];if(!x)return;x.dataset.search=(x.dataset.search||'')+' '+g.folderId;if(!x.querySelector('.jp-exam-id-badge')){let b=document.createElement('span');b.className='jp-exam-id-badge';b.textContent='Exam ID: '+g.folderId;x.appendChild(b)}});let s=document.getElementById('jpDashFolderSearch');if(s){s.placeholder='Search Exam Name / Exam ID';if(!document.getElementById('jpExamIdJump')){let t=document.createElement('div');t.className='jp-exam-id-tools';t.innerHTML='<input id="jpExamIdJump" class="input" inputmode="numeric" placeholder="Exam ID डालें"><button class="btn btn-primary" onclick="jpOpenExamFolderById()">Open by ID</button>';s.parentElement.appendChild(t)}}},0)};
+let ob=window.renderBrotherHelper;if(typeof ob==='function')window.renderBrotherHelper=function(){let r=ob.apply(this,arguments);setTimeout(()=>{let e=document.getElementById('jpbExam');if(e){e.placeholder='Exam ID (जैसे 23)';e.inputMode='numeric';let b=e.closest('label')?.querySelector('b');if(b)b.textContent='Exam ID'}},0);return r};
+})();
+</script>
+</body>
 </html>
 
 <script id="strict-main-subfolder-runtime-final">
@@ -3594,5 +3677,48 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',installSingleHamburgerHandler);
   else installSingleHamburgerHandler();
   window.addEventListener('pageshow',installSingleHamburgerHandler);
+})();
+</script>
+
+<!-- OWNER LEARNING ACTUAL RENDERER FIX 2026-09-13 -->
+<script id="ownerLearningActualRendererFix20260913">
+(function(){
+ const labels={english:'English Learning','hindi-inscript':'Hindi Unicode InScript','hindi-remington-gail':'Hindi Unicode Remington / GAIL','hindi-kruti-dev':'Hindi Kruti Dev','hindi-devlys':'Hindi DevLys','hindi-chanakya':'Hindi Chanakya'};
+ window.OWNER_LEARN_FOLDER=window.OWNER_LEARN_FOLDER||'';
+ window.closeOwnerLearningFolder=function(){window.OWNER_LEARN_FOLDER='';return window.renderOwnerLearningControl()};
+ window.openOwnerLearningFolder=function(key){window.OWNER_LEARN_FOLDER=key;return window.renderOwnerLearningControl()};
+ window.toggleOwnerLearningMatter=async function(id,key){
+   const m=(window.OWNER_LEARN?.matters||[]).find(x=>+x.id===+id); if(!m)return;
+   try{await api('/api/admin/learning-matters/'+id,{method:'PUT',body:JSON.stringify({active:!Number(m.active)})});showToast(Number(m.active)?'Matter hidden':'Matter activated');window.OWNER_LEARN_FOLDER=key;await window.renderOwnerLearningControl()}catch(e){showToast(e.message)}
+ };
+ window.viewOwnerLearningMatter=function(id){
+   const m=(window.OWNER_LEARN?.matters||[]).find(x=>+x.id===+id);if(!m)return;
+   const d=document.createElement('div');d.className='modal';d.innerHTML=`<div class="modal-card" style="max-width:900px"><div class="panel-head"><div><h2 style="margin:0">${esc(m.title||'Learning Matter')}</h2><div class="muted">${esc(m.level||'Practice')} · ${esc(m.matter_type||'passage')}</div></div><button class="btn btn-white" data-x>✕</button></div><div class="card" style="margin-top:12px;white-space:pre-wrap;line-height:1.7">${esc(m.content||'')}</div></div>`;document.body.appendChild(d);d.querySelector('[data-x]').onclick=()=>d.remove();
+ };
+ window.renderOwnerLearningControl=async function(){
+   const pane=document.getElementById('ownerPane');if(!pane)return;
+   pane.innerHTML='<div class="card" style="padding:20px">Loading Learning Control…</div>';
+   try{
+     const [plans,matters]=await Promise.all([api('/api/admin/learning-plans'),api('/api/admin/learning-matters')]);window.OWNER_LEARN={plans,matters};
+     const key=window.OWNER_LEARN_FOLDER||'';
+     if(!key){
+       const folders=plans.map(x=>{const n=matters.filter(m=>m.course_key===x.course_key).length;return `<button class="learning-folder-final" onclick="openOwnerLearningFolder('${x.course_key}')"><span class="badge">LEARNING FOLDER</span><h3>📁 ${esc(x.title||labels[x.course_key]||x.course_key)}</h3><div class="muted">${n} matters · ${Number(x.paid_enabled)?'Paid ₹'+Number(x.fee_amount||0):'Free'} · ${Number(x.daily_demo_limit||0)} demo/day · ${Number(x.validity_days||30)} days</div><div style="margin-top:10px"><span class="btn btn-primary">Open Folder →</span></div></button>`}).join('');
+       pane.innerHTML=`<div class="card" style="padding:20px;margin-bottom:16px"><h2 style="margin:0">📚 Learning Control</h2><div class="muted">पहले Learning folder खोलें; उसी folder में access और matters manage करें.</div></div><div class="learning-folder-grid-final">${folders||'<div class="notice">No Learning folders found.</div>'}</div>`;return;
+     }
+     const p=plans.find(x=>x.course_key===key);if(!p){window.OWNER_LEARN_FOLDER='';return window.renderOwnerLearningControl()}
+     const rows=matters.filter(m=>m.course_key===key);
+     const body=rows.length?rows.map((m,i)=>`<tr><td>${i+1}</td><td><b>${esc(m.title||'')}</b></td><td>${esc(m.level||'Practice')} / ${esc(m.matter_type||'passage')}</td><td>${Number(m.sort_order||0)}</td><td><button class="btn btn-white" onclick="toggleOwnerLearningMatter(${m.id},'${key}')">${Number(m.active)?'ON':'OFF'}</button></td><td style="white-space:nowrap"><button class="btn btn-white" onclick="viewOwnerLearningMatter(${m.id})">Open</button> <button class="btn btn-soft" onclick="openLearningMatterEditorForFolder('${key}',${m.id})">Edit</button> <button class="btn btn-white" onclick="deleteLearningMatter(${m.id})">Delete</button></td></tr>`).join(''):`<tr><td colspan="6"><div class="notice">इस folder में अभी कोई custom Learning Matter नहीं है। ऊपर “+ Add Matter” से जोड़ें।</div></td></tr>`;
+     pane.innerHTML=`<div class="card" style="padding:20px;margin-bottom:14px"><div class="panel-head"><div><button class="btn btn-white" onclick="closeOwnerLearningFolder()">← Learning Folders</button><h2 style="margin:12px 0 3px">📁 ${esc(p.title||labels[key]||key)}</h2></div><button class="btn btn-primary" onclick="openLearningMatterEditorForFolder('${key}')">+ Add Matter in this Folder</button></div><div class="form-grid" style="margin-top:14px"><label>Access Type<select class="select" id="lpaid-${key}"><option value="0" ${!Number(p.paid_enabled)?'selected':''}>Free</option><option value="1" ${Number(p.paid_enabled)?'selected':''}>Paid after demos</option></select></label><label>Fee Amount ₹<input class="input" id="lfee-${key}" type="number" min="0" value="${Number(p.fee_amount||0)}"></label><label>Demo Per Day<input class="input" id="ldemo-${key}" type="number" min="0" value="${Number(p.daily_demo_limit||0)}"></label><label>Validity Days<input class="input" id="ldays-${key}" type="number" min="1" value="${Number(p.validity_days||30)}"></label></div><button class="btn btn-soft" style="margin-top:10px" onclick="saveOwnerLearningPlan('${key}')">Save Access Conditions</button></div><div class="card table-wrap"><table class="table"><thead><tr><th>#</th><th>Title</th><th>Level / Type</th><th>Order</th><th>ON/OFF</th><th>Open / Edit / Delete</th></tr></thead><tbody>${body}</tbody></table></div>`;
+   }catch(e){pane.innerHTML=`<div class="notice">${esc(e.message||String(e))}</div>`}
+ };
+ // Force the actual Owner tab to use this renderer, regardless of earlier duplicate definitions.
+ const previousOwnerTab=window.ownerTab;
+ window.ownerTab=function(name,btn){
+   if(name==='learningcontrol'){
+     document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');
+     window.OWNER_LEARN_FOLDER='';return window.renderOwnerLearningControl();
+   }
+   return previousOwnerTab.apply(this,arguments);
+ };
 })();
 </script>
