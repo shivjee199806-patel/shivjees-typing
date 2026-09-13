@@ -1464,7 +1464,61 @@ function runOneTimeLegacyMerge(){
 }
 try{runOneTimeLegacyMerge()}catch(e){console.error('Legacy localhost merge FAILED; Live DB left transaction-safe:',e.message)}
 
+// OWNER CHHOTA BHAI — generate an Owner-requested draft from topic/about matter.
+// Requires OPENAI_API_KEY on the server. The key is never sent to the browser.
+app.post('/api/admin/brother/generate',auth,admin,async(req,res)=>{
+ try{
+  const about=String(req.body?.about||'').trim();
+  const exam=String(req.body?.exam||'').trim().slice(0,160);
+  const language=String(req.body?.language||'English').slice(0,60);
+  const format=String(req.body?.format||'typing').slice(0,30);
+  const words=Math.max(100,Math.min(2000,Number(req.body?.words)||500));
+  if(!about)return res.status(400).json({error:'About Matter / Topic required'});
+  if(about.length>4000)return res.status(400).json({error:'Topic instruction बहुत लंबी है'});
+  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:'छोटा भाई AI अभी connect नहीं है — server में OPENAI_API_KEY जोड़ना होगा'});
+  const kind=format==='notes'?'exam-oriented study notes':format==='questions'?'exam-oriented practice questions':'a clean typing-practice passage';
+  const instructions=`You are the private Owner Matter Helper for Shivjee's Typing. Create ${kind}. Follow the owner's topic exactly. Exam: ${exam||'general'}. Language: ${language}. Target length: about ${words} words. Keep facts accurate, useful and suitable for the named exam. Do not invent PYQ claims, official rules, dates, statistics, or citations when uncertain. For typing passages, return a title followed by natural continuous passage text, not meta commentary. For notes/questions, use clear exam-oriented formatting. Return only the prepared matter.`;
+  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Authorization':'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MATTER_MODEL||'gpt-5.6-luna',instructions,input:about,max_output_tokens:Math.max(1200,Math.min(6000,words*3))})});
+  const d=await r.json();
+  if(!r.ok){console.error('Chhota Bhai AI error',r.status,d?.error?.message||'');return res.status(502).json({error:'AI matter service से response नहीं मिला'})}
+  let text=String(d.output_text||'').trim();
+  if(!text&&Array.isArray(d.output)){text=d.output.flatMap(x=>Array.isArray(x.content)?x.content:[]).map(x=>x.text||'').join('\n').trim()}
+  if(!text)return res.status(502).json({error:'Matter खाली आया — दोबारा try करें'});
+  res.json({ok:true,text});
+ }catch(e){console.error('Chhota Bhai generate failed:',e.message);res.status(500).json({error:'Matter तैयार नहीं हो पाया'})}
+});
+
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+
+// OWNER CHHOTA BHAI — fetch text only from an Owner-supplied public source URL.
+// Security: admin-only, http(s) only, private/local network targets blocked, response size capped.
+const dnsPromises=require('dns').promises;
+function jpPrivateIp(ip){
+  if(!ip)return true;
+  if(ip==='::1'||ip==='0.0.0.0'||ip.startsWith('127.')||ip.startsWith('10.')||ip.startsWith('192.168.')||ip.startsWith('169.254.'))return true;
+  const m=ip.match(/^172\.(\d+)\./); if(m&&+m[1]>=16&&+m[1]<=31)return true;
+  const low=ip.toLowerCase(); if(low.startsWith('fc')||low.startsWith('fd')||low.startsWith('fe80:'))return true;
+  return false;
+}
+function jpHtmlText(html){return String(html||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<noscript[\s\S]*?<\/noscript>/gi,' ').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|h[1-6]|tr)>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").replace(/[ \t]+/g,' ').replace(/\n\s*\n\s*\n+/g,'\n\n').trim()}
+app.post('/api/admin/brother/fetch-source',auth,admin,async(req,res)=>{
+ try{
+  const raw=String(req.body?.url||'').trim(); if(!raw)return res.status(400).json({error:'Source URL required'});
+  let u; try{u=new URL(raw)}catch(e){return res.status(400).json({error:'Valid URL डालें'})}
+  if(!['http:','https:'].includes(u.protocol))return res.status(400).json({error:'Only http/https source allowed'});
+  const host=u.hostname.toLowerCase(); if(host==='localhost'||host.endsWith('.local'))return res.status(400).json({error:'Local/private URL allowed नहीं है'});
+  const addrs=await dnsPromises.lookup(host,{all:true}); if(!addrs.length||addrs.some(x=>jpPrivateIp(x.address)))return res.status(400).json({error:'Private/local network source blocked'});
+  const ctrl=new AbortController(); const timer=setTimeout(()=>ctrl.abort(),10000);
+  const r=await fetch(u.toString(),{redirect:'follow',signal:ctrl.signal,headers:{'User-Agent':'ShivjeesTyping-OwnerMatterHelper/1.0','Accept':'text/html,text/plain;q=0.9'}}); clearTimeout(timer);
+  if(!r.ok)return res.status(400).json({error:'Source open नहीं हुआ ('+r.status+')'});
+  const len=Number(r.headers.get('content-length')||0); if(len>1500000)return res.status(413).json({error:'Source बहुत बड़ा है'});
+  const ct=String(r.headers.get('content-type')||''); if(!ct.includes('text/')&&!ct.includes('html')&&!ct.includes('json'))return res.status(400).json({error:'यह text/web-page source नहीं है'});
+  let body=await r.text(); if(body.length>1500000)body=body.slice(0,1500000);
+  const text=ct.includes('html')?jpHtmlText(body):body.trim(); if(!text)return res.status(400).json({error:'Source से readable text नहीं मिला'});
+  res.json({ok:true,url:r.url,text:text.slice(0,250000)});
+ }catch(e){res.status(400).json({error:e?.name==='AbortError'?'Source timeout हुआ':'Source fetch नहीं हो पाया'})}
+});
+
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});
 
 // Automatic Daily Passage Queue disabled by Owner; do not block server startup.
