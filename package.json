@@ -2,6 +2,9 @@
   "name": "shivjees-typing",
   "version": "2.0.0",
   "private": true,
+  "engines": {
+  "node": "22.x"
+},
   "scripts": {
     "start": "node server.js",
     "check": "node --check server.js"
