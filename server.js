@@ -1628,6 +1628,70 @@ app.get('/uppco-typing-test.html',(req,res)=>res.redirect(301,'/up-police-comput
 app.get('/privacy',(req,res)=>res.type('html').send('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy Policy | Shivjee\'s Typing</title><style>body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.65;color:#172033}h1,h2{color:#111827}a{color:#1d4ed8}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:24px}</style></head><body><h1>Privacy Policy</h1><p><strong>Shivjee\'s Typing</strong> — jptyping.in</p><div class="box"><p>We collect only the information needed to provide and secure our typing-practice services, such as your name, email address, account details, typing-test results, learning progress, and information you choose to provide.</p><h2>Google Sign-In</h2><p>If you choose Continue with Google, we may receive basic profile information authorized by you, such as your name, email address, and Google account identifier. We use this information only to create, identify, and secure your Shivjee\'s Typing candidate account.</p><h2>How information is used</h2><p>Information may be used to provide login and account access, save test results and progress, operate learning and certificate features, prevent abuse, provide support, and maintain service security.</p><h2>Sharing and security</h2><p>We do not sell personal information. Information may be processed by service providers needed to operate the website, authentication, hosting, email, or payment features. We use reasonable technical measures to protect account information.</p><h2>Your choices</h2><p>You may choose not to use Google Sign-In and use available standard account methods instead. You may contact us regarding your account or personal information.</p><h2>Contact</h2><p>Email: shivjee199806@gmail.com</p><p>Last updated: 13 September 2026.</p></div><p><a href="/">Back to Shivjee\'s Typing</a></p></body></html>'));
 app.get('/terms',(req,res)=>res.type('html').send('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terms of Service | Shivjee\'s Typing</title><style>body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.65;color:#172033}h1,h2{color:#111827}a{color:#1d4ed8}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:24px}</style></head><body><h1>Terms of Service</h1><p><strong>Shivjee\'s Typing</strong> — jptyping.in</p><div class="box"><p>By using Shivjee\'s Typing, you agree to use the service lawfully and for typing practice, learning, testing, and related features offered on the website.</p><h2>Accounts</h2><p>You are responsible for the activity on your account and for keeping your login credentials secure. Google Sign-In is an optional candidate login method where available.</p><h2>Practice and results</h2><p>Typing scores, practice results, learning progress, certificates, and other website features are provided according to the rules displayed by the service. Practice results do not by themselves represent an official government examination result or qualification.</p><h2>Acceptable use</h2><p>You must not misuse the service, attempt unauthorized access, interfere with its operation, impersonate another user, or use the service for unlawful activity.</p><h2>Availability and changes</h2><p>Features may be updated, suspended, or changed when necessary for maintenance, security, or operation. We aim to keep user-facing rules and access conditions clear.</p><h2>Contact</h2><p>Questions about these terms can be sent to shivjee199806@gmail.com.</p><p>Last updated: 13 September 2026.</p></div><p><a href="/">Back to Shivjee\'s Typing</a></p></body></html>'));
 
+// ===== PRACTICE FOLDER HIERARCHY 2026-09-14 =====
+// Independent Free Practice structure: Main Folder -> Subfolder -> Passage.
+try{db.exec(`CREATE TABLE IF NOT EXISTS practice_folders(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL UNIQUE,
+ active INTEGER NOT NULL DEFAULT 1,
+ sort_order INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS practice_subfolders(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ folder_id INTEGER NOT NULL,
+ name TEXT NOT NULL,
+ language TEXT NOT NULL DEFAULT 'English',
+ active INTEGER NOT NULL DEFAULT 1,
+ sort_order INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(folder_id,name),
+ FOREIGN KEY(folder_id) REFERENCES practice_folders(id)
+);`)}catch(e){console.warn('practice folder schema',e.message)}
+try{const c=db.prepare('PRAGMA table_info(passages)').all().map(x=>x.name);if(!c.includes('practice_subfolder_id'))db.exec('ALTER TABLE passages ADD COLUMN practice_subfolder_id INTEGER')}catch(e){console.warn('practice passage column',e.message)}
+
+app.get('/api/practice-tree',(req,res)=>{
+  try{
+    const folders=db.prepare('SELECT * FROM practice_folders WHERE active=1 ORDER BY sort_order,id').all();
+    const subs=db.prepare(`SELECT s.*,COUNT(p.id) passage_count FROM practice_subfolders s LEFT JOIN passages p ON p.practice_subfolder_id=s.id AND p.active=1 WHERE s.active=1 GROUP BY s.id ORDER BY s.sort_order,s.id`).all();
+    const ungrouped=db.prepare('SELECT COUNT(*) n FROM passages WHERE active=1 AND exam_id IS NULL AND practice_subfolder_id IS NULL').get()?.n||0;
+    res.json({folders:folders.map(f=>({...f,subfolders:subs.filter(s=>+s.folder_id===+f.id)})),ungrouped});
+  }catch(e){res.status(500).json({error:e.message})}
+});
+app.get('/api/practice-subfolders/:id/passages',(req,res)=>{
+  const id=Number(req.params.id);if(!id)return res.status(400).json({error:'Invalid practice subfolder'});
+  res.json(db.prepare('SELECT * FROM passages WHERE active=1 AND exam_id IS NULL AND practice_subfolder_id=? ORDER BY id DESC').all(id));
+});
+app.get('/api/admin/practice-tree',auth,admin,(req,res)=>{
+  const folders=db.prepare('SELECT * FROM practice_folders ORDER BY sort_order,id').all();
+  const subs=db.prepare(`SELECT s.*,COUNT(p.id) passage_count FROM practice_subfolders s LEFT JOIN passages p ON p.practice_subfolder_id=s.id GROUP BY s.id ORDER BY s.sort_order,s.id`).all();
+  res.json({folders:folders.map(f=>({...f,subfolders:subs.filter(s=>+s.folder_id===+f.id)}))});
+});
+app.post('/api/admin/practice-folders',auth,admin,(req,res)=>{
+  const name=String(req.body?.name||'').trim();if(name.length<2)return res.status(400).json({error:'Folder name required'});
+  try{const id=db.prepare('INSERT INTO practice_folders(name,active) VALUES(?,1)').run(name).lastInsertRowid;audit(req,'CREATE','practice_folder',id,name);res.json({id})}catch(e){res.status(400).json({error:'यह Practice Folder पहले से मौजूद है'})}
+});
+app.post('/api/admin/practice-subfolders',auth,admin,(req,res)=>{
+  const folderId=Number(req.body?.folder_id),name=String(req.body?.name||'').trim(),language=/hindi/i.test(String(req.body?.language||''))?'Hindi':'English';
+  if(!folderId||name.length<2)return res.status(400).json({error:'Folder और Subfolder name required'});
+  if(!db.prepare('SELECT id FROM practice_folders WHERE id=?').get(folderId))return res.status(404).json({error:'Practice Folder not found'});
+  try{const id=db.prepare('INSERT INTO practice_subfolders(folder_id,name,language,active) VALUES(?,?,?,1)').run(folderId,name,language).lastInsertRowid;audit(req,'CREATE','practice_subfolder',id,name);res.json({id})}catch(e){res.status(400).json({error:'यह Subfolder पहले से मौजूद है'})}
+});
+app.post('/api/admin/practice-passages',auth,admin,(req,res)=>{
+  const b=req.body||{},subId=Number(b.practice_subfolder_id),title=String(b.title||'').trim(),content=String(b.content||'').trim();
+  const sf=db.prepare('SELECT * FROM practice_subfolders WHERE id=?').get(subId);if(!sf)return res.status(404).json({error:'Practice Subfolder not found'});
+  if(title.length<2||!content)return res.status(400).json({error:'Passage title और text दोनों भरें'});
+  const language=sf.language||'English',layout=language==='Hindi'?'Unicode / Mangal':'QWERTY';
+  const id=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,qualification_method,auto_scroll,practice_subfolder_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(title,language,layout,String(b.difficulty||'Medium'),content,1,['current_char','current_word','errors_only','none'].includes(b.highlight_mode)?b.highlight_mode:'none',null,b.required_wpm===''?null:Number(b.required_wpm||30),b.required_accuracy===''?null:Number(b.required_accuracy||85),null,null,b.duration_override===''?null:Number(b.duration_override||0)||null,String(b.instructions||'').slice(0,3000),'wpm_accuracy',1,subId).lastInsertRowid;
+  audit(req,'CREATE','practice_passage',id,title);res.json({id});
+});
+app.delete('/api/admin/practice-folders/:id',auth,admin,(req,res)=>{
+ const id=Number(req.params.id),n=db.prepare('SELECT COUNT(*) n FROM practice_subfolders WHERE folder_id=?').get(id)?.n||0;if(n)return res.status(400).json({error:'पहले इस Folder के Subfolders हटाएँ'});db.prepare('DELETE FROM practice_folders WHERE id=?').run(id);res.json({ok:true});
+});
+app.delete('/api/admin/practice-subfolders/:id',auth,admin,(req,res)=>{
+ const id=Number(req.params.id),n=db.prepare('SELECT COUNT(*) n FROM passages WHERE practice_subfolder_id=?').get(id)?.n||0;if(n)return res.status(400).json({error:'पहले इस Subfolder के passages हटाएँ'});db.prepare('DELETE FROM practice_subfolders WHERE id=?').run(id);res.json({ok:true});
+});
+
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // OWNER CHHOTA BHAI — fetch text only from an Owner-supplied public source URL.
