@@ -2818,60 +2818,6 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
 
 
 
-<style id="owner-restore-subfolder-passage-controls-css">
-.owner-restore-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.owner-restore-create{margin:0 0 14px;padding:16px}.owner-restore-create .form-grid{margin-top:10px}
-</style>
-<script id="owner-restore-subfolder-passage-controls-js">
-/* RESTORE: Owner can create exam sub-folders and add new passages without removing the newer directory/search UI. */
-(function(){
-  const _ownerTabRestore=window.ownerTab;
-  if(typeof _ownerTabRestore!=='function') return;
-  function slugifyJP(s){return String(s||'').toLowerCase().trim().replace(/[^a-z0-9\u0900-\u097f]+/g,'-').replace(/^-+|-+$/g,'')}
-  window.createOwnerSubfolderRestored=async function(){
-    try{
-      const parent=(window.OWNER_STRICT_TREE||[]).find(x=>x.key===window.OWNER_STRICT_PARENT);
-      if(!parent) throw Error('Main folder पहले खोलें');
-      const name=(document.getElementById('restoreSubName')?.value||'').trim();
-      if(!name) throw Error('Sub-folder name लिखें');
-      const lang=document.getElementById('restoreSubLang')?.value||'English';
-      const fullName=parent.name+' - '+name;
-      const baseSlug=slugifyJP(parent.name+'-'+name) || ('exam-'+Date.now());
-      const existing=(window.OWNER?.e||[]).some(e=>String(e.name||'').trim().toLowerCase()===fullName.toLowerCase());
-      if(existing) throw Error('यह sub-folder पहले से मौजूद है');
-      await api('/api/admin/exams',{method:'POST',body:JSON.stringify({name:fullName,slug:baseSlug,language:lang,layout:lang==='Hindi'?'InScript Unicode':'QWERTY',duration:15,required_wpm:30,required_accuracy:85,fee_amount:0,validity_days:30,daily_demo_limit:4,paid_enabled:false,backspace_allowed:true,highlight_mode:'none',description:'Typing exam practice sub-folder',active:true})});
-      showToast('Exam sub-folder created');
-      await window.ownerTab('exams');
-    }catch(e){showToast(e.message||'Sub-folder create नहीं हुआ')}
-  };
-  window.openAddPassageRestored=function(key){
-    window.OWNER_PASS_FOLDER=key;
-    if(typeof openOwnerExamPassages==='function') openOwnerExamPassages(key);
-    else { window.OWNER_PASS_FOLDER=key; window.ownerTab('passages'); }
-  };
-  window.ownerTab=async function(tab,btn){
-    const r=await _ownerTabRestore(tab,btn);
-    if(tab!=='exams') return r;
-    const pane=document.getElementById('ownerPane');
-    if(!pane||!window.OWNER_STRICT_PARENT) return r;
-    const parent=(window.OWNER_STRICT_TREE||[]).find(x=>x.key===window.OWNER_STRICT_PARENT);
-    if(!parent) return r;
-    if(!document.getElementById('restoreSubfolderBox')){
-      const box=document.createElement('div');box.id='restoreSubfolderBox';box.className='card owner-restore-create';
-      box.innerHTML=`<h3 style="margin:0">➕ Create New Sub-folder</h3><div class="muted">${esc(parent.name)} के अंदर नया typing exam sub-folder बनाएँ। Existing sub-folder duplicate नहीं बनेगा.</div><div class="form-grid"><input id="restoreSubName" class="input" placeholder="Sub-folder / Exam name"><select id="restoreSubLang" class="select"><option>English</option><option>Hindi</option></select></div><div class="owner-restore-actions"><button class="btn btn-primary" onclick="createOwnerSubfolderRestored()">+ Create Sub-folder</button></div>`;
-      const firstCard=pane.querySelector('.card'); if(firstCard) pane.insertBefore(box,firstCard); else pane.prepend(box);
-    }
-    pane.querySelectorAll('button').forEach(b=>{
-      if(b.textContent.trim()==='Manage Passages' && !b.parentElement.querySelector('.restore-add-passage')){
-        const keyMatch=(b.getAttribute('onclick')||'').match(/openOwnerExamPassages\('([^']+)'\)/);
-        if(!keyMatch)return;
-        const add=document.createElement('button');add.className='btn btn-primary restore-add-passage';add.textContent='+ Add New Passage';add.setAttribute('onclick',`openAddPassageRestored('${keyMatch[1]}')`);b.insertAdjacentElement('afterend',add);
-      }
-    });
-    return r;
-  };
-})();
-</script>
-
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 /* ownerEditableLearning20260913 */
 (function(){
@@ -4167,8 +4113,6 @@ window.renderInstructions = function(){
 })();
 </script>
 
-</body>
-</html>
 <style id="jp-topnav-light-theme-final">
 /* User-approved: light theme treatment for top navigation only. */
 .topbar .topnav a{
@@ -4203,5 +4147,5 @@ body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav 
  .topbar .topnav a:hover,.topbar .topnav a.active{transform:none!important}
 }
 </style>
-
-
+</body>
+</html>
