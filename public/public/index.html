@@ -4325,21 +4325,434 @@ body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav 
   window.jpStartPracticeById=async function(id,sid){if(!S.user){auth('login');return}const p=await api('/api/practice-subfolders/'+sid+'/passages');S.passage=p.find(x=>+x.id===+id);if(!S.passage)return showToast('Passage not found');S.exam=null;S.total=Number(document.getElementById('pmins')?.value||300);S.left=S.total;S.started=false;S.done=false;S.mode='practice';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest()};
 })();
 </script>
-<script id="jp-bottom-stray-code-cleanup">
-/* Remove only accidental raw newline/code-marker text leaked at the very bottom of the page. */
+<script>
 (function(){
-  function cleanBottomLeak(){
-    const nodes=[...document.body.childNodes];
-    for(const node of nodes){
-      if(node.nodeType!==Node.TEXT_NODE) continue;
-      const raw=String(node.nodeValue||'');
-      const t=raw.trim();
-      if(!t) continue;
-      if(/^(?:\\?n[\\n\s]*)+$/i.test(t) || /^(?:\\n\s*)+$/i.test(t)) node.remove();
+ const keyOf=(lang,track)=>lang==='English'?'english':track==='inscript'?'hindi-inscript':track==='remington-gail'?'hindi-remington-gail':track==='krutidev'?'hindi-kruti-dev':track==='devlys'?'hindi-devlys':'hindi-chanakya';
+ const latestRender=window.renderLearningCourseV3;
+ window.renderLearningCourseV3=async function(lang,trackId){
+   const key=keyOf(lang,trackId);
+   try{
+     const g=await api('/api/learning/access/'+encodeURIComponent(key));
+     if(!g.allowed){
+       const box=document.getElementById('learningFolder');if(!box)return;
+       const p=g.plan||{},fee=Number(p.fee_amount||0),demo=Number(p.daily_demo_limit||0),days=Number(p.validity_days||30);
+       box.innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="${lang==='Hindi'?"openLearningFolderV3('Hindi')":"learning()"}">← Back</button></div><div class="card jp-learning-pay-gate" style="padding:24px"><span class="badge amber">🔒 PAID LEARNING FOLDER</span><h2>${esc(p.title||'Learning Folder')}</h2><p>इस Learning folder की Daily Demo limit पूरी हो चुकी है। आगे access के लिए इसी folder का payment या active Full Access जरूरी है.</p><div class="metrics"><div class="metric"><small>Fee</small><b>₹${fee}</b></div><div class="metric"><small>Demo/day</small><b>${demo}</b></div><div class="metric"><small>Validity</small><b>${days} Days</b></div></div><button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="demoPayLearning('${key}','${lang}','${trackId}')">Pay ₹${fee} Securely · Unlock Folder</button></div>`;
+       return;
+     }
+   }catch(e){showToast(e.message);return}
+   return latestRender(lang,trackId);
+ };
+ const pricingWithoutLearning=window.pricing;
+ window.pricing=async function(){
+   await pricingWithoutLearning.apply(this,arguments);
+   const page=document.querySelector('#app .page');if(!page)return;
+   page.querySelectorAll('#fxLearningPricing').forEach(x=>x.remove());
+   [...page.querySelectorAll('.page-title h1')].filter(h=>/Learning Pricing|Learning Access/i.test(h.textContent||'')).forEach(h=>{const head=h.closest('.page-title');const grid=head?.nextElementSibling;if(grid?.classList.contains('overall-plan-grid'))grid.remove();head?.remove()});
+ };
+})();
+</script>
+
+
+<style id="jp-natural-scroll-drag">
+/* Natural scrolling everywhere: wheel/trackpad remains native; horizontal overflow can also be dragged. */
+html,body{overscroll-behavior:auto!important;scroll-behavior:auto}
+.owner-full-page,.owner-full-page *{overscroll-behavior:auto}
+.jp-drag-scroll{cursor:grab!important;user-select:none!important;-webkit-user-select:none!important;touch-action:pan-x pan-y!important;scroll-behavior:auto!important}
+.jp-drag-scroll.jp-dragging{cursor:grabbing!important}
+</style>
+<script id="jp-natural-scroll-drag-js">
+(function(){
+ const selector='.table-wrap,.owner-passage-scroll,.owner-folder-scroll,.topnav,.tabs,.owner-control-tabs';
+ function bind(){
+  document.querySelectorAll(selector).forEach(function(el){
+   if(el.dataset.jpNaturalScroll==='1')return;
+   el.dataset.jpNaturalScroll='1';
+   /* Do not intercept wheel: browser/page gets normal wheel scrolling everywhere. */
+   if(el.scrollWidth>el.clientWidth+2)el.classList.add('jp-drag-scroll');
+   let down=false,sx=0,sl=0,moved=false;
+   el.addEventListener('pointerdown',function(e){
+    if(e.pointerType==='mouse' && e.button!==0)return;
+    if(e.target.closest('input,textarea,select'))return;
+    if(el.scrollWidth<=el.clientWidth+2)return;
+    down=true;moved=false;sx=e.clientX;sl=el.scrollLeft;el.classList.add('jp-dragging');
+    try{el.setPointerCapture(e.pointerId)}catch(_){}
+   });
+   el.addEventListener('pointermove',function(e){
+    if(!down)return;const dx=e.clientX-sx;if(Math.abs(dx)>4)moved=true;el.scrollLeft=sl-dx;
+   });
+   function up(e){if(!down)return;down=false;el.classList.remove('jp-dragging');try{el.releasePointerCapture(e.pointerId)}catch(_){} }
+   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+   el.addEventListener('click',function(e){if(moved){e.preventDefault();e.stopPropagation();moved=false}},true);
+  });
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+ new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
+ window.addEventListener('resize',bind,{passive:true});
+})();
+</script>
+
+<script id="pwa-service-worker-register">
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+  });
+}
+</script>
+
+<script id="exam-behavior-default-manual-final-20260914">
+(function(){
+// Every new exam attempt starts from the Owner-configured ACTUAL exam behavior.
+// Candidate may manually change Backspace/Highlight on the Instructions screen for that attempt only.
+const _openPickerBehavior = window.openPassagePicker;
+window.openPassagePicker = async function(){
+  if(S.exam){
+    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
+    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
+  }
+  return _openPickerBehavior.apply(this, arguments);
+};
+const _prepareBehavior = window.prepareSelectedPassage;
+window.prepareSelectedPassage = async function(id){
+  if(S.exam){
+    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
+    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
+  }
+  await _prepareBehavior.call(this,id);
+  // Older wrappers may restore a saved choice; force actual defaults before Instructions.
+  if(S.exam){
+    S.attemptBackspaceAllowed = !!S.exam.backspace_allowed;
+    S.attemptHighlightMode = S.exam.highlight_mode || 'none';
+    if(S.passage) S.passage.highlight_mode = S.attemptHighlightMode;
+  }
+  renderInstructions();
+};
+// FINAL FIX: Instructions selectors live beside Terms/Conditions. Highlight defaults OFF unless the exam itself is explicitly configured otherwise.
+// The Start Practice button uses a direct inline handler as well as JS binding so it cannot become a dead button after later wrappers.
+window.renderInstructions = function(){
+ const e=S.exam,p=S.passage; const isExam=S.mode==='exam'||S.mode==='live'; if(!isExam){renderTest();return}
+ const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');
+ // Never invent visual highlighting as an "actual exam" feature. Existing exam config may explicitly set a mode; otherwise OFF.
+ const configured=['current_char','current_word','errors_only','none'].includes(e?.highlight_mode)?e.highlight_mode:'none';
+ if(!['current_char','current_word','errors_only','none'].includes(S.attemptHighlightMode)) S.attemptHighlightMode=configured;
+ const hm=S.attemptHighlightMode||'none';
+ const modeName={current_char:'Current Character',current_word:'Current Word',errors_only:'Errors Only',none:'Highlight Off'}[configured]||'Highlight Off';
+ setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Main Exam से पहले 2-minute keyboard practice मिलेगी; यह final result में count नहीं होगी और Skip की जा सकती है.</li><li>Practice के बाद <b>Enter Main Exam</b> दबाते ही exam typing screen खुलेगी.</li><li>Submit/End Exam से पहले confirmation मिलेगा.</li></ol>
+ <div class="exam-checks">
+   <div class="candidate-attempt-options">
+    <label><b>Backspace</b><select id="instructionBackspace" class="select" style="display:block;min-width:190px;margin-top:6px"><option value="1" ${S.attemptBackspaceAllowed?'selected':''}>Backspace On</option><option value="0" ${!S.attemptBackspaceAllowed?'selected':''}>Backspace Off</option></select></label>
+    <label><b>Highlight (Practice Display)</b><select id="instructionHighlight" class="select" style="display:block;min-width:210px;margin-top:6px"><option value="none" ${hm==='none'?'selected':''}>Highlight Off</option><option value="current_char" ${hm==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${hm==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${hm==='errors_only'?'selected':''}>Errors Only</option></select></label>
+    <small><b>Default exam setting:</b> ${e?.backspace_allowed?'Backspace On':'Backspace Off'} · ${esc(modeName)}. Highlight केवल practice display सुविधा है; जहाँ official/configured highlight rule नहीं है वहाँ default <b>Off</b> रहेगा. Candidate इस attempt के लिए manually बदल सकता है.</small>
+   </div>
+   <label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}
+ </div><button id="goPractice" type="button" class="btn btn-primary" onclick="return jpEnterTwoMinutePractice(event)">Start 2-Minute Practice →</button> <button type="button" class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);
+ const bs=document.getElementById('instructionBackspace'),hs=document.getElementById('instructionHighlight');
+ if(bs)bs.onchange=()=>{S.attemptBackspaceAllowed=bs.value==='1'};
+ if(hs)hs.onchange=()=>{S.attemptHighlightMode=hs.value;if(S.passage)S.passage.highlight_mode=hs.value};
+};
+window.jpEnterTwoMinutePractice=function(ev){
+ if(ev){ev.preventDefault();ev.stopPropagation()}
+ const hindi=String(S.exam?.language||S.passage?.language||'').toLowerCase().includes('hindi');
+ const read=!!document.getElementById('readCheck')?.checked;
+ const hindiOk=!hindi||!!document.getElementById('hindiCheck')?.checked;
+ if(!read||!hindiOk){showToast(hindi?'पहले दोनों instruction checkboxes tick करें।':'पहले instructions वाला checkbox tick करें।');return false}
+ try{renderPrePractice()}catch(err){console.error('2-minute practice start failed',err);showToast('Practice start नहीं हुई: '+(err?.message||'Unknown error'))}
+ return false;
+};
+})();
+</script>
+<section id="jpSeoDiscover" style="max-width:1100px;margin:24px auto;padding:20px"><h2>Free Typing Tests & Exam Practice</h2><p>Practice English and Hindi typing, check WPM and accuracy, and prepare with timed typing tests.</p><p><a href="/typing-test">Online Typing Test</a> · <a href="/english-typing-test">English Typing Test</a> · <a href="/hindi-typing-test">Hindi Typing Test</a> · <a href="/15-minute-typing-test">15 Minute Typing Test</a> · <a href="/35-wpm-typing-test">35 WPM Challenge</a> · <a href="/up-police-computer-operator-typing-test">UP Police Computer Operator Typing</a> · <a href="/ssc-typing-test">SSC Typing</a> · <a href="/railway-typing-test">Railway/RRB Typing</a> · <a href="/wpm-calculator">WPM Calculator</a></p></section>
+<style id="owner-restore-subfolder-passage-controls-css">
+.owner-restore-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.owner-restore-create{margin:0 0 14px;padding:16px}.owner-restore-create .form-grid{margin-top:10px}
+</style>
+<script id="owner-restore-subfolder-passage-controls-js">
+/* RESTORE: Owner can create exam sub-folders and add new passages without removing the newer directory/search UI. */
+(function(){
+  const _ownerTabRestore=window.ownerTab;
+  if(typeof _ownerTabRestore!=='function') return;
+  function slugifyJP(s){return String(s||'').toLowerCase().trim().replace(/[^a-z0-9\u0900-\u097f]+/g,'-').replace(/^-+|-+$/g,'')}
+  window.createOwnerSubfolderRestored=async function(){
+    try{
+      const parent=(window.OWNER_STRICT_TREE||[]).find(x=>x.key===window.OWNER_STRICT_PARENT);
+      if(!parent) throw Error('Main folder पहले खोलें');
+      const name=(document.getElementById('restoreSubName')?.value||'').trim();
+      if(!name) throw Error('Sub-folder name लिखें');
+      const lang=document.getElementById('restoreSubLang')?.value||'English';
+      const fullName=parent.name+' - '+name;
+      const baseSlug=slugifyJP(parent.name+'-'+name) || ('exam-'+Date.now());
+      const existing=(window.OWNER?.e||[]).some(e=>String(e.name||'').trim().toLowerCase()===fullName.toLowerCase());
+      if(existing) throw Error('यह sub-folder पहले से मौजूद है');
+      await api('/api/admin/exams',{method:'POST',body:JSON.stringify({name:fullName,slug:baseSlug,language:lang,layout:lang==='Hindi'?'InScript Unicode':'QWERTY',duration:15,required_wpm:30,required_accuracy:85,fee_amount:0,validity_days:30,daily_demo_limit:4,paid_enabled:false,backspace_allowed:true,highlight_mode:'none',description:'Typing exam practice sub-folder',active:true})});
+      showToast('Exam sub-folder created');
+      await window.ownerTab('exams');
+    }catch(e){showToast(e.message||'Sub-folder create नहीं हुआ')}
+  };
+  window.openAddPassageRestored=function(key){
+    window.OWNER_PASS_FOLDER=key;
+    if(typeof openOwnerExamPassages==='function') openOwnerExamPassages(key);
+    else { window.OWNER_PASS_FOLDER=key; window.ownerTab('passages'); }
+  };
+  window.ownerTab=async function(tab,btn){
+    const r=await _ownerTabRestore(tab,btn);
+    if(tab!=='exams') return r;
+    const pane=document.getElementById('ownerPane');
+    if(!pane||!window.OWNER_STRICT_PARENT) return r;
+    const parent=(window.OWNER_STRICT_TREE||[]).find(x=>x.key===window.OWNER_STRICT_PARENT);
+    if(!parent) return r;
+    if(!document.getElementById('restoreSubfolderBox')){
+      const box=document.createElement('div');box.id='restoreSubfolderBox';box.className='card owner-restore-create';
+      box.innerHTML=`<h3 style="margin:0">➕ Create New Sub-folder</h3><div class="muted">${esc(parent.name)} के अंदर नया typing exam sub-folder बनाएँ। Existing sub-folder duplicate नहीं बनेगा.</div><div class="form-grid"><input id="restoreSubName" class="input" placeholder="Sub-folder / Exam name"><select id="restoreSubLang" class="select"><option>English</option><option>Hindi</option></select></div><div class="owner-restore-actions"><button class="btn btn-primary" onclick="createOwnerSubfolderRestored()">+ Create Sub-folder</button></div>`;
+      const firstCard=pane.querySelector('.card'); if(firstCard) pane.insertBefore(box,firstCard); else pane.prepend(box);
+    }
+    pane.querySelectorAll('button').forEach(b=>{
+      if(b.textContent.trim()==='Manage Passages' && !b.parentElement.querySelector('.restore-add-passage')){
+        const keyMatch=(b.getAttribute('onclick')||'').match(/openOwnerExamPassages\('([^']+)'\)/);
+        if(!keyMatch)return;
+        const add=document.createElement('button');add.className='btn btn-primary restore-add-passage';add.textContent='+ Add New Passage';add.setAttribute('onclick',`openAddPassageRestored('${keyMatch[1]}')`);b.insertAdjacentElement('afterend',add);
+      }
+    });
+    return r;
+  };
+})();
+</script>
+
+
+<!-- FINAL OWNER PASSAGE CONTROL FIX 2026-09-14 -->
+<style id="jp-owner-passage-controls-final-css">
+.jp-owner-passage-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.jp-owner-passage-toolbar .btn{white-space:nowrap}
+</style>
+<script id="jp-owner-passage-controls-final-js">
+(function(){
+  /* Fix Edit: summary rows do not contain full passage content. Fetch it before opening editor. */
+  const previousSelectPassageFinal=window.selectPassage;
+  if(typeof previousSelectPassageFinal==='function'){
+    window.selectPassage=async function(id){
+      try{
+        window.OWNER=window.OWNER||{};
+        let p=(window.OWNER.p||[]).find(x=>+x.id===+id);
+        if(!p || p.content===undefined || p.content===null){
+          const full=await api('/api/admin/passages/'+id);
+          if(!full) throw Error('Passage not found');
+          if(p) Object.assign(p,full);
+          else { window.OWNER.p=window.OWNER.p||[]; window.OWNER.p.push(full); }
+        }
+        return await previousSelectPassageFinal.call(this,id);
+      }catch(e){ showToast(e.message||'Passage edit नहीं खुला'); }
+    };
+    window.editPassage=function(id){return window.selectPassage(id)};
+  }
+
+  window.jpOpenPracticePassageAdd=function(){
+    window.OWNER_PASS_FOLDER='__FREE__';
+    window.OWNER_PASS_PAGE=1;
+    return window.ownerTab('passages');
+  };
+  window.jpOpenNewPassageAdd=function(key){
+    if(key) window.OWNER_PASS_FOLDER=key;
+    if(!window.OWNER_PASS_FOLDER || window.OWNER_PASS_FOLDER==='__FREE__'){
+      const groups=(typeof ownerFolderGroups==='function'?ownerFolderGroups():[]);
+      if(groups.length) window.OWNER_PASS_FOLDER=groups[0].key;
+    }
+    window.OWNER_PASS_PAGE=1;
+    return window.ownerTab('passages');
+  };
+  window.jpCreateSubfolderQuick=async function(){
+    try{
+      const tree=window.OWNER_STRICT_TREE||window.STRICT_EXAM_TREE||[];
+      if(!tree.length) throw Error('Main exam folders नहीं मिले');
+      let parent=(window.OWNER_STRICT_PARENT||'') && tree.find(x=>x.key===window.OWNER_STRICT_PARENT);
+      if(!parent){
+        const names=tree.map((x,i)=>(i+1)+'. '+x.name).join('\n');
+        const pick=prompt('जिस Main Folder में sub-folder बनाना है उसका number लिखें:\n\n'+names);
+        if(pick===null)return;
+        parent=tree[Number(pick)-1];
+      }
+      if(!parent) throw Error('सही Main Folder चुनें');
+      const child=prompt('New sub-folder / Exam name');
+      if(child===null)return;
+      const name=String(child||'').trim();
+      if(!name) throw Error('Sub-folder name लिखें');
+      const fullName=parent.name+' - '+name;
+      const slug=(parent.name+'-'+name).toLowerCase().trim().replace(/[^a-z0-9\u0900-\u097f]+/g,'-').replace(/^-+|-+$/g,'')+'-'+Date.now().toString().slice(-5);
+      const lang=(prompt('Language: English या Hindi','English')||'English').trim();
+      await api('/api/admin/exams',{method:'POST',body:JSON.stringify({name:fullName,slug,language:/hindi/i.test(lang)?'Hindi':'English',layout:/hindi/i.test(lang)?'InScript Unicode':'QWERTY',duration:15,required_wpm:30,required_accuracy:85,fee_amount:0,validity_days:30,daily_demo_limit:4,paid_enabled:false,backspace_allowed:true,highlight_mode:'none',description:'Typing exam practice sub-folder',active:true})});
+      showToast('Sub-folder added successfully');
+      window.OWNER.e=await api('/api/admin/exams');
+      window.OWNER_STRICT_PARENT=parent.key;
+      await window.ownerTab('exams');
+    }catch(e){showToast(e.message||'Sub-folder add नहीं हुआ')}
+  };
+
+  function addFinalOwnerControls(tab){
+    const pane=document.getElementById('ownerPane'); if(!pane)return;
+    pane.querySelectorAll('.jp-owner-passage-toolbar').forEach(x=>x.remove());
+    const bar=document.createElement('div');bar.className='jp-owner-passage-toolbar';
+    bar.innerHTML='<button class="btn btn-primary" type="button" onclick="jpOpenNewPassageAdd()">+ New Passage</button><button class="btn btn-primary" type="button" onclick="jpOpenPracticePassageAdd()">+ Practice Passage</button><button class="btn btn-soft" type="button" onclick="jpCreateSubfolderQuick()">+ Add Subfolder</button>';
+    pane.prepend(bar);
+
+    if(tab==='exams'){
+      pane.querySelectorAll('button').forEach(b=>{
+        if((b.textContent||'').trim()==='Manage Passages' && !b.parentElement.querySelector('.jp-inline-add-passage')){
+          const m=(b.getAttribute('onclick')||'').match(/openOwnerExamPassages\('([^']+)'\)/);
+          if(!m)return;
+          const a=document.createElement('button');a.className='btn btn-primary jp-inline-add-passage';a.type='button';a.textContent='+ Add Passage';a.setAttribute('onclick',`jpOpenNewPassageAdd('${m[1]}')`);b.insertAdjacentElement('afterend',a);
+        }
+      });
+    }
+    if(tab==='passages'){
+      const free=(window.OWNER_PASS_FOLDER||'')==='__FREE__';
+      const title=pane.querySelector('h3');
+      if(free && title && /Add New Passage/i.test(title.textContent||'')) title.textContent='➕ Add Practice Passage → Free Typing Practice';
     }
   }
+
+  const previousOwnerTabFinalFix=window.ownerTab;
+  if(typeof previousOwnerTabFinalFix==='function'){
+    window.ownerTab=async function(tab,btn){
+      const r=await previousOwnerTabFinalFix.apply(this,arguments);
+      if(tab==='exams'||tab==='passages') setTimeout(()=>addFinalOwnerControls(tab),0);
+      return r;
+    };
+  }
+})();
+</script>
+<style id="jp-topnav-light-theme-final">
+/* User-approved: light theme treatment for top navigation only. */
+.topbar .topnav a{
+  border:1px solid transparent!important;
+  background:rgba(255,255,255,.72)!important;
+  color:var(--ink)!important;
+  box-shadow:0 1px 3px rgba(15,23,42,.035)!important;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease!important;
+}
+.topbar .topnav a:hover,.topbar .topnav a.active{
+  background:var(--soft)!important;
+  border-color:var(--line)!important;
+  color:var(--blue)!important;
+  box-shadow:0 5px 14px rgba(15,23,42,.07)!important;
+  transform:translateY(-1px)!important;
+}
+.topbar .topnav a[data-route="live"] .live-dot{box-shadow:0 0 0 3px rgba(239,68,68,.10)!important}
+body.public-landing .topbar .topnav a{
+  background:rgba(255,255,255,.08)!important;
+  color:#eef4ff!important;
+  border-color:rgba(255,255,255,.10)!important;
+  box-shadow:none!important;
+}
+body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav a.active{
+  background:rgba(255,255,255,.16)!important;
+  color:#fff!important;
+  border-color:rgba(255,255,255,.22)!important;
+  box-shadow:0 5px 16px rgba(0,0,0,.10)!important;
+}
+@media(max-width:700px){
+ .topbar .topnav a{padding:7px 9px!important;border-radius:9px!important;font-size:11px!important;box-shadow:none!important}
+ .topbar .topnav a:hover,.topbar .topnav a.active{transform:none!important}
+}
+</style>
+
+<style id="jp-practice-hierarchy-css">
+.jp-practice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.jp-practice-folder{padding:17px;border:1px solid var(--border);border-radius:16px;background:var(--card);cursor:pointer;text-align:left}.jp-practice-folder:hover{transform:translateY(-1px)}.jp-manager-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.jp-manager-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px}.jp-manager-form textarea{grid-column:1/-1}
+</style>
+<script id="jp-practice-hierarchy-js">
+(function(){
+  window.jpPracticeLegacy=window.practice;
+  function pane(){return document.getElementById('ownerPane')}
+  window.jpOpenPracticePassageAdd=async function(){window.JP_PRACTICE_FOLDER=null;window.JP_PRACTICE_SUB=null;return jpRenderPracticeManager()};
+  window.jpRenderPracticeManager=async function(){
+    const el=pane();if(!el)return;el.innerHTML='<div class="card" style="padding:20px">Loading Practice folders…</div>';
+    try{
+      const data=await api('/api/admin/practice-tree');window.JP_PRACTICE_TREE=data;
+      const fid=Number(window.JP_PRACTICE_FOLDER)||0,sid=Number(window.JP_PRACTICE_SUB)||0;
+      const f=(data.folders||[]).find(x=>+x.id===fid),sub=f?.subfolders?.find(x=>+x.id===sid);
+      if(!f){
+        el.innerHTML=`<div class="card" style="padding:20px"><div class="panel-head"><div><h2 style="margin:0">⌨ Practice Passage Folders</h2><div class="muted">Exam की तरह: पहले Main Folder → फिर Subfolder → फिर Passage.</div></div><button class="btn btn-white" onclick="ownerTab('passages')">← Back</button></div><div class="jp-manager-actions"><input id="jpPracticeFolderName" class="input" placeholder="New Practice Folder name"><button class="btn btn-primary" onclick="jpCreatePracticeFolder()">+ Create Folder</button></div></div><div class="jp-practice-grid" style="margin-top:12px">${(data.folders||[]).map(x=>`<button class="jp-practice-folder" onclick="window.JP_PRACTICE_FOLDER=${x.id};jpRenderPracticeManager()"><span class="badge">MAIN FOLDER</span><h3>📁 ${esc(x.name)}</h3><div class="muted">${(x.subfolders||[]).length} subfolders · ${(x.subfolders||[]).reduce((a,b)=>a+Number(b.passage_count||0),0)} passages</div></button>`).join('')||'<div class="card" style="padding:20px">अभी कोई Practice Folder नहीं है। ऊपर से पहला folder बनाएँ.</div>'}</div>`;return;
+      }
+      if(!sub){
+        el.innerHTML=`<div class="card" style="padding:20px"><button class="btn btn-white" onclick="window.JP_PRACTICE_FOLDER=null;jpRenderPracticeManager()">← Practice Folders</button><h2>📁 ${esc(f.name)}</h2><div class="muted">अब इस folder के अंदर Subfolder बनाएँ.</div><div class="jp-manager-form"><input id="jpPracticeSubName" class="input" placeholder="Subfolder name"><select id="jpPracticeSubLang" class="select"><option>English</option><option>Hindi</option></select><button class="btn btn-primary" onclick="jpCreatePracticeSubfolder(${f.id})">+ Create Subfolder</button></div></div><div class="jp-practice-grid" style="margin-top:12px">${(f.subfolders||[]).map(x=>`<button class="jp-practice-folder" onclick="window.JP_PRACTICE_SUB=${x.id};jpRenderPracticeManager()"><span class="badge">${esc(x.language)}</span><h3>📂 ${esc(x.name)}</h3><div class="muted">${Number(x.passage_count||0)} passages</div></button>`).join('')||'<div class="card" style="padding:20px">अभी कोई Subfolder नहीं है।</div>'}</div>`;return;
+      }
+      let passages=await api('/api/practice-subfolders/'+sub.id+'/passages');
+      el.innerHTML=`<div class="card" style="padding:20px"><button class="btn btn-white" onclick="window.JP_PRACTICE_SUB=null;jpRenderPracticeManager()">← ${esc(f.name)}</button><h2>📂 ${esc(sub.name)} · ${esc(sub.language)}</h2><div class="muted">इसी Subfolder में नया Practice Passage add होगा.</div><div class="jp-manager-form"><input id="jpPrTitle" class="input" placeholder="Passage title"><select id="jpPrDiff" class="select"><option>Easy</option><option selected>Medium</option><option>Hard</option></select><select id="jpPrHighlight" class="select"><option value="none">Highlight Off</option><option value="current_char">Current Character</option><option value="current_word">Current Word</option><option value="errors_only">Errors Only</option></select><input id="jpPrWpm" class="input" type="number" value="30" placeholder="WPM"><input id="jpPrAcc" class="input" type="number" value="85" placeholder="Accuracy %"><textarea id="jpPrText" class="input" rows="8" placeholder="Type or paste passage text"></textarea><button class="btn btn-primary" onclick="jpAddPracticePassage(${sub.id})">+ Add Passage</button></div></div><div class="card table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>#</th><th>ID</th><th>Title</th><th>Difficulty</th><th>Action</th></tr></thead><tbody>${passages.map((x,i)=>`<tr><td>${i+1}</td><td>${x.id}</td><td><b>${esc(x.title)}</b></td><td>${esc(x.difficulty)}</td><td><button class="btn btn-primary" onclick="selectPassage(${x.id})">Edit</button> <button class="btn btn-danger" onclick="jpDeletePracticePassage(${x.id})">Delete</button></td></tr>`).join('')||'<tr><td colspan="5">No passage yet.</td></tr>'}</tbody></table></div>`;
+    }catch(e){el.innerHTML=`<div class="notice">${esc(e.message||'Practice manager load नहीं हुआ')}</div>`}
+  };
+  window.jpDeletePracticePassage=async function(id){if(!confirm('Delete this practice passage?'))return;try{await api('/api/admin/passages/'+id,{method:'DELETE'});showToast('Practice Passage deleted');await jpRenderPracticeManager()}catch(e){showToast(e.message)}};
+  window.jpCreatePracticeFolder=async function(){try{const name=(document.getElementById('jpPracticeFolderName')?.value||'').trim();if(!name)throw Error('Folder name लिखें');await api('/api/admin/practice-folders',{method:'POST',body:JSON.stringify({name})});showToast('Practice Folder created');jpRenderPracticeManager()}catch(e){showToast(e.message)}};
+  window.jpCreatePracticeSubfolder=async function(fid){try{const name=(document.getElementById('jpPracticeSubName')?.value||'').trim(),language=document.getElementById('jpPracticeSubLang')?.value||'English';if(!name)throw Error('Subfolder name लिखें');await api('/api/admin/practice-subfolders',{method:'POST',body:JSON.stringify({folder_id:fid,name,language})});showToast('Practice Subfolder created');jpRenderPracticeManager()}catch(e){showToast(e.message)}};
+  window.jpAddPracticePassage=async function(sid){try{const title=(document.getElementById('jpPrTitle')?.value||'').trim(),content=(document.getElementById('jpPrText')?.value||'').trim();if(!title||!content)throw Error('Title और Passage text दोनों भरें');await api('/api/admin/practice-passages',{method:'POST',body:JSON.stringify({practice_subfolder_id:sid,title,content,difficulty:document.getElementById('jpPrDiff')?.value,highlight_mode:document.getElementById('jpPrHighlight')?.value,required_wpm:document.getElementById('jpPrWpm')?.value,required_accuracy:document.getElementById('jpPrAcc')?.value})});showToast('Practice Passage added');jpRenderPracticeManager()}catch(e){showToast(e.message)}};
+
+  // Make top buttons deterministic: no silent/no-op clicks.
+  window.jpOpenNewPassageAdd=function(key){
+    const groups=(typeof ownerFolderGroups==='function'?ownerFolderGroups():[]);let k=key||window.OWNER_PASS_FOLDER;
+    if(!k||k==='__FREE__')k=groups[0]?.key||'';
+    if(!k){showToast('पहले Exam Folder बनाइए');window.ownerTab('exams');return}
+    window.OWNER_PASS_FOLDER=k;window.OWNER_PASS_PAGE=1;window.ownerTab('passages');
+    setTimeout(()=>document.getElementById('opTitle')?.focus(),60);
+  };
+
+  window.jpCreateSubfolderQuick=async function(){
+    try{
+      const exams=window.OWNER?.e||[];
+      let parents=[];
+      if(typeof parentExamGroups==='function') parents=parentExamGroups(exams);
+      if(!parents.length){
+        const seen=new Map();
+        for(const e of exams){const n=typeof jpExamParent==='function'?jpExamParent(e):String(e.name||'').split(' - ')[0];if(n&&!seen.has(n))seen.set(n,{name:n})}
+        parents=[...seen.values()];
+      }
+      if(!parents.length){showToast('पहले Main Exam Folder बनाइए');window.ownerTab('exams');return}
+      const list=parents.map((x,i)=>(i+1)+'. '+x.name).join('\n');
+      const pick=prompt('जिस Main Folder में Subfolder बनाना है उसका number लिखें:\n\n'+list);
+      if(pick===null)return;
+      const parent=parents[Number(pick)-1];if(!parent)throw Error('सही Main Folder number चुनें');
+      const child=prompt(parent.name+' के अंदर New Subfolder name');if(child===null)return;
+      const name=String(child||'').trim();if(!name)throw Error('Subfolder name लिखें');
+      const language=(prompt('Language: English या Hindi','English')||'English').trim();
+      const fullName=parent.name+' - '+name;
+      const base=(parent.name+'-'+name+'-'+language).toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g,'-').replace(/^-+|-+$/g,'');
+      await api('/api/admin/exams',{method:'POST',body:JSON.stringify({name:fullName,slug:base+'-'+Date.now().toString().slice(-6),language:/hindi/i.test(language)?'Hindi':'English',layout:/hindi/i.test(language)?'InScript Unicode':'QWERTY',duration:15,required_wpm:30,required_accuracy:85,fee_amount:0,validity_days:30,daily_demo_limit:4,paid_enabled:false,backspace_allowed:true,highlight_mode:'none',description:'Typing exam sub-folder',active:true})});
+      showToast('Subfolder added successfully');
+      window.OWNER.e=await api('/api/admin/exams');
+      window.ownerTab('exams');
+    }catch(e){showToast(e.message||'Subfolder add नहीं हुआ')}
+  };
+
+
+  // Candidate Free Practice: Folder -> Subfolder -> Passages. Old ungrouped practice remains available.
+  window.practice=async function(){
+    activeNav('practice');let data;try{data=await api('/api/practice-tree')}catch(e){data={folders:[],ungrouped:1}}
+    if(!(data.folders||[]).length){return window.jpPracticeLegacy?window.jpPracticeLegacy():null}
+    setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1><p>Folder → Subfolder → Passage चुनें।</p></div></div><div class="jp-practice-grid">${data.folders.map(f=>`<button class="jp-practice-folder" onclick="jpOpenPublicPracticeFolder(${f.id})"><span class="badge">PRACTICE FOLDER</span><h3>📁 ${esc(f.name)}</h3><div class="muted">${(f.subfolders||[]).length} subfolders</div></button>`).join('')}</div></div>`)
+  };
+  window.jpOpenPublicPracticeFolder=async function(fid){const data=await api('/api/practice-tree'),f=(data.folders||[]).find(x=>+x.id===+fid);if(!f)return practice();setApp(`<div class="page"><button class="btn btn-white" onclick="practice()">← Practice Folders</button><h2>📁 ${esc(f.name)}</h2><div class="jp-practice-grid">${(f.subfolders||[]).map(s=>`<button class="jp-practice-folder" onclick="jpOpenPublicPracticeSub(${s.id},'${esc(s.name).replace(/'/g,"\\'")}')"><span class="badge">${esc(s.language)}</span><h3>📂 ${esc(s.name)}</h3><div class="muted">${Number(s.passage_count||0)} passages</div></button>`).join('')||'<div class="card" style="padding:20px">No subfolder yet.</div>'}</div></div>`)};
+  window.jpOpenPublicPracticeSub=async function(sid,name){const p=await api('/api/practice-subfolders/'+sid+'/passages');S.practiceFolder='';setApp(`<div class="page"><button class="btn btn-white" onclick="practice()">← Practice Folders</button><h2>📂 ${esc(name||'Practice')}</h2><div class="toolbar"><select id="pmins" class="select"><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1800">30 min</option></select></div><div class="grid3">${p.map(x=>`<div class="card exam-card"><span class="badge">${esc(x.language)}</span><h3>${esc(x.title)}</h3><p>${esc(x.difficulty)} · Practice passage</p><button class="btn btn-primary" onclick="jpStartPracticeById(${x.id},${sid})">Start Practice</button></div>`).join('')||'<div class="card" style="padding:20px">No passages available.</div>'}</div></div>`)};
+  window.jpStartPracticeById=async function(id,sid){if(!S.user){auth('login');return}const p=await api('/api/practice-subfolders/'+sid+'/passages');S.passage=p.find(x=>+x.id===+id);if(!S.passage)return showToast('Passage not found');S.exam=null;S.total=Number(document.getElementById('pmins')?.value||300);S.left=S.total;S.started=false;S.done=false;S.mode='practice';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest()};
+})();
+</script>
+<script id="jp-bottom-stray-code-cleanup">
+/* Clean accidental raw n / \\n markers leaked by generated HTML. */
+(function(){
+  function isLeakText(raw){
+    const t=String(raw||'').replace(/\u00a0/g,' ').trim();
+    if(!t)return false;
+    // Examples seen in the broken footer: n n n, n\nn, \\n \\n, etc.
+    if(/^(?:n|\\n)(?:\s+(?:n|\\n))+$/i.test(t))return true;
+    if(/^(?:\\n\s*)+$/i.test(t))return true;
+    return false;
+  }
+  function cleanBottomLeak(){
+    const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    const bad=[]; let node;
+    while((node=w.nextNode())){
+      if(isLeakText(node.nodeValue))bad.push(node);
+    }
+    bad.forEach(n=>n.remove());
+    // Remove empty wrappers left by the leaked marker, but never real app/layout containers.
+    document.querySelectorAll('body > div, body > p, body > span').forEach(el=>{
+      if(!el.id && !el.className && !el.children.length && isLeakText(el.textContent))el.remove();
+    });
+  }
   cleanBottomLeak();
-  new MutationObserver(cleanBottomLeak).observe(document.body,{childList:true});
+  new MutationObserver(cleanBottomLeak).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
 </body>
