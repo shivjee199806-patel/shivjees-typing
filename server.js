@@ -733,7 +733,7 @@ function applyTypingSimulationDefaults(){
  const tx=db.transaction(()=>{for(const e of all){
    const n=(e.name+' '+e.slug).toLowerCase(); if(n.includes('live-template'))continue;
    let dur=10,wpm=e.language==='Hindi'?30:35,acc=0,mw=0,mc=0,q='wpm',back=1,hi='none';
-   if(n.includes('upp-co')||n.includes('computer operator')){dur=15;wpm=e.language==='Hindi'?25:30;acc=85;mw=e.language==='Hindi'?375:450;q='words_wpm_accuracy';hi='current_word'}
+   if(n.includes('upp-co')||n.includes('computer operator')){dur=15;wpm=e.language==='Hindi'?25:30;acc=85;mw=e.language==='Hindi'?375:450;q='words_wpm_accuracy';hi='none'}
    else if(n.includes('rrb-ntpc')||n.includes('rrb ntpc')){dur=10;wpm=e.language==='Hindi'?25:30;mw=e.language==='Hindi'?250:300;q='words_wpm_accuracy';back=0;hi='none'}
    else if(n.includes('allahabad')&&n.includes('steno')){dur=10;wpm=e.language==='Hindi'?30:40;q='wpm'}
    else if(n.includes('allahabad')){dur=10;wpm=e.language==='Hindi'?25:30;q='wpm'}
