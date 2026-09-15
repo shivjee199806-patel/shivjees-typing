@@ -1250,6 +1250,32 @@ app.get('/api/learning/plans',auth,(req,res)=>res.json(db.prepare('SELECT * FROM
 app.get('/api/learning/access/:key',auth,(req,res)=>res.json(learningAccessState(req.user.id,String(req.params.key))));
 app.post('/api/learning/demo-pay',auth,(req,res)=>{if(!paymentSystemEnabled())return res.status(503).json({error:'Payment System is OFF — site is in FREE mode',code:'PAYMENT_SYSTEM_OFF'});const b=req.body||{},key=String(b.course_key||''),plan=db.prepare('SELECT * FROM learning_plans WHERE course_key=?').get(key);if(!plan)return res.status(404).json({error:'Learning plan not found'});const txn=String(b.txn_ref||'').trim().slice(0,100);if(!txn)return res.status(400).json({error:'Demo transaction number required'});const days=Math.max(1,Number(plan.validity_days)||30),until=new Date(Date.now()+days*86400000).toISOString().slice(0,10);db.prepare(`INSERT INTO user_learning_access(user_id,course_key,access_type,valid_until,status,amount,txn_ref,method) VALUES(?,?, 'paid',?,'approved',?,?,?) ON CONFLICT(user_id,course_key) DO UPDATE SET access_type='paid',valid_until=excluded.valid_until,status='approved',amount=excluded.amount,txn_ref=excluded.txn_ref,method=excluded.method,created_at=CURRENT_TIMESTAMP`).run(req.user.id,key,until,Number(plan.fee_amount)||0,txn,String(b.method||'demo').slice(0,30));res.json({status:'approved',valid_until:until})});
 
+
+// Owner Practice-folder passage links (Folder Control -> candidate Practice)
+db.exec(`CREATE TABLE IF NOT EXISTS owner_practice_folder_passages(
+ folder_id INTEGER NOT NULL,
+ passage_id INTEGER NOT NULL UNIQUE,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(folder_id,passage_id)
+)`);
+app.get('/api/practice-folders',(req,res)=>res.json(db.prepare("SELECT id,parent_name,name,folder_key FROM owner_content_folders WHERE area='practice' AND active=1 ORDER BY id DESC").all()));
+app.get('/api/practice-folders/:id/passages',(req,res)=>res.json(db.prepare(`SELECT p.* FROM passages p JOIN owner_practice_folder_passages l ON l.passage_id=p.id WHERE l.folder_id=? AND p.active=1 ORDER BY p.id DESC`).all(Number(req.params.id))));
+app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
+ const b=req.body||{},area=String(b.area||'').toLowerCase(),title=String(b.title||'').trim().slice(0,160),content=String(b.content||'').trim();
+ if(!title||!content)return res.status(400).json({error:'Title and matter required'});
+ if(area==='practice'){
+  const fid=Number(b.folder_id),f=db.prepare("SELECT * FROM owner_content_folders WHERE id=? AND area='practice' AND active=1").get(fid);if(!f)return res.status(400).json({error:'Practice folder not found'});
+  const language=String(b.language||'English').match(/hindi/i)?'Hindi':'English',layout=language==='Hindi'?'Unicode / Mangal':'QWERTY';
+  const pid=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,'current_char',NULL,1)`).run(title,language,layout,'Medium',content).lastInsertRowid;
+  db.prepare('INSERT OR REPLACE INTO owner_practice_folder_passages(folder_id,passage_id) VALUES(?,?)').run(fid,pid);audit(req,'CREATE','brother_practice_matter',pid,`${f.name}: ${title}`);return res.json({ok:true,id:pid});
+ }
+ if(area==='learning'){
+  const key=String(b.course_key||''),p=db.prepare('SELECT * FROM learning_plans WHERE course_key=? AND active=1').get(key);if(!p)return res.status(400).json({error:'Learning folder not found'});
+  const id=db.prepare(`INSERT INTO learning_matters(course_key,title,level,matter_type,content,sort_order,active) VALUES(?,?,'Practice','passage',?,0,1)`).run(key,title,content).lastInsertRowid;audit(req,'CREATE','brother_learning_matter',id,`${key}: ${title}`);return res.json({ok:true,id});
+ }
+ return res.status(400).json({error:'Use Exam add flow for Exam matter'});
+ }catch(e){res.status(400).json({error:e.message||'Could not publish matter'})}});
+
 app.get('/api/admin/content-folders',auth,admin,(req,res)=>res.json(db.prepare('SELECT * FROM owner_content_folders ORDER BY area,parent_name,id DESC').all()));
 app.post('/api/admin/content-folders',auth,admin,(req,res)=>{try{const b=req.body||{},area=String(b.area||'').toLowerCase(),parent=String(b.parent_name||'').trim().slice(0,120),name=String(b.name||'').trim().slice(0,120);if(!['exam','practice','learning'].includes(area))return res.status(400).json({error:'Area required'});if(!name)return res.status(400).json({error:'Folder/Subfolder name required'});const slug=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||Date.now().toString(36);const key=`${area}:${slug(parent)}:${slug(name)}:${Date.now().toString(36)}`;const paid=b.paid_enabled?1:0,lock=b.lock_until_payment?1:0,demo=lock?0:Math.max(0,Number(b.daily_demo_limit)||0),fee=Math.max(0,Number(b.fee_amount)||0),days=Math.max(1,Number(b.validity_days)||30);const id=db.prepare('INSERT INTO owner_content_folders(area,parent_name,name,folder_key,paid_enabled,fee_amount,daily_demo_limit,validity_days,lock_until_payment,active) VALUES(?,?,?,?,?,?,?,?,?,1)').run(area,parent,name,key,paid,fee,demo,days,lock).lastInsertRowid;
  if(area==='exam'){const full=(parent?parent+' - ':'')+name;for(const lang of ['English','Hindi']){const eslug=slug(full)+'-'+lang.toLowerCase()+'-'+id;db.prepare(`INSERT INTO exams(name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,error_rule,description,active,fee_amount,validity_days,daily_demo_limit,paid_enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(full+' - '+lang,eslug,lang,lang==='Hindi'?'Unicode / Mangal':'QWERTY',10,0,0,1,'full','Owner Folder Control: '+key,1,fee,days,demo,paid)}}
