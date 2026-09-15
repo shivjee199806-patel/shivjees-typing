@@ -65,7 +65,8 @@ const db=new Database(DB_FILE);console.log('Persistent database:',DB_FILE);db.pr
 // Optional remote persistence mirror for Render Free: keep the existing SQLite app unchanged,
 // but mirror the SQLite database into PostgreSQL/Supabase after every mutating HTTP request.
 // On a fresh Render filesystem, the newest mirror is restored before normal traffic is served.
-let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false;
+let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false,remoteDirty=false;
+const REMOTE_BACKUP_INTERVAL_MS=Math.max(60*60*1000,Number(process.env.REMOTE_BACKUP_INTERVAL_MS)||6*60*60*1000); // default: at most one full snapshot every 6 hours
 async function initRemoteSqliteMirror(){
   if(!REMOTE_DB_URL)return;
   try{
@@ -100,10 +101,22 @@ async function uploadSqliteMirror(){
   finally{try{if(fs.existsSync(tmp))fs.unlinkSync(tmp)}catch(e){} remoteSyncBusy=false}
 }
 function scheduleRemoteSqliteMirror(){
-  if(!remoteReady||remoteSyncTimer)return;
-  // Batch frequent writes into one compressed remote snapshot. This prevents a full SQLite DB
-  // upload after every POST/PUT/PATCH/DELETE and sharply reduces Render outbound bandwidth.
-  remoteSyncTimer=setTimeout(async()=>{remoteSyncTimer=null;await uploadSqliteMirror()},5*60*1000);
+  if(!remoteReady)return;
+  // Mark the DB dirty, but NEVER upload a complete SQLite snapshot for every request.
+  // A single timer is shared by all writes, so a busy site still creates at most one
+  // full remote snapshot per interval (6 hours by default). Set REMOTE_BACKUP_INTERVAL_MS
+  // to a larger value if desired; values below 1 hour are deliberately rejected.
+  remoteDirty=true;
+  if(remoteSyncTimer)return;
+  remoteSyncTimer=setTimeout(async()=>{
+    remoteSyncTimer=null;
+    if(!remoteDirty)return;
+    remoteDirty=false;
+    await uploadSqliteMirror();
+    // If writes happened while the upload was running, schedule the next bounded snapshot.
+    if(remoteDirty)scheduleRemoteSqliteMirror();
+  },REMOTE_BACKUP_INTERVAL_MS);
+  if(typeof remoteSyncTimer.unref==='function')remoteSyncTimer.unref();
 }
 // POST/PUT/PATCH/DELETE normally represent all account, result, access and owner-panel changes.
 app.use((req,res,next)=>{if(['POST','PUT','PATCH','DELETE'].includes(req.method)){res.on('finish',()=>{if(res.statusCode<500)scheduleRemoteSqliteMirror()})}next()});
@@ -1563,7 +1576,7 @@ app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(e
 const server=app.listen(PORT,()=>{
   console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`);
   // Remote persistence starts only after the HTTP port is open, and never blocks site startup.
-  setImmediate(()=>{initRemoteSqliteMirror().then(()=>{if(remoteReady)uploadSqliteMirror()}).catch(e=>console.error('Remote database mirror startup failed:',e.message))});
+  setImmediate(()=>{initRemoteSqliteMirror().catch(e=>console.error('Remote database mirror startup failed:',e.message))});
 });
 function shutdown(signal){console.log(`${signal} received; closing database safely...`);server.close(()=>{try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(e){};try{db.close()}catch(e){};process.exit(0)});setTimeout(()=>process.exit(1),10000).unref()}
 process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
