@@ -3520,6 +3520,12 @@ body.jp-payment-off a[href="#pricing"]{display:none !important}
 })();
 </script>
 
+
+<style id="jp-exam-attempt-checkbox-visibility-20260916">
+.picker-optionbar{display:grid!important;gap:10px!important}
+.picker-optionbar label.opt{display:flex!important;align-items:center!important;gap:8px!important}
+#pickerBackspace,#pickerHighlight{display:inline-block!important;visibility:visible!important;opacity:1!important;width:18px!important;height:18px!important}
+</style>
 </body>
 </html>
 
@@ -4247,38 +4253,4 @@ body.mobile-menu-open{overflow:hidden!important}
 <style id="jp-direct-practice-brother-css-20260916">.jp-direct-practice-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;margin-top:14px}.jp-direct-practice-form label,.jpbd-fields label{min-width:0}.jpdp-wide{grid-column:1/-1}.jp-direct-practice-form textarea{width:100%;min-height:220px;resize:vertical}.jpdp-filter,.jp-brother-actions{display:flex;gap:8px;flex-wrap:wrap}.jpdp-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line,#ddd)}.jp-brother-direct-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.jp-brother-direct-grid textarea{width:100%;min-height:260px;resize:vertical}.jpbd-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}@media(max-width:760px){.jp-direct-practice-form,.jp-brother-direct-grid,.jpbd-fields{grid-template-columns:1fr}.jpdp-wide{grid-column:auto}.jpdp-row{align-items:flex-start;flex-direction:column}.jp-direct-practice-form .input,.jp-direct-practice-form .select,.jp-brother-direct-grid .input,.jp-brother-direct-grid .select{width:100%;max-width:100%;box-sizing:border-box;font-size:16px}.jp-brother-actions .btn{flex:1 1 180px;min-height:44px}}
 </style>
 
-<script id="verified-exam-highlight-lock-20260916">
-(function(){
-  // Exam Mode highlight is an exam property, not an Owner/Candidate preference.
-  // Do not alter Practice/Learning behavior.
-  const basePicker=window.renderPassagePicker;
-  window.renderPassagePicker=function(){
-    const out=basePicker.apply(this,arguments);
-    if(S&&S.exam){
-      S.attemptHighlightMode=S.exam.highlight_mode||'none';
-      const sel=document.getElementById('pickerHighlight');
-      if(sel){const wrap=sel.closest('div'); if(wrap)wrap.style.display='none';}
-      document.querySelectorAll('.picker-optionbar .notice').forEach(n=>{if(/highlight/i.test(n.textContent||''))n.style.display='none'});
-    }
-    return out;
-  };
-  const basePrepare=window.prepareSelectedPassage;
-  window.prepareSelectedPassage=async function(id){
-    if(S&&S.exam)S.attemptHighlightMode=S.exam.highlight_mode||'none';
-    const out=await basePrepare.apply(this,arguments);
-    if(S&&S.exam){
-      S.attemptHighlightMode=S.exam.highlight_mode||'none';
-      if(S.passage)S.passage.highlight_mode=S.attemptHighlightMode;
-    }
-    return out;
-  };
-  const baseRender=window.renderTest;
-  window.renderTest=function(){
-    if(S&&S.exam&&(S.mode==='exam'||S.mode==='live')){
-      S.attemptHighlightMode=S.exam.highlight_mode||'none';
-      if(S.passage)S.passage.highlight_mode=S.attemptHighlightMode;
-    }
-    return baseRender.apply(this,arguments);
-  };
-})();
-</script>
+
