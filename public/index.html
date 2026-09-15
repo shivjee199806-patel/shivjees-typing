@@ -2327,15 +2327,10 @@ prepareSelectedPassage=async function(id){
   S.inputLimit=wordLimit;
   {const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}
   const examHM=S.exam.highlight_mode||'none';
-  const changeAllowed=Number(S.exam.highlight_user_change_allowed??1)===1;
-  const examKey=String(S.exam?.id||S.exam?.slug||'default');
-  const hk='st_highlight_choice_exam_'+examKey, completedKey='st_exam_completed_'+examKey;
-  const hasCompleted=localStorage.getItem(completedKey)==='1';
-  const savedHM=localStorage.getItem(hk);
-  const chosen=savedHM||document.getElementById('pickerHighlight')?.value||examHM;
-  // First evaluated attempt MUST follow the exam's configured real behavior. Personal practice choice applies only later.
-  S.attemptHighlightMode=hasCompleted&&changeAllowed?chosen:examHM;
-  if(!changeAllowed)S.attemptHighlightMode=examHM;
+  const hcb=document.getElementById('pickerHighlight');
+  // Candidate checkbox is authoritative for THIS attempt: unchecked = absolutely no highlight,
+  // checked = use the exam's configured highlight style (fallback current_word only when no style exists).
+  S.attemptHighlightMode=hcb?(hcb.checked?(examHM!=='none'?examHM:'current_word'):'none'):examHM;
   S.passage={...base,highlight_mode:S.attemptHighlightMode,content:cleanTrimWords(base.content,wordLimit)};
   S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;
   S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
