@@ -2740,7 +2740,7 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
  };
  window.setPaymentMaster=async function(enabled){
   const msg=enabled?'Payment System ON करें? Pricing, paid folder locks और Candidate Certificates चालू हो जाएंगे.':'Payment System OFF करें? Site FREE mode में जाएगी, Pricing/paid locks हटेंगे और Certificates FREE रहेंगे.';
-  if(!confirm(msg))return;try{const saved=await api('/api/admin/payment-system-control',{method:'PUT',body:JSON.stringify({enabled})});window.PAYMENT_SYSTEM_ENABLED=!!saved.enabled;await refreshPaymentMasterUI();const verify=await api('/api/admin/payment-system-control');if(!!verify.enabled!==!!enabled)throw Error('Payment System setting save नहीं हुई — फिर से try करें');showToast(enabled?'Payment System ON · Paid rules active':'Payment System OFF · Site FREE mode');await renderPaymentMasterControl()}catch(e){showToast(e.message)}
+  if(!confirm(msg))return;try{await api('/api/admin/payment-system-control',{method:'PUT',body:JSON.stringify({enabled})});showToast(enabled?'Payment System ON':'Payment System OFF · Site FREE mode');await refreshPaymentMasterUI();renderPaymentMasterControl()}catch(e){showToast(e.message)}
  };
  const oldLayout=window.layout; if(typeof oldLayout==='function')window.layout=function(){const r=oldLayout.apply(this,arguments);setTimeout(refreshPaymentMasterUI,0);return r};
  const oldPricing=window.pricing; window.pricing=async function(){await refreshPaymentMasterUI();if(!window.PAYMENT_SYSTEM_ENABLED){location.hash='#dashboard';showToast('Payment System अभी OFF है — site FREE mode में है');return}return oldPricing.apply(this,arguments)};
