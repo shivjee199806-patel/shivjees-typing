@@ -3473,6 +3473,44 @@ body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav 
  const obs=new MutationObserver(()=>{const pane=document.getElementById('ownerPane');if(!pane)return;pane.querySelectorAll('button').forEach(b=>{if(/Add Main Exam Folder/i.test(b.textContent||''))b.style.display='none'});pane.querySelectorAll('.jp-fc-list').forEach(x=>x.classList.add('jp-owner-created-grid'))});obs.observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+
+
+<style id="jp-payment-pricing-tab-master-20260916">
+/* Master payment OFF means the entire Pricing navigation tab must disappear. */
+html.jp-payment-off a[data-route="pricing"],
+html.jp-payment-off a[href="#pricing"],
+body.jp-payment-off a[data-route="pricing"],
+body.jp-payment-off a[href="#pricing"]{display:none !important}
+</style>
+<script id="jp-payment-pricing-tab-master-20260916-script">
+(function(){
+  function applyPricingMaster(enabled){
+    enabled=!!enabled;
+    window.PAYMENT_SYSTEM_ENABLED=enabled;
+    document.documentElement.classList.toggle('jp-payment-off',!enabled);
+    if(document.body)document.body.classList.toggle('jp-payment-off',!enabled);
+    document.querySelectorAll('a[data-route="pricing"],a[href="#pricing"]').forEach(function(a){
+      if(enabled){a.style.removeProperty('display')}else{a.style.setProperty('display','none','important')}
+    });
+    if(!enabled && location.hash==='#pricing') location.hash=S&&S.user?'#dashboard':'#home';
+  }
+  window.jpApplyPricingMaster=applyPricingMaster;
+  async function sync(){
+    try{const x=await api('/api/public/settings');applyPricingMaster(String(x.payment_system_enabled||'0')==='1')}
+    catch(_e){applyPricingMaster(false)}
+  }
+  const obs=new MutationObserver(function(){applyPricingMaster(!!window.PAYMENT_SYSTEM_ENABLED)});
+  function start(){if(document.body){obs.observe(document.body,{childList:true,subtree:true});sync()}else setTimeout(start,20)}
+  start();
+  const oldRefresh=window.refreshPaymentMasterUI;
+  window.refreshPaymentMasterUI=async function(){
+    let r;if(typeof oldRefresh==='function')r=await oldRefresh.apply(this,arguments);
+    applyPricingMaster(!!window.PAYMENT_SYSTEM_ENABLED);return r
+  };
+  const oldSet=window.setPaymentMaster;
+  if(typeof oldSet==='function')window.setPaymentMaster=async function(enabled){applyPricingMaster(!!enabled);try{return await oldSet.apply(this,arguments)}catch(e){await sync();throw e}};
+})();
+</script>
 </body>
 </html>
 
@@ -4183,5 +4221,23 @@ body.mobile-menu-open{overflow:hidden!important}
       window.scrollBy({top:e.deltaY,left:0,behavior:'auto'});
     }
   },{passive:true,capture:true});
+})();
+</script>
+
+<style id="jp-practice-control-brother-final-css">
+.jp-pc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.jp-pc-card{padding:16px;min-width:0}.jp-pc-actions{display:flex;gap:8px;flex-wrap:wrap}.jp-brother-final-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.jp-brother-final-grid .input,.jp-brother-final-grid .select{width:100%;max-width:100%;box-sizing:border-box;min-width:0}.jp-brother-final-grid textarea{resize:vertical}.jp-brother-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}@media(max-width:800px){.jp-brother-final-grid,.jp-brother-fields{grid-template-columns:1fr}.jp-brother-final-grid .card{padding:14px!important}.jp-brother-final-grid textarea{min-height:190px!important}.jp-pc-grid{grid-template-columns:1fr}}
+</style>
+<script id="jp-practice-control-brother-final-20260916">
+(function(){
+ const prev=window.ownerTab;
+ function tabs(){return document.querySelector('.owner-control-tabs')}
+ function ensurePracticeTab(){const t=tabs();if(!t||t.querySelector('[data-jp-practice-control]'))return;const b=document.createElement('button');b.className='tab';b.dataset.jpPracticeControl='1';b.textContent='⌨ Practice Control';b.onclick=()=>window.ownerTab('practicecontrol',b);const learn=[...t.querySelectorAll('.tab')].find(x=>/Learning Control/i.test(x.textContent||''));learn?t.insertBefore(b,learn):t.appendChild(b)}
+ function activate(btn,kind){document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.toggle('active',x===btn||(kind==='practicecontrol'&&x.dataset.jpPracticeControl==='1')||(kind==='brother'&&x.dataset.jpBrother==='1')))}
+ async function practiceControl(btn){ensurePracticeTab();activate(btn,'practicecontrol');const pane=document.getElementById('ownerPane');if(!pane)return;pane.innerHTML='<div class="card" style="padding:18px">Loading Practice Control…</div>';try{const folders=await api('/api/practice-folders?_='+Date.now());const sets=await Promise.all((folders||[]).map(async f=>({f,matters:await api('/api/practice-folders/'+f.id+'/passages?_='+Date.now())})));pane.innerHTML=`<div class="card" style="padding:18px;margin-bottom:14px"><h2 style="margin:0">⌨ Practice Control</h2><p class="muted">Practice folders के matters यहीं देखें, नया matter add करें और जरूरत पर delete करें. Folder बनाना/हटाना Folder Control से ही होगा.</p></div><div class="jp-pc-grid">${sets.length?sets.map(s=>`<div class="card jp-pc-card"><h3 style="margin:0 0 4px">${esc(s.f.parent_name?s.f.parent_name+' / '+s.f.name:s.f.name)}</h3><div class="muted">${s.matters.length} matter</div><div class="jp-pc-actions" style="margin:10px 0"><button class="btn btn-primary" onclick="jpPracticeAdd(${s.f.id},'${String(s.f.name).replace(/'/g,"\\'")}')">+ Add Matter</button></div>${s.matters.length?s.matters.map((m,i)=>`<div style="padding:10px 0;border-top:1px solid var(--line,#ddd)"><b>${i+1}. ${esc(m.title)}</b><div class="jp-pc-actions" style="margin-top:7px"><button class="btn btn-white" onclick="jpPracticeDelete(${m.id})">Delete</button></div></div>`).join(''):'<div class="muted">अभी कोई matter नहीं है.</div>'}</div>`).join(''):'<div class="card jp-pc-card"><div class="muted">Practice folder अभी नहीं है. पहले Folder Control से बनाइए.</div></div>'}</div>`}catch(e){pane.innerHTML=`<div class="card" style="padding:18px">${esc(e.message||String(e))}</div>`}}
+ window.jpPracticeAdd=function(id,name){const modal=document.createElement('div');modal.className='modal show';modal.innerHTML=`<div class="modal-card"><div class="panel-head"><h2>Add Practice Matter — ${esc(name)}</h2><button class="btn btn-white" id="jppClose">✕</button></div><input id="jppTitle" class="input" placeholder="Matter title"><select id="jppLang" class="select" style="margin-top:10px"><option>English</option><option>Hindi</option></select><textarea id="jppContent" class="input" style="width:100%;min-height:260px;margin-top:10px" placeholder="Practice matter"></textarea><button class="btn btn-primary" id="jppSave" style="margin-top:10px">Add to Practice</button></div>`;document.body.appendChild(modal);jppClose.onclick=()=>modal.remove();jppSave.onclick=async()=>{try{await api('/api/admin/brother/publish',{method:'POST',body:JSON.stringify({area:'practice',folder_id:id,title:jppTitle.value.trim(),language:jppLang.value,content:jppContent.value.trim()})});modal.remove();showToast('Practice matter add हो गया');practiceControl()}catch(e){showToast(e.message)}}};
+ window.jpPracticeDelete=async function(id){if(!confirm('यह Practice matter delete करें?'))return;try{await api('/api/admin/passages/'+id,{method:'DELETE'});showToast('Practice matter delete हो गया');practiceControl()}catch(e){showToast(e.message)}};
+ async function brother(btn){ensurePracticeTab();activate(btn,'brother');const pane=document.getElementById('ownerPane');if(!pane)return;pane.innerHTML='<div class="card" style="padding:18px">छोटा भाई loading…</div>';try{const [practice,learning]=await Promise.all([api('/api/practice-folders?_='+Date.now()),api('/api/admin/learning-plans?_='+Date.now())]);window.__JPBF={practice,learning};const exams=typeof ownerFolderGroups==='function'?ownerFolderGroups():[];window.__JPBF.exams=exams;pane.innerHTML=`<div class="card" style="padding:18px;margin-bottom:14px"><h2 style="margin:0">🤝 अपना छोटा भाई — Topic से Matter</h2><p class="muted">पहले destination चुनें: Exam, Practice या Learning. Matter approve करने के बाद चुनी हुई जगह पर add होगा.</p></div><div class="jp-brother-final-grid"><div class="card" style="padding:18px"><label><b>About Matter / Topic *</b><textarea id="jpbfAbout" class="input" style="min-height:140px;margin-top:6px" placeholder="किस विषय पर matter चाहिए"></textarea></label><div class="jp-brother-fields"><label><b>Destination *</b><select id="jpbfDest" class="select"><option value="exam">Exam</option><option value="practice">Practice</option><option value="learning">Learning</option></select></label><label><b>Folder / Subfolder *</b><select id="jpbfFolder" class="select"></select></label><label><b>Language</b><select id="jpbfLang" class="select"><option>English</option><option>Hindi</option><option>Bilingual (Hindi + English)</option></select></label><label><b>Approx. Words</b><input id="jpbfWords" class="input" type="number" min="100" max="2000" value="500"></label></div><div class="jp-brother-actions"><button id="jpbfGen" class="btn btn-primary">✨ Matter तैयार करो</button><button id="jpbfClear" class="btn btn-white">Clear</button></div><div id="jpbfStatus" class="muted" style="margin-top:8px"></div></div><div class="card" style="padding:18px"><b>Prepared Matter</b><textarea id="jpbfOut" class="input" style="min-height:320px;margin-top:8px" placeholder="Prepared matter यहाँ आएगा…"></textarea><div class="jp-brother-actions"><button id="jpbfAdd" class="btn btn-primary">Selected Place में Add करें →</button></div></div></div>`;const d=document.getElementById('jpbfDest'),f=document.getElementById('jpbfFolder');function fill(){const x=d.value,t=window.__JPBF;let rows=[];if(x==='exam')rows=t.exams.map(v=>[v.key,v.name]);if(x==='practice')rows=t.practice.map(v=>[v.id,(v.parent_name?v.parent_name+' / ':'')+v.name]);if(x==='learning')rows=t.learning.filter(v=>Number(v.active)!==0).map(v=>[v.course_key,v.title]);f.innerHTML='<option value="">Select Folder / Subfolder</option>'+rows.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('')}d.onchange=fill;fill();jpbfClear.onclick=()=>{jpbfAbout.value='';jpbfOut.value='';jpbfStatus.textContent=''};jpbfGen.onclick=async()=>{const about=jpbfAbout.value.trim(),folder=f.value;if(!about)return showToast('Topic बताइए');if(!folder)return showToast('Folder / Subfolder चुनें');let target=f.options[f.selectedIndex]?.text||'';jpbfGen.disabled=true;jpbfStatus.textContent='छोटा भाई matter तैयार कर रहा है…';try{const r=await fetch('/api/admin/brother/generate',{method:'POST',headers:{'Content-Type':'application/json',...(S.token?{Authorization:'Bearer '+S.token}:{})},body:JSON.stringify({about,exam:target,language:jpbfLang.value,format:'typing',words:Number(jpbfWords.value||500)})});const j=await r.json();if(!r.ok)throw Error(j.error||'Matter तैयार नहीं हुआ');jpbfOut.value=j.text||'';jpbfStatus.textContent='✓ Matter तैयार है'}catch(e){jpbfStatus.textContent='✕ '+e.message;showToast(e.message)}finally{jpbfGen.disabled=false}};jpbfAdd.onclick=async()=>{const dest=d.value,folder=f.value,text=jpbfOut.value.trim(),title=jpbfAbout.value.trim().slice(0,120)||'Prepared Typing Matter';if(!folder)return showToast('Folder / Subfolder चुनें');if(!text)return showToast('पहले matter तैयार करें');if(dest==='exam'){if(typeof window.jpOpenNewPassageFullBox!=='function')return showToast('Exam passage box उपलब्ध नहीं है');window.jpOpenNewPassageFullBox('exam',folder);setTimeout(()=>{const a=document.getElementById('jpnTitle'),c=document.getElementById('jpnContent'),l=document.getElementById('jpnLanguage'),ff=document.getElementById('jpnFolder');if(ff)ff.value=folder;if(l)l.value=/hindi/i.test(jpbfLang.value)?'Hindi':'English';if(a)a.value=title;if(c)c.value=text},0);return}try{const body={area:dest,title,content:text,language:jpbfLang.value};if(dest==='practice')body.folder_id=Number(folder);else body.course_key=folder;await api('/api/admin/brother/publish',{method:'POST',body:JSON.stringify(body)});showToast(dest==='practice'?'Matter Practice में add हो गया':'Matter Learning में add हो गया');jpbfOut.value='';jpbfStatus.textContent='✓ Selected place में add हो गया'}catch(e){showToast(e.message)}}}catch(e){pane.innerHTML=`<div class="card" style="padding:18px">${esc(e.message||String(e))}</div>`}}
+ window.ownerTab=async function(tab,btn){if(tab==='practicecontrol')return practiceControl(btn);if(tab==='brother')return brother(btn);const r=await prev(tab,btn);setTimeout(ensurePracticeTab,0);return r};
+ const mo=new MutationObserver(ensurePracticeTab);mo.observe(document.body,{childList:true,subtree:true});setTimeout(ensurePracticeTab,0);
 })();
 </script>
