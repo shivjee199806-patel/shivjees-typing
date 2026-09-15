@@ -83,10 +83,15 @@ async function initRemoteSqliteMirror(){
     )`);
     remoteReady=true;
     console.log('Remote database mirror: connected');
+    // Immediately seed/refresh the remote snapshot. If a write happened while the
+    // remote connection was still starting, keep it dirty and flush it too.
+    await uploadSqliteMirror(true);
+    if(remoteDirty)scheduleRemoteSqliteMirror();
   }catch(e){console.error('Remote database mirror unavailable:',e.message);remoteReady=false}
 }
-async function uploadSqliteMirror(){
-  if(!remoteReady||remoteSyncBusy)return;
+async function uploadSqliteMirror(force=false){
+  if(!remoteReady)return false;
+  if(remoteSyncBusy){remoteDirty=true;return false}
   remoteSyncBusy=true;
   const tmp=DB_FILE+'.remote-backup';
   try{
@@ -103,13 +108,16 @@ async function uploadSqliteMirror(){
     }
   }catch(e){console.error('Remote database mirror backup failed:',e.message)}
   finally{try{if(fs.existsSync(tmp))fs.unlinkSync(tmp)}catch(e){} remoteSyncBusy=false}
+  return true;
 }
 function scheduleRemoteSqliteMirror(){
+  // Mark dirty even before the PostgreSQL connection is ready. initRemoteSqliteMirror()
+  // will flush it as soon as the remote mirror connects.
+  remoteDirty=true;
   if(!remoteReady)return;
   // Mark the DB dirty and debounce writes into one consistent remote snapshot.
   // Owner-created passages/folders/settings must reach the remote mirror quickly so a
   // Render redeploy/restart cannot roll the site back to an hours-old snapshot.
-  remoteDirty=true;
   if(remoteSyncTimer)return;
   remoteSyncTimer=setTimeout(async()=>{
     remoteSyncTimer=null;
@@ -1628,7 +1636,25 @@ const server=app.listen(PORT,()=>{
   // Remote persistence starts only after the HTTP port is open, and never blocks site startup.
   setImmediate(()=>{initRemoteSqliteMirror().catch(e=>console.error('Remote database mirror startup failed:',e.message))});
 });
-function shutdown(signal){console.log(`${signal} received; closing database safely...`);server.close(()=>{try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(e){};try{db.close()}catch(e){};process.exit(0)});setTimeout(()=>process.exit(1),10000).unref()}
+async function shutdown(signal){
+  console.log(`${signal} received; flushing persistent database...`);
+  try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(e){}
+  // Render sends SIGTERM before deploy/restart. Push the newest users/passages/folders/settings
+  // to the remote mirror before SQLite is closed, instead of losing the last debounce window.
+  try{
+    if(remoteReady){
+      // Do not let an in-flight/debounced backup make shutdown skip the newest write.
+      if(remoteSyncTimer){clearTimeout(remoteSyncTimer);remoteSyncTimer=null}
+      const deadline=Date.now()+15000;
+      while(remoteSyncBusy && Date.now()<deadline) await new Promise(r=>setTimeout(r,100));
+      remoteDirty=false;
+      await uploadSqliteMirror(true);
+      while(remoteSyncBusy && Date.now()<deadline) await new Promise(r=>setTimeout(r,100));
+    }
+  }catch(e){console.error('Final remote database backup failed:',e.message)}
+  server.close(()=>{try{db.close()}catch(e){};process.exit(0)});
+  setTimeout(()=>process.exit(1),25000).unref();
+}
 process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
 
 // FREE PRACTICE 4-DAY ROTATION — add 5 unique matters per language, never duplicate existing passage matter.
