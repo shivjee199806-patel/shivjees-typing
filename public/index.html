@@ -3081,7 +3081,8 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
    try{const rows=await api('/api/learning/matters/'+encodeURIComponent(key));const m=(rows||[]).find(x=>+x.id===+id);if(!m)throw Error('Learning matter not found');S.learning={key:'custom-'+m.id,title:m.title||'Practice Matter',level:m.level||'Practice',day:'Owner',text:m.content||'',start:0,errors:0};renderLearningStage(S.learning,false)}catch(e){showToast(e.message)}
  };
 })();
-</script>\n<style id="exam-id-final">.jp-exam-id-badge{display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:12px;font-weight:800}.jp-exam-id-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}</style>
+</script>
+<style id="exam-id-final">.jp-exam-id-badge{display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:12px;font-weight:800}.jp-exam-id-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}</style>
 <script id="exam-id-final-script">
 (function(){
 function G(a){const m=new Map();(a||[]).forEach(e=>{let n=String(e.name||'').replace(/\s*[-–]\s*(English|Hindi)\s*$/i,'').trim(),k=n.toLowerCase();if(!m.has(k))m.set(k,{name:n,variants:[],folderId:Number(e.id)});let g=m.get(k);g.variants.push(e);g.folderId=Math.min(g.folderId,Number(e.id))});return [...m.values()]}
@@ -3177,14 +3178,18 @@ let ob=window.renderBrotherHelper;if(typeof ob==='function')window.renderBrother
     window.OWNER_PASS_PAGE=1;
     return window.ownerTab('passages');
   };
-  window.jpOpenNewPassageAdd=function(key){
+  window.jpOpenNewPassageAdd=async function(key){
     if(key) window.OWNER_PASS_FOLDER=key;
     if(!window.OWNER_PASS_FOLDER || window.OWNER_PASS_FOLDER==='__FREE__'){
       const groups=(typeof ownerFolderGroups==='function'?ownerFolderGroups():[]);
       if(groups.length) window.OWNER_PASS_FOLDER=groups[0].key;
     }
+    if(!window.OWNER_PASS_FOLDER) return showToast('पहले Exam Folder/Subfolder बनाएँ या चुनें');
     window.OWNER_PASS_PAGE=1;
-    return window.ownerTab('passages');
+    await window.ownerTab('passages');
+    const pane=document.getElementById('ownerPane');
+    const form=pane && [...pane.querySelectorAll('h3')].find(x=>/Add New Passage|Add Passage/i.test(x.textContent||''));
+    if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
   };
   window.jpCreateSubfolderQuick=async function(){
     try{
@@ -3240,7 +3245,10 @@ let ob=window.renderBrotherHelper;if(typeof ob==='function')window.renderBrother
   if(typeof previousOwnerTabFinalFix==='function'){
     window.ownerTab=async function(tab,btn){
       const r=await previousOwnerTabFinalFix.apply(this,arguments);
-      if(tab==='exams'||tab==='passages') setTimeout(()=>addFinalOwnerControls(tab),0);
+      if(tab==='exams'||tab==='passages'){
+        addFinalOwnerControls(tab);
+        setTimeout(()=>addFinalOwnerControls(tab),80);
+      }
       return r;
     };
   }
@@ -3835,7 +3843,7 @@ input,select,textarea,button{max-width:100%}
   // Owner folder: explicit labels + reliable Add Matter modal + remain inside same folder after save.
   window.openLearningMatterEditorForFolder=function(key,id){
     const m=id?(window.OWNER_LEARN?.matters||[]).find(x=>+x.id===+id):null;
-    const modal=document.createElement('div'); modal.className='modal show';
+    const modal=document.createElement('div'); modal.className='modal show jp-learning-matter-modal';
     modal.innerHTML=`<div class="modal-card" style="max-width:850px"><div class="panel-head"><h2>${m?'Edit':'Add'} Learning Practice Matter</h2><button class="btn btn-white" data-close>✕</button></div><div class="form-grid"><label>Learning Folder<input class="input" value="${esc(trackLabels[key]||key)}" disabled></label><label>Practice Title<input id="fxLmTitle" class="input" value="${esc(m?.title||'')}"></label><label>Level<input id="fxLmLevel" class="input" value="${esc(m?.level||'Practice')}"></label><label>Matter Type<select id="fxLmType" class="select"><option value="passage" ${m?.matter_type==='passage'?'selected':''}>Passage</option><option value="words" ${m?.matter_type==='words'?'selected':''}>Word Drill</option><option value="keys" ${m?.matter_type==='keys'?'selected':''}>Key Drill</option><option value="sentence" ${m?.matter_type==='sentence'?'selected':''}>Sentence Practice</option></select></label><label>Display Order<input id="fxLmOrder" class="input" type="number" value="${Number(m?.sort_order||0)}"></label><label>Status<select id="fxLmActive" class="select"><option value="1" ${m?.active!==0?'selected':''}>Active</option><option value="0" ${m?.active===0?'selected':''}>Hidden</option></select></label></div><label style="display:block;margin-top:12px">Practice Matter<textarea id="fxLmContent" class="input" rows="12" style="width:100%">${esc(m?.content||'')}</textarea></label><button class="btn btn-primary" style="margin-top:12px" data-save>Save Matter</button></div>`;
     document.body.appendChild(modal);
     modal.querySelector('[data-close]').onclick=()=>modal.remove();
@@ -3843,7 +3851,7 @@ input,select,textarea,button{max-width:100%}
       const body={course_key:key,title:document.getElementById('fxLmTitle').value,level:document.getElementById('fxLmLevel').value,matter_type:document.getElementById('fxLmType').value,sort_order:document.getElementById('fxLmOrder').value,active:document.getElementById('fxLmActive').value==='1',content:document.getElementById('fxLmContent').value};
       if(!body.title.trim()||!body.content.trim())return showToast('Title और Practice Matter दोनों भरें');
       await api(m?'/api/admin/learning-matters/'+m.id:'/api/admin/learning-matters',{method:m?'PUT':'POST',body:JSON.stringify(body)});modal.remove();showToast('✅ Learning matter saved');
-      const [plans,matters]=await Promise.all([api('/api/admin/learning-plans'),api('/api/admin/learning-matters')]);window.OWNER_LEARN={plans,matters};await window.openOwnerLearningFolder(key);
+      window.OWNER_LEARN_FOLDER=key;await window.renderOwnerLearningControl();
     }catch(e){showToast(e.message)}};
   };
 
