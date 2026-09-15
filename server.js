@@ -1272,6 +1272,12 @@ app.post('/api/admin/practice-matters',auth,admin,(req,res)=>{try{
  audit(req,'CREATE','practice_matter',id,`${language}: ${title}`);return res.json({ok:true,id});
  }catch(e){res.status(400).json({error:e.message||'Could not add practice matter'})}
 });
+app.put('/api/admin/practice-matters/:id',auth,admin,(req,res)=>{try{
+ const id=Number(req.params.id),x=db.prepare('SELECT * FROM passages WHERE id=? AND exam_id IS NULL AND active=1').get(id);if(!x)return res.status(404).json({error:'Practice matter not found'});
+ const b=req.body||{},title=String(b.title??x.title).trim().slice(0,160),content=String(b.content??x.content).trim(),language=/hindi/i.test(String(b.language??x.language))?'Hindi':'English';
+ if(!title||!content)return res.status(400).json({error:'Title and practice matter required'});const layout=language==='Hindi'?'Unicode / Mangal':'QWERTY';
+ db.prepare('UPDATE passages SET title=?,content=?,language=?,layout=?,difficulty=? WHERE id=?').run(title,content,language,layout,String(b.difficulty||x.difficulty||'Medium').slice(0,30),id);audit(req,'UPDATE','practice_matter',id,`${language}: ${title}`);res.json({ok:true});
+ }catch(e){res.status(400).json({error:e.message||'Could not edit practice matter'})}});
 app.delete('/api/admin/practice-matters/:id',auth,admin,(req,res)=>{const id=Number(req.params.id),x=db.prepare('SELECT * FROM passages WHERE id=? AND exam_id IS NULL').get(id);if(!x)return res.status(404).json({error:'Practice matter not found'});db.prepare('UPDATE passages SET active=0 WHERE id=?').run(id);audit(req,'DELETE','practice_matter',id,x.title);res.json({ok:true})});
 
 app.get('/api/practice-folders',(req,res)=>res.json(db.prepare("SELECT id,parent_name,name,folder_key FROM owner_content_folders WHERE area='practice' AND active=1 ORDER BY id DESC").all()));
