@@ -70,7 +70,7 @@ const db=new Database(DB_FILE);console.log('Persistent database:',DB_FILE);db.pr
 // but mirror the SQLite database into PostgreSQL/Supabase after every mutating HTTP request.
 // On a fresh Render filesystem, the newest mirror is restored before normal traffic is served.
 let remotePool=null,remoteReady=false,remoteSyncTimer=null,remoteSyncBusy=false,remoteDirty=false;
-const REMOTE_BACKUP_INTERVAL_MS=Math.max(60*60*1000,Number(process.env.REMOTE_BACKUP_INTERVAL_MS)||6*60*60*1000); // default: at most one full snapshot every 6 hours
+const REMOTE_BACKUP_INTERVAL_MS=Math.max(1000,Number(process.env.REMOTE_BACKUP_INTERVAL_MS)||2000); // Render safety: persist owner changes within ~2 seconds; configurable, minimum 1s
 async function initRemoteSqliteMirror(){
   if(!REMOTE_DB_URL)return;
   try{
@@ -106,10 +106,9 @@ async function uploadSqliteMirror(){
 }
 function scheduleRemoteSqliteMirror(){
   if(!remoteReady)return;
-  // Mark the DB dirty, but NEVER upload a complete SQLite snapshot for every request.
-  // A single timer is shared by all writes, so a busy site still creates at most one
-  // full remote snapshot per interval (6 hours by default). Set REMOTE_BACKUP_INTERVAL_MS
-  // to a larger value if desired; values below 1 hour are deliberately rejected.
+  // Mark the DB dirty and debounce writes into one consistent remote snapshot.
+  // Owner-created passages/folders/settings must reach the remote mirror quickly so a
+  // Render redeploy/restart cannot roll the site back to an hours-old snapshot.
   remoteDirty=true;
   if(remoteSyncTimer)return;
   remoteSyncTimer=setTimeout(async()=>{
@@ -1241,7 +1240,7 @@ app.delete('/api/admin/learning-matters/:id',auth,admin,(req,res)=>{const id=Num
 // Learning access/payment — Demo Pay is intentionally available for testing; Owner controls every plan.
 app.get('/api/learning/plans',auth,(req,res)=>res.json(db.prepare('SELECT * FROM learning_plans WHERE active=1 ORDER BY rowid').all()));
 app.get('/api/learning/access/:key',auth,(req,res)=>res.json(learningAccessState(req.user.id,String(req.params.key))));
-app.post('/api/learning/demo-pay',auth,(req,res)=>{const b=req.body||{},key=String(b.course_key||''),plan=db.prepare('SELECT * FROM learning_plans WHERE course_key=?').get(key);if(!plan)return res.status(404).json({error:'Learning plan not found'});const txn=String(b.txn_ref||'').trim().slice(0,100);if(!txn)return res.status(400).json({error:'Demo transaction number required'});const days=Math.max(1,Number(plan.validity_days)||30),until=new Date(Date.now()+days*86400000).toISOString().slice(0,10);db.prepare(`INSERT INTO user_learning_access(user_id,course_key,access_type,valid_until,status,amount,txn_ref,method) VALUES(?,?, 'paid',?,'approved',?,?,?) ON CONFLICT(user_id,course_key) DO UPDATE SET access_type='paid',valid_until=excluded.valid_until,status='approved',amount=excluded.amount,txn_ref=excluded.txn_ref,method=excluded.method,created_at=CURRENT_TIMESTAMP`).run(req.user.id,key,until,Number(plan.fee_amount)||0,txn,String(b.method||'demo').slice(0,30));res.json({status:'approved',valid_until:until})});
+app.post('/api/learning/demo-pay',auth,(req,res)=>{if(!paymentSystemEnabled())return res.status(503).json({error:'Payment System is OFF — site is in FREE mode',code:'PAYMENT_SYSTEM_OFF'});const b=req.body||{},key=String(b.course_key||''),plan=db.prepare('SELECT * FROM learning_plans WHERE course_key=?').get(key);if(!plan)return res.status(404).json({error:'Learning plan not found'});const txn=String(b.txn_ref||'').trim().slice(0,100);if(!txn)return res.status(400).json({error:'Demo transaction number required'});const days=Math.max(1,Number(plan.validity_days)||30),until=new Date(Date.now()+days*86400000).toISOString().slice(0,10);db.prepare(`INSERT INTO user_learning_access(user_id,course_key,access_type,valid_until,status,amount,txn_ref,method) VALUES(?,?, 'paid',?,'approved',?,?,?) ON CONFLICT(user_id,course_key) DO UPDATE SET access_type='paid',valid_until=excluded.valid_until,status='approved',amount=excluded.amount,txn_ref=excluded.txn_ref,method=excluded.method,created_at=CURRENT_TIMESTAMP`).run(req.user.id,key,until,Number(plan.fee_amount)||0,txn,String(b.method||'demo').slice(0,30));res.json({status:'approved',valid_until:until})});
 
 app.get('/api/admin/content-folders',auth,admin,(req,res)=>res.json(db.prepare('SELECT * FROM owner_content_folders ORDER BY area,parent_name,id DESC').all()));
 app.post('/api/admin/content-folders',auth,admin,(req,res)=>{try{const b=req.body||{},area=String(b.area||'').toLowerCase(),parent=String(b.parent_name||'').trim().slice(0,120),name=String(b.name||'').trim().slice(0,120);if(!['exam','practice','learning'].includes(area))return res.status(400).json({error:'Area required'});if(!name)return res.status(400).json({error:'Folder/Subfolder name required'});const slug=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||Date.now().toString(36);const key=`${area}:${slug(parent)}:${slug(name)}:${Date.now().toString(36)}`;const paid=b.paid_enabled?1:0,lock=b.lock_until_payment?1:0,demo=lock?0:Math.max(0,Number(b.daily_demo_limit)||0),fee=Math.max(0,Number(b.fee_amount)||0),days=Math.max(1,Number(b.validity_days)||30);const id=db.prepare('INSERT INTO owner_content_folders(area,parent_name,name,folder_key,paid_enabled,fee_amount,daily_demo_limit,validity_days,lock_until_payment,active) VALUES(?,?,?,?,?,?,?,?,?,1)').run(area,parent,name,key,paid,fee,demo,days,lock).lastInsertRowid;
