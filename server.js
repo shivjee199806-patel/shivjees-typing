@@ -930,6 +930,7 @@ const APPROVED_TYPING_DIRECTORY_SLUGS=new Set(STATE_EXAM_DIRECTORY.map(x=>x[1]))
 function isTypingDirectoryExam(e){
   const slug=String(e&&e.slug||''), n=String(e&&e.name||'');
   if(APPROVED_TYPING_DIRECTORY_SLUGS.has(slug))return true;
+  if(/^Owner Folder Control:/i.test(String(e&&e.description||'')))return true;
   // Preserve the site's original typing folders and any Owner-created folder whose
   // name clearly represents typing/steno/DEO/clerical typing work.
   if(/^upp-co-(english|hindi)$/.test(slug))return true;
@@ -941,6 +942,7 @@ function northMainFolderForExam(e){
   const n=String(e&&e.name||'').trim(), slug=String(e&&e.slug||'');
   const parents=['UP','Uttarakhand','Delhi','Haryana','Himachal Pradesh','Punjab','Rajasthan','Jammu & Kashmir','Ladakh','Chandigarh','Railway','SSC'];
   for(const p of parents){ if(n.startsWith(p+' - ')) return p; }
+  if(/^Owner Folder Control:/i.test(String(e&&e.description||'')) && n.includes(' - ')) return n.split(' - ')[0].trim();
   if(/^railway-/.test(slug) || /\b(rrb|railway)\b/i.test(n)) return 'Railway';
   if(/^upp-co-/.test(slug) || /\bUP Police\b/i.test(n) || /\bUPPSC\b|\bUPSSSC\b/i.test(n)) return 'UP';
   if(/\bSSC\b/i.test(n)||/^ssc-/.test(slug)) return 'SSC';
@@ -952,15 +954,15 @@ function northDirectoryTree(){
   const rows=all.filter(isTypingDirectoryExam);
   const order=['UP','Uttarakhand','Delhi','Haryana','Himachal Pradesh','Punjab','Rajasthan','Jammu & Kashmir','Ladakh','Chandigarh','Railway','SSC'];
   const map=new Map(order.map(x=>[x,[]]));
-  for(const e of rows){const p=northMainFolderForExam(e);if(p&&map.has(p))map.get(p).push(e)}
-  const tree=order.map(name=>({name,key:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),exams:map.get(name)})).filter(x=>x.exams.length);
+  for(const e of rows){const p=northMainFolderForExam(e);if(p){if(!map.has(p)){map.set(p,[]);order.push(p)}map.get(p).push(e)}}
+  const tree=order.map(name=>({name,key:name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),exams:map.get(name)||[]})).filter(x=>x.exams.length);
   return {rows,tree};
 }
 app.get('/api/exam-directory-tree',(req,res)=>{try{res.set('Cache-Control','no-store');res.json(northDirectoryTree())}catch(e){res.status(500).json({error:e.message})}});
 app.get('/api/admin/exam-directory-tree',auth,admin,(req,res)=>{try{res.set('Cache-Control','no-store');res.json(northDirectoryTree())}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/exams',(req,res)=>{ensureNorthRailwayExamDirectory();let q="SELECT e.*,(SELECT COUNT(*) FROM passages p WHERE p.exam_id=e.id AND p.active=1) passage_count FROM exams e WHERE e.active=1";const a=[];if(req.query.candidate==='1'){q+=" AND e.slug NOT IN ('hindi-unicode','hindi-remington','krutidev-hindi','up-govt','custom-english')"}if(req.query.language){q+=' AND e.language=?';a.push(req.query.language)}res.json(db.prepare(q+' ORDER BY e.id').all(...a))});
-app.get('/api/exams/:id',auth,(req,res)=>{const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});const cfg=examFolderConfig(e),state=examAccessState(req.user,cfg);if(state.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:state.block_reason});if(cfg.paid_enabled&&!state.can_start)return res.status(402).json({error:'Payment required for this exam sub-folder',code:'EXAM_PAYMENT_REQUIRED'});const p=db.prepare("SELECT * FROM passages WHERE active=1 AND exam_id=? ORDER BY id ASC LIMIT 100").all(e.id);res.json({...e,fee_amount:cfg.fee_amount,validity_days:cfg.validity_days,daily_demo_limit:cfg.daily_demo_limit,paid_enabled:cfg.paid_enabled,passages:p})});
+app.get('/api/exams/:id',auth,(req,res)=>{const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});const cfg=examFolderConfig(e),state=examAccessState(req.user,cfg);if(state.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:state.block_reason});if(cfg.paid_enabled&&!state.can_start)return res.status(402).json({error:'Payment required for this exam sub-folder',code:'EXAM_PAYMENT_REQUIRED'});const p=db.prepare("SELECT * FROM passages WHERE active=1 AND exam_id=? ORDER BY id DESC LIMIT 100").all(e.id);res.json({...e,fee_amount:cfg.fee_amount,validity_days:cfg.validity_days,daily_demo_limit:cfg.daily_demo_limit,paid_enabled:cfg.paid_enabled,passages:p})});
 app.get('/api/passages',(req,res)=>{let q='SELECT * FROM passages WHERE active=1',a=[];if(req.query.exam_id){q+=' AND exam_id=?';a.push(Number(req.query.exam_id))}else if(req.query.include_all!=='1'){q+=' AND exam_id IS NULL'}if(req.query.language){q+=' AND language=?';a.push(req.query.language)}if(req.query.layout){q+=' AND layout=?';a.push(req.query.layout)}if(req.query.difficulty){q+=' AND difficulty=?';a.push(req.query.difficulty)}res.json(db.prepare(q+' ORDER BY id DESC').all(...a))});
 function parseLiveTime(v){const t=String(v||'').trim();if(!t)return NaN;if(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(t))return new Date(t).getTime();return new Date(t+'+05:30').getTime()}
 function textUnits(v){return Array.from(String(v||''))}
