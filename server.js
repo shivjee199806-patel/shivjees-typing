@@ -1258,6 +1258,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS owner_practice_folder_passages(
  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(folder_id,passage_id)
 )`);
+// Direct Practice Control: owner passages go straight into the built-in English/Hindi Practice lists.
+app.get('/api/admin/practice-matters',auth,admin,(req,res)=>{
+ const lang=/^Hindi$/i.test(String(req.query.language||''))?'Hindi':(/^English$/i.test(String(req.query.language||''))?'English':'');
+ let q='SELECT * FROM passages WHERE active=1 AND exam_id IS NULL',a=[];if(lang){q+=' AND language=?';a.push(lang)}
+ res.json(db.prepare(q+' ORDER BY id DESC').all(...a));
+});
+app.post('/api/admin/practice-matters',auth,admin,(req,res)=>{try{
+ const b=req.body||{},title=String(b.title||'').trim().slice(0,160),content=String(b.content||'').trim(),language=/hindi/i.test(String(b.language||''))?'Hindi':'English';
+ if(!title||!content)return res.status(400).json({error:'Title and practice matter required'});
+ const layout=language==='Hindi'?'Unicode / Mangal':'QWERTY';
+ const id=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,'current_char',NULL,1)`).run(title,language,layout,String(b.difficulty||'Medium').slice(0,30),content).lastInsertRowid;
+ audit(req,'CREATE','practice_matter',id,`${language}: ${title}`);return res.json({ok:true,id});
+ }catch(e){res.status(400).json({error:e.message||'Could not add practice matter'})}
+});
+app.delete('/api/admin/practice-matters/:id',auth,admin,(req,res)=>{const id=Number(req.params.id),x=db.prepare('SELECT * FROM passages WHERE id=? AND exam_id IS NULL').get(id);if(!x)return res.status(404).json({error:'Practice matter not found'});db.prepare('UPDATE passages SET active=0 WHERE id=?').run(id);audit(req,'DELETE','practice_matter',id,x.title);res.json({ok:true})});
+
 app.get('/api/practice-folders',(req,res)=>res.json(db.prepare("SELECT id,parent_name,name,folder_key FROM owner_content_folders WHERE area='practice' AND active=1 ORDER BY id DESC").all()));
 app.get('/api/practice-folders/:id/passages',(req,res)=>res.json(db.prepare(`SELECT p.* FROM passages p JOIN owner_practice_folder_passages l ON l.passage_id=p.id WHERE l.folder_id=? AND p.active=1 ORDER BY p.id DESC`).all(Number(req.params.id))));
 app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
