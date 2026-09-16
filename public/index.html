@@ -3595,6 +3595,22 @@ body.jp-editview-open{overflow:hidden!important}.jp-editview-overlay{position:fi
 
 
 <style id="jp-result-share-grid-css">.result-share-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.result-share-grid .btn{min-height:46px}@media(max-width:700px){.result-share-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){.result-share-grid{grid-template-columns:1fr}}</style>
+
+<!-- TOP NAV RESPONSIVE VISIBILITY ONLY FIX 2026-09-16 -->
+<style id="jpTopNavResponsiveVisibilityOnly20260916">
+/* Keep the existing approved top-nav colors/design; only stop nav links disappearing on smaller screens. */
+@media (max-width:900px){
+  .topbar{height:auto!important;min-height:64px!important;flex-wrap:wrap!important;align-content:center!important;padding-top:6px!important;padding-bottom:6px!important}
+  .topnav{display:flex!important;order:10!important;flex:1 0 100%!important;width:100%!important;max-width:100%!important;gap:5px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;padding:3px 0 1px!important;scrollbar-width:thin!important;-webkit-overflow-scrolling:touch!important}
+  .topnav a{flex:0 0 auto!important;white-space:nowrap!important}
+  .side{top:108px!important;height:calc(100dvh - 108px)!important}
+  .mobile-overlay{inset:108px 0 0!important}
+}
+@media (max-width:560px){
+  .topbar{padding-left:8px!important;padding-right:8px!important}
+  .topnav a{padding:7px 9px!important;font-size:11px!important}
+}
+</style>
 </body>
 </html>
 
