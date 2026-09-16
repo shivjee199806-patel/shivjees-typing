@@ -638,13 +638,13 @@ function applyLiveTemplate(){const t=document.getElementById('qlTemplate');if(!t
 function quickLiveSyncPassages(){const e=document.getElementById('qlExam'),p=document.getElementById('qlPassage');if(!e||!p)return;const lang=e.selectedOptions[0]?.dataset.lang||'',eid=e.value||'';[...p.options].forEach((o,i)=>{if(i===0)return;const assigned=o.dataset.exam||'';o.hidden=assigned?assigned!==eid:(!!lang&&o.dataset.lang!==lang)});if(p.selectedOptions[0]?.hidden)p.value='';const d=+e.selectedOptions[0]?.dataset.duration;if(d>0&&document.getElementById('qlMinutes')){qlMinutes.value=d;quickLiveCalcEnd()}}
 function quickLiveCalcEnd(){const st=document.getElementById('qlStart')?.value,m=+document.getElementById('qlMinutes')?.value;if(!st||!m)return;const d=new Date(st);if(isNaN(d))return;d.setMinutes(d.getMinutes()+m);const z=n=>String(n).padStart(2,'0');document.getElementById('qlEnd').value=`${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`}
 function quickPassageExamSync(){const o=document.getElementById('qlpExam')?.selectedOptions[0];if(!o||!o.value)return;qlpLang.value=o.dataset.lang||'English'}
-async function quickLivePassage(){try{const title=qlpTitle.value.trim(),content=qlpContent.value.trim(),exam_id=+qlpExam.value||0;if(!exam_id)throw new Error('पहले Exam चुनें');if(!title||!content)throw new Error('Passage title और content दोनों भरें');const o=qlpExam.selectedOptions[0];await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id,title,language:o.dataset.lang||qlpLang.value,layout:o.dataset.layout||(qlpLang.value==='Hindi'?'Unicode':'QWERTY'),difficulty:'Medium',content,highlight_mode:qlpHighlight.value,auto_scroll:qlpAutoScroll.value==='1',active:true})});showToast('Passage exam से link होकर save हो गया');loadLiveOwnerScheduler()}catch(e){showToast(e.message)}}
+async function quickLivePassage(){try{const title=qlpTitle.value.trim(),content=qlpContent.value.trim(),exam_id=+qlpExam.value||0;if(!exam_id)throw new Error('पहले Exam चुनें');if(!title||!content)throw new Error('Passage title और content दोनों भरें');const o=qlpExam.selectedOptions[0];await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id,title,language:o.dataset.lang||qlpLang.value,layout:o.dataset.layout||(qlpLang.value==='Hindi'?'Unicode':'QWERTY'),difficulty:'Medium',content,highlight_mode:qlpHighlight.value,auto_scroll:qlpAutoScroll.value==='1',result_count_mode:document.getElementById('qlpResultCountMode')?.checked?'character':'word',active:true})});showToast('Passage exam से link होकर save हो गया');loadLiveOwnerScheduler()}catch(e){showToast(e.message)}}
 
 function closeLivePassageEditor(){document.getElementById('livePassageEditorModal')?.remove()}
 async function editLiveReadyPassage(id){try{const x=(window.LIVE_ADMIN_DATA?.passages||[]).find(p=>+p.id===+id);if(!x)throw new Error('Passage not found');closeLivePassageEditor();const wrap=document.createElement('div');wrap.id='livePassageEditorModal';wrap.className='contact-pop';wrap.innerHTML=`<div class="contact-card" style="width:min(900px,96vw);text-align:left"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:0">Edit Live Passage Matter</h2><button class="btn btn-white" onclick="closeLivePassageEditor()">✕</button></div><label style="display:block;margin-top:14px;font-weight:800">Title<input id="liveEditTitle" class="input" style="width:100%;margin-top:6px" value="${esc(x.title)}"></label><label style="display:block;margin-top:12px;font-weight:800">Passage Scroll<select id="liveEditAutoScroll" class="select" style="width:100%;margin-top:6px"><option value="1" ${Number(x.auto_scroll??1)===1?'selected':''}>Auto Scroll</option><option value="0" ${Number(x.auto_scroll??1)===0?'selected':''}>Manual Scroll</option></select></label><label style="display:block;margin-top:12px;font-weight:800">Full Matter<textarea id="liveEditContent" class="input" rows="18" style="width:100%;margin-top:6px;resize:vertical">${esc(x.content)}</textarea></label><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn btn-white" onclick="closeLivePassageEditor()">Cancel</button><button class="btn btn-primary" onclick="saveLiveReadyPassage(${x.id})">Save Matter</button></div></div>`;wrap.addEventListener('click',ev=>{if(ev.target===wrap)closeLivePassageEditor()});document.body.appendChild(wrap)}catch(e){showToast(e.message)}}
-async function saveLiveReadyPassage(id){try{const x=(window.LIVE_ADMIN_DATA?.passages||[]).find(p=>+p.id===+id);if(!x)throw new Error('Passage not found');const title=document.getElementById('liveEditTitle')?.value.trim(),content=document.getElementById('liveEditContent')?.value.trim(),auto_scroll=document.getElementById('liveEditAutoScroll')?.value!=='0';if(!title||!content)throw new Error('Title और matter खाली नहीं हो सकते');await api('/api/admin/passages/'+id,{method:'PUT',body:JSON.stringify({...x,title,content,auto_scroll,active:true})});closeLivePassageEditor();showToast('Live passage updated');loadLiveOwnerScheduler()}catch(e){showToast(e.message)}}
-async function quickScheduleLive(){try{if(!qlExam.value||!qlPassage.value||!qlStart.value||!qlEnd.value)throw new Error('Exam, Passage, Start और End time चुनें');await api('/api/admin/live-tests',{method:'POST',body:JSON.stringify({title:qlTitle.value.trim()||'Live Typing Test',exam_id:+qlExam.value,passage_id:+qlPassage.value,start_at:qlStart.value,end_at:qlEnd.value,active:true})});showToast('Live test scheduled');liveTests('all')}catch(e){showToast(e.message)}}
-async function startLiveTest(id){try{showToast('Opening live test...');const x=await api('/api/live-tests/'+id);S.liveTest=x;S.exam={id:x.exam_id,name:x.exam_name,language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.highlight_mode||'current_char',passages:[]};S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:x.content,highlight_mode:x.highlight_mode||'current_char'};S.total=Math.max(60,Number(x.duration||10)*60);S.left=S.total;S.started=false;S.done=false;S.mode='live';S.backspaces=0;S.attemptBackspaceAllowed=!!x.backspace_allowed;S.attemptHighlightMode=(x.highlight_mode||'current_char');S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions()}catch(e){showToast(e.message||'Live test could not start')}}
+async function saveLiveReadyPassage(id){try{const x=(window.LIVE_ADMIN_DATA?.passages||[]).find(p=>+p.id===+id);if(!x)throw new Error('Passage not found');const title=document.getElementById('liveEditTitle')?.value.trim(),content=document.getElementById('liveEditContent')?.value.trim(),auto_scroll=document.getElementById('liveEditAutoScroll')?.value!=='0',result_count_mode=document.getElementById('liveEditResultCountMode')?.checked?'character':'word';if(!title||!content)throw new Error('Title और matter खाली नहीं हो सकते');await api('/api/admin/passages/'+id,{method:'PUT',body:JSON.stringify({...x,title,content,auto_scroll,result_count_mode,active:true})});closeLivePassageEditor();showToast('Live passage updated');loadLiveOwnerScheduler()}catch(e){showToast(e.message)}}
+async function quickScheduleLive(){try{if(!qlExam.value||!qlPassage.value||!qlStart.value||!qlEnd.value)throw new Error('Exam, Passage, Start और End time चुनें');await api('/api/admin/passages/'+qlPassage.value,{method:'PUT',body:JSON.stringify({result_count_mode:document.getElementById('qlResultCountMode')?.checked?'character':'word'})});await api('/api/admin/live-tests',{method:'POST',body:JSON.stringify({title:qlTitle.value.trim()||'Live Typing Test',exam_id:+qlExam.value,passage_id:+qlPassage.value,start_at:qlStart.value,end_at:qlEnd.value,active:true})});showToast('Live test scheduled');liveTests('all')}catch(e){showToast(e.message)}}
+async function startLiveTest(id){try{showToast('Opening live test...');const x=await api('/api/live-tests/'+id);S.liveTest=x;S.exam={id:x.exam_id,name:x.exam_name,language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.highlight_mode||'current_char',passages:[]};S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:x.content,highlight_mode:x.highlight_mode||'current_char',result_count_mode:x.result_count_mode||'word'};S.total=Math.max(60,Number(x.duration||10)*60);S.left=S.total;S.started=false;S.done=false;S.mode='live';S.backspaces=0;S.attemptBackspaceAllowed=!!x.backspace_allowed;S.attemptHighlightMode=(x.highlight_mode||'current_char');S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions()}catch(e){showToast(e.message||'Live test could not start')}}
 function examGroup(x){const n=(x.name||'').toLowerCase();if(/railway|rrb|ntpc/.test(n))return 'Railway';if(/ssc|chsl|cgl|steno/.test(n))return 'SSC';if(/police|upp|upsssc|uttar pradesh/.test(n))return 'UP Exams';if(/court|ro\s*\/\s*aro|aro|jja|judicial/.test(n))return 'Court / RO-ARO';return 'Other Exams'}
 function examKeyword(x){const n=String(x.name||'').trim();if(/ntpc/i.test(n))return 'NTPC';if(/railway|rrb/i.test(n))return 'Railway';if(/ro\s*\/\s*aro|\bro\b|\baro\b/i.test(n))return 'RO/ARO';if(/up police/i.test(n))return 'UP Police';if(/upsssc/i.test(n))return 'UPSSSC';if(/ssc chsl/i.test(n))return 'SSC CHSL';if(/ssc cgl/i.test(n))return 'SSC CGL';if(/ssc/i.test(n))return 'SSC';if(/high court|court/i.test(n))return 'High Court';return n.split(/[-–|]/)[0].trim().split(/\s+/).slice(0,3).join(' ')}
 async function exams(){activeNav('exams');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>Typing Exams</h1><p>Exam चुनें — उसके अंदर केवल उसी exam के assigned passages खुलेंगे.</p></div></div><div class="exam-directory"><div class="exam-searchbar"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search exam..." autocomplete="off"></div><select id="examType" class="select"><option value="">Exam Type</option><option>UP Exams</option><option>Railway</option><option>SSC</option><option>Court / RO-ARO</option><option>Other Exams</option></select><select id="examOrder" class="select"><option value="relevance">Order by: Relevance</option><option value="az">Order by: A-Z</option><option value="passages">Most Passages</option><option value="newest">Newest Added</option></select></div><div class="keyword-wrap"><div class="keyword-title">🔍 Popular Search Keywords <span style="float:right;display:flex;gap:8px"><button class="btn btn-soft" style="padding:8px 16px" onclick="addStateFilter()">＋ Add State</button><button class="btn btn-soft" style="padding:8px 16px" onclick="addDistrictFilter()">＋ Add District</button></span></div><div id="examKeywords" class="keyword-chips"></div></div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);window.EXAM_OPTIONS=await api('/api/exams?candidate=1');window.EXAM_KEYWORD='';renderExamKeywords();loadExamDirectory();examSearch.oninput=()=>{window.EXAM_KEYWORD='';renderExamKeywords();loadExamDirectory()};examType.onchange=loadExamDirectory;examOrder.onchange=loadExamDirectory}
@@ -1341,6 +1341,146 @@ ownerTab = function(tab,btn){
 
 window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});validateSavedSession();
 </script>
+
+<!-- Exam Result passage comparison UI only — force the approved red/green diff on exam/live results. -->
+<style id="jp-exam-result-passage-ui-20260917">
+.result-dashboard .result-match-comparison.jp-exam-result-diff{
+  display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  width:100%!important;margin-top:24px!important;border:1px solid #e5e7eb!important;
+  border-radius:0!important;overflow:hidden!important;background:#fff!important;box-shadow:none!important
+}
+.result-dashboard .jp-exam-result-diff>div{min-width:0!important}
+.result-dashboard .jp-exam-result-diff>div:first-child{background:#ffe3e5!important}
+.result-dashboard .jp-exam-result-diff>div:last-child{background:#dcfce7!important;border-left:1px solid #e5e7eb!important}
+.result-dashboard .jp-exam-result-diff h3{
+  height:34px!important;margin:0!important;padding:0 10px!important;display:flex!important;align-items:center!important;
+  background:#f8fafc!important;border:0!important;border-bottom:1px solid #e5e7eb!important;
+  color:#111827!important;font:12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace!important
+}
+.result-dashboard .jp-exam-result-diff>div:first-child h3{font-size:0!important}
+.result-dashboard .jp-exam-result-diff>div:first-child h3:before{content:none!important}
+.result-dashboard .jp-exam-result-diff>div:first-child h3:after{content:'Original Passage'!important;font-size:12px!important}
+.result-dashboard .jp-exam-result-diff>div:last-child h3{font-size:0!important}
+.result-dashboard .jp-exam-result-diff>div:last-child h3:before{content:none!important}
+.result-dashboard .jp-exam-result-diff>div:last-child h3:after{content:'Typed Passage'!important;font-size:12px!important}
+.result-dashboard .jp-exam-result-diff .result-passage-text{
+  position:relative!important;display:block!important;min-height:355px!important;margin:0!important;
+  padding:8px 12px 16px 58px!important;background:transparent!important;color:#111827!important;
+  font:12px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace!important;
+  white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:normal!important
+}
+.result-dashboard .jp-exam-result-diff .result-passage-text:before{
+  content:'1'!important;position:absolute!important;left:0!important;top:0!important;width:38px!important;height:100%!important;
+  padding:8px 9px 0 0!important;text-align:right!important;border-right:1px solid rgba(0,0,0,.07)!important;
+  color:#64748b!important;background:rgba(255,255,255,.28)!important;box-sizing:border-box!important
+}
+.result-dashboard .jp-exam-result-diff>div:first-child .result-passage-text:after{
+  content:'−'!important;position:absolute!important;left:45px!important;top:8px!important;color:#991b1b!important;font-weight:900!important
+}
+.result-dashboard .jp-exam-result-diff>div:last-child .result-passage-text:after{
+  content:'+'!important;position:absolute!important;left:45px!important;top:8px!important;color:#166534!important;font-weight:900!important
+}
+.result-dashboard .jp-exam-result-diff .result-original-error{
+  display:inline!important;background:#fca5a5!important;color:#111827!important;border:0!important;border-radius:2px!important;
+  box-shadow:none!important;padding:1px 2px!important;margin:0!important;text-decoration:none!important
+}
+.result-dashboard .jp-exam-result-diff .result-wrong-word{
+  display:inline!important;background:#86efac!important;color:#111827!important;border:0!important;border-radius:2px!important;
+  box-shadow:none!important;padding:1px 2px!important;margin:0!important;text-decoration:none!important
+}
+.analysis-two.jp-exam-saved-result-diff{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:0!important;border:1px solid #e5e7eb!important;background:#fff!important}
+.analysis-two.jp-exam-saved-result-diff>.card{padding:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
+.analysis-two.jp-exam-saved-result-diff>.card:first-child{background:#ffe3e5!important}
+.analysis-two.jp-exam-saved-result-diff>.card:last-child{background:#dcfce7!important;border-left:1px solid #e5e7eb!important}
+.analysis-two.jp-exam-saved-result-diff h3{height:34px!important;margin:0!important;padding:0 10px!important;display:flex!important;align-items:center!important;background:#f8fafc!important;border-bottom:1px solid #e5e7eb!important;font:12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace!important}
+.analysis-two.jp-exam-saved-result-diff .analysis-text{position:relative!important;max-height:none!important;min-height:355px!important;margin:0!important;padding:8px 12px 16px 58px!important;border-radius:0!important;background:transparent!important;color:#111827!important;font:12px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
+.analysis-two.jp-exam-saved-result-diff .analysis-text:before{content:'1'!important;position:absolute!important;left:0!important;top:0!important;width:38px!important;height:100%!important;padding:8px 9px 0 0!important;text-align:right!important;border-right:1px solid rgba(0,0,0,.07)!important;color:#64748b!important;background:rgba(255,255,255,.28)!important;box-sizing:border-box!important}
+.analysis-two.jp-exam-saved-result-diff>.card:first-child .analysis-text:after{content:'−'!important;position:absolute!important;left:45px!important;top:8px!important;color:#991b1b!important;font-weight:900!important}
+.analysis-two.jp-exam-saved-result-diff>.card:last-child .analysis-text:after{content:'+'!important;position:absolute!important;left:45px!important;top:8px!important;color:#166534!important;font-weight:900!important}
+@media(max-width:760px){
+ .result-dashboard .result-match-comparison.jp-exam-result-diff{grid-template-columns:1fr!important}
+ .result-dashboard .jp-exam-result-diff>div:last-child{border-left:0!important;border-top:1px solid #e5e7eb!important}
+ .analysis-two.jp-exam-saved-result-diff{grid-template-columns:1fr!important}.analysis-two.jp-exam-saved-result-diff>.card:last-child{border-left:0!important;border-top:1px solid #e5e7eb!important}
+}
+</style>
+<script id="jp-exam-result-passage-ui-script-20260917">
+(()=>{
+ function applyExamResultDiff(){
+  document.querySelectorAll('.result-dashboard .result-match-comparison').forEach(el=>el.classList.add('jp-exam-result-diff'));
+  document.querySelectorAll('.analysis-two').forEach(el=>{
+   const titles=Array.from(el.querySelectorAll('h3')).map(x=>(x.textContent||'').trim());
+   const pageText=el.closest('.page')?.textContent||'';
+   if(titles.includes('Original Passage')&&titles.includes('Typed Passage')&&/Qualified|Not Qualified/.test(pageText))el.classList.add('jp-exam-saved-result-diff');
+  });
+ }
+ const observer=new MutationObserver(applyExamResultDiff);
+ observer.observe(document.documentElement,{childList:true,subtree:true});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyExamResultDiff);else applyExamResultDiff();
+})();
+</script>
+
+<!-- Live Scheduler result-count mode: Quick Passage, selected Live Passage, and Live edit. -->
+<script id="jp-live-scheduler-result-count-toggle-20260917">
+(()=>{
+ const modeBox=(id,labelId,checked=false)=>{const box=document.createElement('div');box.id=id+'Wrap';box.className='input';box.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px';box.innerHTML=`<span id="${labelId}">${checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'}</span><label class="switch"><input id="${id}" type="checkbox" ${checked?'checked':''}><span class="slider"></span></label>`;const t=box.querySelector('input'),l=box.querySelector('#'+labelId);t.onchange=()=>{l.textContent=t.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'};return box};
+ function install(){
+  const quickScroll=document.getElementById('qlpAutoScroll');
+  if(quickScroll&&!document.getElementById('qlpResultCountMode'))quickScroll.closest('.form-grid')?.after(modeBox('qlpResultCountMode','qlpResultCountLabel'));
+  const passage=document.getElementById('qlPassage');
+  if(passage&&!document.getElementById('qlResultCountMode')){
+   const box=modeBox('qlResultCountMode','qlResultCountLabel');passage.after(box);
+   const sync=()=>{const p=(window.LIVE_ADMIN_DATA?.passages||[]).find(x=>String(x.id)===String(passage.value)),t=box.querySelector('input'),l=box.querySelector('span');t.checked=p?.result_count_mode==='character';l.textContent=t.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'};
+   passage.addEventListener('change',sync);sync();
+  }
+  const editScroll=document.getElementById('liveEditAutoScroll');
+  if(editScroll&&!document.getElementById('liveEditResultCountMode')){
+   const id=Number(document.querySelector('#livePassageEditorModal button[onclick^="saveLiveReadyPassage"]')?.getAttribute('onclick')?.match(/\d+/)?.[0]||0),p=(window.LIVE_ADMIN_DATA?.passages||[]).find(x=>Number(x.id)===id),box=modeBox('liveEditResultCountMode','liveEditResultCountLabel',p?.result_count_mode==='character');
+   editScroll.closest('label')?.after(box);
+  }
+ }
+ new MutationObserver(install).observe(document.documentElement,{childList:true,subtree:true});install();
+ const originalApi=window.api;
+ if(typeof originalApi==='function'&&!originalApi.__jpLiveResultModeWrapped){
+  const wrapped=async function(path,options){
+   const method=String(options?.method||'GET').toUpperCase();let next=options;
+   if(method==='POST'&&path==='/api/admin/passages'&&document.getElementById('qlpResultCountMode')&&document.getElementById('qlpTitle')){
+    next={...(options||{})};let b={};try{b=JSON.parse(next.body||'{}')}catch(_){b={}}b.result_count_mode=document.getElementById('qlpResultCountMode').checked?'character':'word';next.body=JSON.stringify(b)
+   }
+   if(method==='PUT'&&/^\/api\/admin\/passages\/\d+$/.test(path)&&document.getElementById('liveEditResultCountMode')){
+    next={...(options||{})};let b={};try{b=JSON.parse(next.body||'{}')}catch(_){b={}}b.result_count_mode=document.getElementById('liveEditResultCountMode').checked?'character':'word';next.body=JSON.stringify(b)
+   }
+   if(method==='POST'&&path==='/api/admin/live-tests'&&document.getElementById('qlResultCountMode')){
+    let b={};try{b=JSON.parse(options?.body||'{}')}catch(_){b={}}if(b.passage_id)await originalApi('/api/admin/passages/'+b.passage_id,{method:'PUT',body:JSON.stringify({result_count_mode:document.getElementById('qlResultCountMode').checked?'character':'word'})})
+   }
+   return originalApi(path,next)
+  };
+  wrapped.__jpLiveResultModeWrapped=true;window.api=wrapped;
+ }
+})();
+</script>
+
+<!-- Passage edit support for owner-selected result count mode. -->
+<script id="jp-passage-result-count-mode-edit-20260917">
+(()=>{
+ function addEditControl(){
+  const scroll=document.getElementById('peAutoScroll'),active=document.getElementById('peActive');
+  if(!scroll||!active||document.getElementById('peResultCountMode'))return;
+  const label=document.createElement('label');
+  label.innerHTML='Result Count Mode<div class="input" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:5px"><span id="peResultCountLabel">Word Count Result</span><label class="switch"><input id="peResultCountMode" type="checkbox"><span class="slider"></span></label></div>';
+  active.closest('label')?.before(label);
+  const toggle=label.querySelector('input'),text=label.querySelector('#peResultCountLabel');toggle.checked=window.__jpEditingPassage?.result_count_mode==='character';text.textContent=toggle.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result';toggle.onchange=()=>{text.textContent=toggle.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'};
+ }
+ const watch=new MutationObserver(addEditControl);watch.observe(document.documentElement,{childList:true,subtree:true});addEditControl();
+ const originalSave=window.savePassageEditor;
+ if(typeof originalSave==='function')window.savePassageEditor=async function(id){
+  const mode=document.getElementById('peResultCountMode')?.checked?'character':'word';
+  await originalSave(id);
+  if(!document.getElementById('passageModal')?.classList.contains('show')){
+   try{await api('/api/admin/passages/'+id,{method:'PUT',body:JSON.stringify({result_count_mode:mode})});if(window.OWNER?.p)window.OWNER.p=await api('/api/admin/passages?summary=1&_='+Date.now())}catch(e){showToast(e.message||'Result count mode save नहीं हुआ')}
+  }
+ };
+})();
+</script>
 <div id="userModal" class="modal"><div class="modal-box" style="width:min(900px,100%);max-height:90vh;overflow:auto"><div class="modal-head"><h2 id="userModalTitle">Student Profile</h2><button class="close" onclick="closeModal('userModal')">✕</button></div><div id="userModalBody" style="margin-top:16px"></div></div></div>
 <div id="passageModal" class="modal"><div class="modal-box" style="width:min(1000px,100%);max-height:92vh;overflow:auto"><div class="modal-head"><h2 id="passageModalTitle">Passage Editor</h2><button class="close" onclick="closeModal('passageModal')">✕</button></div><div id="passageModalBody" style="margin-top:16px"></div></div></div>
 <div id="dbModal" class="modal"><div class="modal-box" style="width:min(1200px,98%);max-height:92vh;overflow:auto"><div class="modal-head"><h2 id="dbModalTitle">Database Table</h2><button class="close" onclick="closeModal('dbModal')">✕</button></div><div id="dbModalBody" style="margin-top:16px"></div></div></div>
@@ -1450,6 +1590,7 @@ renderExamKeywordsFolder=function(){renderFullKeywordButtons('setExamKeywordFold
         ? `<label>Section<input class="input" style="width:100%;margin-top:5px" value="Free Typing Practice" disabled><input id="peExam" type="hidden" value=""></label>`
         : `<label>Exam<select id="peExam" class="select" style="width:100%;margin-top:5px" onchange="syncPassageEditorExam()"><option value="">Free Typing Practice</option>${candidateExamList(exams).map(e=>`<option value="${e.id}" ${+p.exam_id===+e.id?'selected':''}>${esc(e.name)} · ${esc(e.language)}</option>`).join('')}</select></label>`;
       const linkedSettings=isFree?'':`<div class="card" style="padding:14px;margin-top:16px"><h3 style="margin:0 0 10px">Passage Qualification Conditions</h3><div class="notice" style="margin-bottom:10px">Owner can set the qualification method and conditions for this passage. Only the selected method is used for Qualified / Not Qualified.</div><div class="form-grid"><label>Time (minutes)<input id="peDuration" type="number" min="1" class="input" style="width:100%;margin-top:5px" value="${p.duration_override??''}" placeholder="Exam: ${p.exam_duration??''}"></label><label>Required WPM<input id="peWpm" type="number" min="0" step="0.1" class="input" style="width:100%;margin-top:5px" value="${p.required_wpm??''}" placeholder="Exam: ${p.exam_wpm??0}"></label><label>Accuracy %<input id="peAccuracy" type="number" min="0" max="100" step="0.1" class="input" style="width:100%;margin-top:5px" value="${p.required_accuracy??''}" placeholder="Exam: ${p.exam_accuracy??0}"></label><label>Qualification Method<select id="peQualMethod" class="select" style="width:100%;margin-top:5px"><option value="all" ${(!p.qualification_method||p.qualification_method==='all')?'selected':''}>All selected conditions</option><option value="wpm_accuracy" ${p.qualification_method==='wpm_accuracy'?'selected':''}>WPM + Accuracy</option><option value="words_wpm_accuracy" ${p.qualification_method==='words_wpm_accuracy'?'selected':''}>Words + WPM + Accuracy</option><option value="chars_wpm_accuracy" ${p.qualification_method==='chars_wpm_accuracy'?'selected':''}>Characters + WPM + Accuracy</option><option value="wpm" ${p.qualification_method==='wpm'?'selected':''}>WPM only</option><option value="accuracy" ${p.qualification_method==='accuracy'?'selected':''}>Accuracy only</option></select></label><label>Minimum Words<input id="peMinWords" type="number" min="0" class="input" style="width:100%;margin-top:5px" value="${p.min_words??''}" placeholder="0 = no word limit"></label><label>Minimum Characters<input id="peMinChars" type="number" min="0" class="input" style="width:100%;margin-top:5px" value="${p.min_chars??''}" placeholder="0 = no character limit"></label><label>Backspace<select id="peBackspace" class="select" style="width:100%;margin-top:5px"><option value="1" ${p.exam_backspace?'selected':''}>Allowed</option><option value="0" ${!p.exam_backspace?'selected':''}>Disabled</option></select></label></div><label style="display:block;margin-top:10px">Instructions<textarea id="peInstructions" class="input" rows="3" style="width:100%;margin-top:5px">${esc(p.instructions||'')}</textarea></label></div>`;
+      window.__jpEditingPassage=p;
       document.getElementById('passageModalBody').innerHTML=`<div class="notice" style="margin-bottom:12px"><b>${isFree?'⌨ Free Typing Practice':esc(p.exam_name||'Exam Passage')}</b> · Edit/Delete rights केवल Owner/Admin panel में हैं.</div><div class="form-grid">${examField}<label>Title<input id="peTitle" class="input" style="width:100%;margin-top:5px" value="${esc(p.title)}"></label><label>Language<select id="peLanguage" class="select" style="width:100%;margin-top:5px"><option ${p.language==='English'?'selected':''}>English</option><option ${p.language==='Hindi'?'selected':''}>Hindi</option></select></label><label>Keyboard Layout<input id="peLayout" class="input" style="width:100%;margin-top:5px" value="${esc(p.layout||'')}"></label><label>Difficulty<select id="peDifficulty" class="select" style="width:100%;margin-top:5px"><option ${p.difficulty==='Easy'?'selected':''}>Easy</option><option ${p.difficulty==='Medium'?'selected':''}>Medium</option><option ${p.difficulty==='Hard'?'selected':''}>Hard</option></select></label><label>Highlight<select id="peHighlight" class="select" style="width:100%;margin-top:5px"><option value="none" ${p.highlight_mode==='none'?'selected':''}>Off</option><option value="current_char" ${p.highlight_mode==='current_char'?'selected':''}>Current Character</option><option value="current_word" ${p.highlight_mode==='current_word'?'selected':''}>Current Word</option><option value="errors_only" ${p.highlight_mode==='errors_only'?'selected':''}>Errors Only</option></select></label><label>Passage Scroll<select id="peAutoScroll" class="select" style="width:100%;margin-top:5px"><option value="1" ${Number(p.auto_scroll??1)===1?'selected':''}>Auto Scroll</option><option value="0" ${Number(p.auto_scroll??1)===0?'selected':''}>Manual Scroll</option></select></label><label>Status<select id="peActive" class="select" style="width:100%;margin-top:5px"><option value="1" ${p.active?'selected':''}>Active</option><option value="0" ${!p.active?'selected':''}>Inactive</option></select></label></div><label style="display:block;margin-top:12px">Passage Text<textarea id="peContent" class="input" rows="12" style="width:100%;margin-top:5px" oninput="updatePassageStats()">${esc(p.content)}</textarea></label><div id="peStats" class="badge" style="margin-top:8px">${wordCount(p.content)} words · ${p.content.length} characters</div>${linkedSettings}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="savePassageEditor(${p.id})">Save Changes</button><button class="btn btn-white" onclick="closeModal('passageModal')">Cancel</button></div>`;
       document.getElementById('passageModal').classList.add('show');
     }catch(e){showToast(e.message)}
@@ -3418,6 +3559,7 @@ body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav 
         <div><label>Required Accuracy %</label><input id="jpnAcc" type="number" min="0" max="100" step="0.1" class="input" value="85"></div>
         <div><label>Qualification</label><select id="jpnQual" class="select"><option value="all">All selected conditions</option><option value="wpm_accuracy" selected>WPM + Accuracy</option><option value="words_wpm_accuracy">Words + WPM + Accuracy</option><option value="chars_wpm_accuracy">Characters + WPM + Accuracy</option><option value="wpm">WPM only</option><option value="accuracy">Accuracy only</option></select></div>
         <div><label>Passage Scroll</label><select id="jpnScroll" class="select"><option value="1" selected>Auto</option><option value="0">Manual</option></select></div>
+        <div><label>Result Count Mode</label><div class="input" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span id="jpnResultCountLabel">Word Count Result</span><label class="switch"><input id="jpnResultCountMode" type="checkbox" onchange="document.getElementById('jpnResultCountLabel').textContent=this.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'"><span class="slider"></span></label></div></div>
         <div><label>Minimum Words (optional)</label><input id="jpnMinWords" type="number" min="0" class="input"></div>
         <div><label>Minimum Characters (optional)</label><input id="jpnMinChars" type="number" min="0" class="input"></div>
         <div><label>Duration min (optional)</label><input id="jpnDuration" type="number" min="0" class="input"></div>
@@ -3436,7 +3578,7 @@ body.public-landing .topbar .topnav a:hover,body.public-landing .topbar .topnav 
       if(btn){btn.disabled=true;btn.textContent='Saving...'}
       let exam_id=null;
       if(folderKey!=='__FREE__'){const ex=await ensureExamVariantForFolder(folderKey,language);if(!ex)throw Error('Selected exam/subfolder नहीं मिला');exam_id=ex.id}
-      await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id,title,language,layout:language==='Hindi'?'Unicode / Mangal':'QWERTY',difficulty:document.getElementById('jpnDifficulty').value,highlight_mode:document.getElementById('jpnHighlight').value,auto_scroll:document.getElementById('jpnScroll').value!=='0',required_wpm:document.getElementById('jpnWpm').value,required_accuracy:document.getElementById('jpnAcc').value,qualification_method:document.getElementById('jpnQual').value,min_words:document.getElementById('jpnMinWords').value,min_chars:document.getElementById('jpnMinChars').value,duration_override:document.getElementById('jpnDuration').value,instructions:document.getElementById('jpnInstructions').value,content,active:true})});
+      await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id,title,language,layout:language==='Hindi'?'Unicode / Mangal':'QWERTY',difficulty:document.getElementById('jpnDifficulty').value,highlight_mode:document.getElementById('jpnHighlight').value,auto_scroll:document.getElementById('jpnScroll').value!=='0',result_count_mode:document.getElementById('jpnResultCountMode').checked?'character':'word',required_wpm:document.getElementById('jpnWpm').value,required_accuracy:document.getElementById('jpnAcc').value,qualification_method:document.getElementById('jpnQual').value,min_words:document.getElementById('jpnMinWords').value,min_chars:document.getElementById('jpnMinChars').value,duration_override:document.getElementById('jpnDuration').value,instructions:document.getElementById('jpnInstructions').value,content,active:true})});
       window.OWNER_PASS_FOLDER=folderKey;window.OWNER.p=await api('/api/admin/passages?summary=1');if(folderKey!=='__FREE__')window.OWNER.e=await api('/api/admin/exams');closeBox();showToast(folderKey==='__FREE__'?'Practice passage अगली queue में add हो गया':'Exam passage selected subfolder की अगली queue में add हो गया');await window.ownerTab('passages');
     }catch(e){showToast(e.message||'Passage add नहीं हुआ');if(btn){btn.disabled=false;btn.textContent='Save & Add to Queue'}}
   };
@@ -4455,3 +4597,128 @@ body:not(.exam-mode) .topnav a.active::before{color:#fff!important}
 body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!important}
 </style>
 
+<!-- Result Dashboard word-count display toggle only: Normal Words ↔ 5 Characters = 1 Word. -->
+<style id="jp-result-word-count-toggle-style-20260917">
+.jp-word-count-toggle{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:0 0 16px;padding:12px 14px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc}
+.jp-word-count-toggle b{color:#344054}.jp-word-count-toggle button{min-width:220px}
+@media(max-width:520px){.jp-word-count-toggle{align-items:stretch;flex-direction:column}.jp-word-count-toggle button{width:100%;min-width:0}}
+</style>
+<script id="jp-result-word-count-toggle-20260917">
+(function(){
+ function findResultBox(grid,label){return Array.from(grid.querySelectorAll('.result-box')).find(x=>(x.querySelector('small')?.textContent||'').trim()===label)}
+ function numberText(v,standard){return standard?Number(v||0).toFixed(2):String(Math.round(Number(v||0)))}
+ function installResultWordToggle(){
+  const dashboard=document.querySelector('.result-dashboard'),grid=dashboard?.querySelector('.result-grid');
+  if(!dashboard||!grid||dashboard.dataset.wordCountToggleInstalled==='1')return;
+  const typedBox=findResultBox(grid,'Total Words Typed'),correctBox=findResultBox(grid,'Correct Words');
+  const grossBox=document.getElementById('grossSpeedBox'),grossValue=document.getElementById('grossSpeedValue'),netValue=document.getElementById('netSpeedValue');
+  const accuracyBox=findResultBox(grid,'Accuracy %'),statusBox=findResultBox(grid,'Status');
+  if(!typedBox||!correctBox||!grossBox||!grossValue||!netValue)return;
+  dashboard.dataset.wordCountToggleInstalled='1';
+  const state=typeof S!=='undefined'?S:null,typed=String(state?.lastTyped||''),original=String(state?.lastOriginal||'');
+  const wordStats=typeof detailedWordStats==='function'?detailedWordStats(original,typed):{typed:(typed.trim().match(/\S+/g)||[]).length,correct:0};
+  const charStats=typeof resyncAlign==='function'?resyncAlign(original,typed):{good:0,n:Array.from(typed).length};
+  const normalTyped=Number(wordStats.typed||0),normalCorrect=Number(wordStats.correct||0),standardTyped=Number(charStats.n||Array.from(typed).length)/5,standardCorrect=Number(charStats.good||0)/5;
+  const initialGross=Number(grossValue.textContent)||0,usedMinutes=initialGross>0?normalTyped/initialGross:Math.max(1,Number(state?.total||60))/60;
+  const givenMinutes=Math.max(1,Number(state?.total||60))/60;
+  const control=document.createElement('div');control.className='jp-word-count-toggle';
+  control.innerHTML='<b>Normal Word Count:</b><button type="button" class="btn btn-primary" id="jpWordCountMode" role="switch" aria-checked="true">ON • Normal Typed Words</button><small id="jpWordCountHelp">ON: actual typed words के आधार पर result और qualification।</small>';
+  grid.parentNode.insertBefore(control,grid);
+  let standard=String(state?.passage?.result_count_mode||'word')==='character',timeMode=grossBox.dataset.mode==='full'?'full':'taken';
+  const timeButton=document.getElementById('grossSpeedToggle');
+  function qualification(correctCount,typedCount){
+   if(!(state?.mode==='exam'||state?.mode==='live'))return null;
+   const rule=state?.exam||{},qualMinutes=Number(rule.speed_based_time_taken)?usedMinutes:givenMinutes;
+   const speed=correctCount/Math.max(1/60,qualMinutes),accuracy=Number(accuracyBox?.querySelector('b')?.textContent)||0;
+   const checks={wpm:Number(rule.required_wpm||0)<=0||speed>=Number(rule.required_wpm||0),accuracy:Number(rule.required_accuracy||0)<=0||accuracy>=Number(rule.required_accuracy||0),words:Number(rule.min_words||0)<=0||typedCount>=Number(rule.min_words||0),chars:Number(rule.min_chars||0)<=0||Array.from(typed).length>=Number(rule.min_chars||0)};
+   const method=String(rule.qualification_method||'all');
+   if(method==='wpm')return checks.wpm;if(method==='accuracy')return checks.accuracy;if(method==='wpm_accuracy')return checks.wpm&&checks.accuracy;
+   if(method==='words_wpm_accuracy')return checks.words&&checks.wpm&&checks.accuracy;if(method==='chars_wpm_accuracy')return checks.chars&&checks.wpm&&checks.accuracy;
+   return checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
+  }
+  function render(){
+   const typedCount=standard?standardTyped:normalTyped,correctCount=standard?standardCorrect:normalCorrect,mins=timeMode==='full'?givenMinutes:usedMinutes;
+   typedBox.querySelector('small').textContent=standard?'Standard Words Typed (5 chars = 1 word)':'Total Words Typed';
+   typedBox.querySelector('b').textContent=numberText(typedCount,standard);
+   correctBox.querySelector('small').textContent=standard?'Correct Standard Words':'Correct Words';
+   correctBox.querySelector('b').textContent=numberText(correctCount,standard);
+   grossValue.textContent=(typedCount/Math.max(1/60,mins)).toFixed(2);
+   netValue.textContent=(correctCount/Math.max(1/60,mins)).toFixed(2);
+   const modeButton=document.getElementById('jpWordCountMode'),help=document.getElementById('jpWordCountHelp');
+   modeButton.textContent=standard?'OFF • 5 Characters = 1 Word':'ON • Normal Typed Words';
+   modeButton.className='btn '+(standard?'btn-white':'btn-primary');modeButton.setAttribute('aria-checked',String(!standard));
+   help.textContent=standard?'OFF: हर 5 typed characters = 1 standard word; qualification इसी mode से।':'ON: actual typed words के आधार पर result और qualification।';
+   grossBox.dataset.mode=timeMode;
+   if(timeButton)timeButton.textContent=timeMode==='full'?'OFF • Full Time Given':'ON • Time Used';
+   const passed=qualification(correctCount,typedCount);
+   if(passed!==null&&statusBox){
+    statusBox.querySelector('b').textContent=passed?'Qualified':'Not Qualified';statusBox.classList.toggle('status-box-pass',passed);statusBox.classList.toggle('status-box-fail',!passed);
+    const note=document.querySelector('.result-note b:last-child');if(note)note.textContent=passed?'QUALIFIED':'NOT QUALIFIED';
+    const celebration=document.querySelector('.result-celebration');if(celebration){celebration.classList.toggle('pass',passed);celebration.classList.toggle('fail',!passed);const emoji=celebration.querySelector('.bigemoji'),heading=celebration.querySelector('h2'),strong=celebration.querySelector(':scope > b'),message=celebration.querySelector(':scope > div:last-child');if(emoji)emoji.textContent=passed?'🎉🏆':'😔';if(heading)heading.textContent=passed?'Congratulations!':'Not Qualified';if(strong)strong.textContent=passed?'You are Qualified':'Keep Practicing';if(message)message.textContent=passed?'Excellent work — keep improving your speed and accuracy.':'Review the result below and try again.'}
+    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
+   }
+  }
+  document.getElementById('jpWordCountMode').addEventListener('click',()=>{standard=!standard;render()});
+  if(timeButton){timeButton.removeAttribute('onclick');timeButton.addEventListener('click',()=>{timeMode=timeMode==='taken'?'full':'taken';render()})}
+  render();
+ }
+ const observer=new MutationObserver(()=>installResultWordToggle());observer.observe(document.documentElement,{childList:true,subtree:true});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installResultWordToggle);else installResultWordToggle();
+})();
+</script>
+
+<script id="jp-passage-result-count-mode-save-20260917">
+(()=>{
+ const originalSave=window.savePassageEditor;
+ if(typeof originalSave!=='function'||originalSave.__jpResultModeWrapped)return;
+ const wrapped=async function(id){
+  const mode=document.getElementById('peResultCountMode')?.checked?'character':'word';
+  await originalSave(id);
+  if(!document.getElementById('passageModal')?.classList.contains('show')){
+   try{await api('/api/admin/passages/'+id,{method:'PUT',body:JSON.stringify({result_count_mode:mode})});if(window.OWNER?.p)window.OWNER.p=await api('/api/admin/passages?summary=1&_='+Date.now())}catch(e){showToast(e.message||'Result count mode save नहीं हुआ')}
+  }
+ };
+ wrapped.__jpResultModeWrapped=true;window.savePassageEditor=wrapped;
+})();
+</script>
+
+<!-- Chhota Bhai passage result-count toggle only. -->
+<script id="jp-brother-result-count-toggle-20260917">
+(()=>{
+ function selectedMode(){return document.getElementById('jpbdResultCountMode')?.checked?'character':'word'}
+ function syncVisibility(){const wrap=document.getElementById('jpbdResultCountWrap'),dest=document.getElementById('jpbdDest');if(wrap&&dest)wrap.style.display=dest.value==='learning'?'none':''}
+ function install(){
+  const fields=document.querySelector('.jpbd-fields'),dest=document.getElementById('jpbdDest');
+  if(!fields||!dest||document.getElementById('jpbdResultCountMode'))return;
+  const label=document.createElement('label');label.id='jpbdResultCountWrap';
+  label.innerHTML='<b>Result Count Mode</b><div class="input" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span id="jpbdResultCountLabel">Word Count Result</span><label class="switch"><input id="jpbdResultCountMode" type="checkbox"><span class="slider"></span></label></div>';
+  fields.appendChild(label);
+  const toggle=label.querySelector('input'),text=label.querySelector('#jpbdResultCountLabel');
+  toggle.onchange=()=>{text.textContent=toggle.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'};
+  dest.addEventListener('change',syncVisibility);syncVisibility();
+ }
+ new MutationObserver(install).observe(document.documentElement,{childList:true,subtree:true});install();
+ document.addEventListener('click',async ev=>{
+  if(!ev.target.closest('#jpbdAdd'))return;
+  const mode=selectedMode(),dest=document.getElementById('jpbdDest')?.value;
+  if(dest==='practice'){
+   ev.preventDefault();ev.stopImmediatePropagation();
+   const text=String(document.getElementById('jpbdOut')?.value||'').trim(),title=String(document.getElementById('jpbdAbout')?.value||'').trim().slice(0,120)||'Prepared Typing Matter',language=document.getElementById('jpbdLang')?.value||'English';
+   if(!text)return showToast('पहले matter तैयार करें');
+   try{await api('/api/admin/practice-matters',{method:'POST',body:JSON.stringify({title,content:text,language,result_count_mode:mode})});showToast(language+' Practice में passage add हो गया');document.getElementById('jpbdOut').value='';document.getElementById('jpbdStatus').textContent='✓ Selected place में add हो गया'}catch(e){showToast(e.message)}
+   return;
+  }
+  setTimeout(()=>{const toggle=document.getElementById('jpnResultCountMode'),text=document.getElementById('jpnResultCountLabel');if(toggle){toggle.checked=mode==='character';if(text)text.textContent=toggle.checked?'Character / Standard Count (5 characters = 1 word)':'Word Count Result'}},30);
+ },true);
+ const originalApi=window.api;
+ if(typeof originalApi==='function'&&!originalApi.__jpBrotherResultModeWrapped){
+  const wrapped=async function(path,options){
+   if(path==='/api/admin/practice-matters'&&String(options?.method||'GET').toUpperCase()==='POST'&&document.getElementById('jpbdResultCountMode')){
+    const next={...(options||{})};let body={};try{body=JSON.parse(next.body||'{}')}catch(_){body={}}body.result_count_mode=selectedMode();next.body=JSON.stringify(body);return originalApi(path,next)
+   }
+   return originalApi(path,options)
+  };
+  wrapped.__jpBrotherResultModeWrapped=true;window.api=wrapped;
+ }
+})();
+</script>
