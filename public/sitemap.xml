@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://jptyping.in/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://jptyping.in/typing-test.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://jptyping.in/english-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://jptyping.in/hindi-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://jptyping.in/uppco-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jptyping.in/typing-test.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jptyping.in/english-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jptyping.in/hindi-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jptyping.in/up-police-typing-test</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jptyping.in/up-police-computer-operator-typing-test</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jptyping.in/government-exam-typing-practice</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://jptyping.in/15-minute-typing-test.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jptyping.in/35-wpm-typing-test</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jptyping.in/ssc-typing-test</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jptyping.in/railway-typing-test</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jptyping.in/wpm-calculator</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://jptyping.in/typing-accuracy-calculator</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
 </urlset>
