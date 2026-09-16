@@ -749,7 +749,7 @@ function applyTypingSimulationDefaults(){
 applyTypingSimulationDefaults();
 app.use(express.json({limit:'1mb'}));
 app.use('/api',(req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
-app.use(express.static(path.join(__dirname,'public'),{etag:false,maxAge:0}));
+app.use(express.static(path.join(__dirname,'public'),{etag:false,maxAge:0,extensions:['html']}));
 function auth(req,res,next){const h=req.headers.authorization||'';if(!h.startsWith('Bearer '))return res.status(401).json({error:'Login required'});try{const tokenUser=jwt.verify(h.slice(7),SECRET);const live=db.prepare('SELECT id,name,email,role,active,plan,valid_until,phone,father_name,dob,target_exam,phone_verified,is_owner,owner_uid FROM users WHERE id=?').get(tokenUser.id);if(!live)return res.status(401).json({error:'Account not found'});if(live.role!=='admin'){if(!live.active)return res.status(403).json({error:'Your account is inactive. Contact admin.'});if(live.valid_until && new Date(live.valid_until+'T23:59:59')<new Date())return res.status(403).json({error:'Your plan has expired. Contact admin to renew.'})}req.user=live;next()}catch(e){return res.status(401).json({error:'Session expired'})}}
 function admin(req,res,next){if(req.user?.role!=='admin')return res.status(403).json({error:'Admin only'});next()}
 function ownerOnly(req,res,next){if(req.user?.role!=='admin'||Number(req.user?.is_owner)!==1)return res.status(403).json({error:'Owner only'});next()}
@@ -1707,7 +1707,7 @@ app.get('/robots.txt',(req,res)=>{
   res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://jptyping.in/sitemap.xml\n');
 });
 app.get('/sitemap.xml',(req,res)=>{
-  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://jptyping.in/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n</urlset>');
+  res.sendFile(path.join(__dirname,'public','sitemap.xml'));
 });
 
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
