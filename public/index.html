@@ -2755,7 +2755,18 @@ window.myCertificates=async function(){
 };
 window.demoPayCertificate=async function(id){try{const txn=document.getElementById('certTxn'+id)?.value.trim();if(!txn)return showToast('Demo Transaction Number भरें');await api('/api/certificates/'+id+'/demo-pay',{method:'POST',body:JSON.stringify({txn_ref:txn,method:'demo'})});showToast('✅ Payment successful — Download unlocked');myCertificates()}catch(e){showToast(e.message)}};
 // Print/download ONLY the certificate, never the surrounding application page.
-window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
+window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style>
+<!-- JP MOBILE TOP NAV ONLY — sidebar untouched -->
+<style id="jp-mobile-topnav-visible-color-20260916">
+@media (max-width:780px){
+ .topbar{flex-wrap:wrap!important;height:auto!important;min-height:64px!important;}
+ .topbar .topnav{display:flex!important;order:20!important;flex:0 0 calc(100% + 20px)!important;width:calc(100% + 20px)!important;margin:0 -10px!important;padding:8px 10px 10px!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;background:linear-gradient(90deg,#7c2d12 0%,#c2410c 48%,#ea580c 100%)!important;border-top:1px solid rgba(255,255,255,.18)!important;box-shadow:0 5px 14px rgba(124,45,18,.18)!important;}
+ .topbar .topnav::-webkit-scrollbar{display:none!important;}
+ .topbar .topnav a{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;min-height:36px!important;padding:8px 12px!important;border-radius:10px!important;background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.18)!important;font-size:12px!important;font-weight:800!important;box-shadow:0 2px 7px rgba(67,20,7,.12)!important;}
+ .topbar .topnav a:hover,.topbar .topnav a.active{background:#fff7ed!important;color:#c2410c!important;border-color:#fed7aa!important;}
+}
+</style>
+</head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
 
 
 
@@ -3595,21 +3606,6 @@ body.jp-editview-open{overflow:hidden!important}.jp-editview-overlay{position:fi
 
 
 <style id="jp-result-share-grid-css">.result-share-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.result-share-grid .btn{min-height:46px}@media(max-width:700px){.result-share-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){.result-share-grid{grid-template-columns:1fr}}</style>
-
-<!-- JP MOBILE TOP NAV: candidate + owner only; existing sidebar JS untouched -->
-<style id="jp-mobile-candidate-owner-topnav-only-20260916">
-@media (max-width:780px){
-  .topbar{height:auto!important;min-height:112px!important;flex-wrap:wrap!important;align-content:flex-start!important;padding:8px 8px 0!important;gap:6px!important}
-  .menuBtn{display:inline-flex!important}
-  .brand{min-width:0!important;flex:1 1 auto!important}
-  .top-actions{margin-left:auto!important}
-  .topnav{display:flex!important;order:20!important;flex:0 0 calc(100% + 16px)!important;width:calc(100% + 16px)!important;margin:0 -8px!important;padding:5px 8px 7px!important;gap:5px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:thin!important}
-  .topnav a{display:inline-flex!important;flex:0 0 auto!important;align-items:center!important;white-space:nowrap!important}
-  .side{top:112px!important}
-  body.owner-full-view .side{display:block!important}
-  .mobile-overlay.show{inset:112px 0 0!important}
-}
-</style>
 </body>
 </html>
 
