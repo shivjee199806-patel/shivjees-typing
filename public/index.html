@@ -2755,18 +2755,7 @@ window.myCertificates=async function(){
 };
 window.demoPayCertificate=async function(id){try{const txn=document.getElementById('certTxn'+id)?.value.trim();if(!txn)return showToast('Demo Transaction Number भरें');await api('/api/certificates/'+id+'/demo-pay',{method:'POST',body:JSON.stringify({txn_ref:txn,method:'demo'})});showToast('✅ Payment successful — Download unlocked');myCertificates()}catch(e){showToast(e.message)}};
 // Print/download ONLY the certificate, never the surrounding application page.
-window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style>
-<!-- JP MOBILE TOP NAV ONLY — sidebar untouched -->
-<style id="jp-mobile-topnav-visible-color-20260916">
-@media (max-width:780px){
- .topbar{flex-wrap:wrap!important;height:auto!important;min-height:64px!important;}
- .topbar .topnav{display:flex!important;order:20!important;flex:0 0 calc(100% + 20px)!important;width:calc(100% + 20px)!important;margin:0 -10px!important;padding:8px 10px 10px!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;background:linear-gradient(90deg,#7c2d12 0%,#c2410c 48%,#ea580c 100%)!important;border-top:1px solid rgba(255,255,255,.18)!important;box-shadow:0 5px 14px rgba(124,45,18,.18)!important;}
- .topbar .topnav::-webkit-scrollbar{display:none!important;}
- .topbar .topnav a{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;min-height:36px!important;padding:8px 12px!important;border-radius:10px!important;background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.18)!important;font-size:12px!important;font-weight:800!important;box-shadow:0 2px 7px rgba(67,20,7,.12)!important;}
- .topbar .topnav a:hover,.topbar .topnav a.active{background:#fff7ed!important;color:#c2410c!important;border-color:#fed7aa!important;}
-}
-</style>
-</head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
+window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
 
 
 
@@ -4333,5 +4322,39 @@ body.mobile-menu-open{overflow:hidden!important}
 </script>
 <style id="jp-direct-practice-brother-css-20260916">.jp-direct-practice-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;margin-top:14px}.jp-direct-practice-form label,.jpbd-fields label{min-width:0}.jpdp-wide{grid-column:1/-1}.jp-direct-practice-form textarea{width:100%;min-height:220px;resize:vertical}.jpdp-filter,.jp-brother-actions{display:flex;gap:8px;flex-wrap:wrap}.jpdp-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line,#ddd)}.jp-brother-direct-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.jp-brother-direct-grid textarea{width:100%;min-height:260px;resize:vertical}.jpbd-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}@media(max-width:760px){.jp-direct-practice-form,.jp-brother-direct-grid,.jpbd-fields{grid-template-columns:1fr}.jpdp-wide{grid-column:auto}.jpdp-row{align-items:flex-start;flex-direction:column}.jp-direct-practice-form .input,.jp-direct-practice-form .select,.jp-brother-direct-grid .input,.jp-brother-direct-grid .select{width:100%;max-width:100%;box-sizing:border-box;font-size:16px}.jp-brother-actions .btn{flex:1 1 180px;min-height:44px}}
 </style>
-
+<!-- MOBILE TOP NAV ONLY — sidebar rules intentionally untouched -->
+<style id="mobile-topnav-visible-final">
+@media (max-width:780px){
+  body:not(.exam-mode) .topnav{
+    display:flex!important;
+    position:fixed!important;
+    top:64px!important;left:0!important;right:0!important;
+    height:50px!important;
+    align-items:center!important;gap:6px!important;
+    padding:6px 9px!important;
+    margin:0!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    flex-wrap:nowrap!important;white-space:nowrap!important;
+    background:linear-gradient(90deg,#9a3f12 0%,#c45a16 48%,#9a3f12 100%)!important;
+    border:0!important;border-bottom:2px solid #7b2f0b!important;
+    box-shadow:0 3px 10px rgba(86,34,8,.24)!important;
+    z-index:9990!important;
+    scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;
+  }
+  body:not(.exam-mode) .topnav::-webkit-scrollbar{display:none!important}
+  body:not(.exam-mode) .topnav a{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    flex:0 0 auto!important;min-height:36px!important;
+    padding:8px 12px!important;border-radius:9px!important;
+    color:#fff!important;background:rgba(255,255,255,.08)!important;
+    font-size:12px!important;font-weight:850!important;line-height:1!important;
+    border:1px solid rgba(255,255,255,.14)!important;
+  }
+  body:not(.exam-mode) .topnav a:hover,
+  body:not(.exam-mode) .topnav a.active{
+    color:#7b2f0b!important;background:#fff3df!important;border-color:#ffd5a6!important;
+  }
+  body:not(.exam-mode) .shell{padding-top:50px!important}
+}
+</style>
 
