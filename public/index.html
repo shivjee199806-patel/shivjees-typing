@@ -483,10 +483,6 @@ input,select,textarea,button{max-width:100%}
 .jp-learning-matter-modal [data-save]{min-width:150px!important}
 @media(max-width:700px){.jp-learning-matter-modal{padding:8px!important;align-items:flex-start!important}.jp-learning-matter-modal .modal-card{width:100%!important;padding:15px!important;max-height:none!important}.jp-learning-matter-modal .form-grid{grid-template-columns:1fr!important}.jp-learning-matter-modal textarea{min-height:180px!important}}
 </style>
-
-<style id="google-first-profile-only-style">
-.google-first-profile-stage{position:fixed;inset:0;z-index:100000;background:rgba(7,18,38,.68);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px}.google-first-profile-card{width:min(460px,96vw);border-radius:26px;padding:26px;background:linear-gradient(145deg,#fff,#f2f7ff);box-shadow:0 26px 80px rgba(0,0,0,.28);border:2px solid rgba(44,112,255,.18);position:relative;overflow:hidden}.google-first-profile-card:before{content:"";position:absolute;inset:0 0 auto;height:7px;background:linear-gradient(90deg,#2563eb,#7c3aed,#ec4899,#f59e0b)}.google-first-profile-badge{width:62px;height:62px;border-radius:20px;display:grid;place-items:center;margin:0 auto 10px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:30px;box-shadow:0 10px 28px rgba(37,99,235,.25)}.google-first-profile-card h2{text-align:center;margin:4px 0 5px;color:#12213d}.google-first-profile-card .gfp-sub{text-align:center;color:#64748b;margin:0 0 18px;font-size:14px}.gfp-email{background:#eef4ff;border:1px solid #d8e5ff;border-radius:12px;padding:10px 12px;margin-bottom:12px;color:#334155;font-weight:700;overflow-wrap:anywhere}.gfp-field{margin:10px 0}.gfp-field label{display:block;font-weight:800;font-size:13px;color:#334155;margin:0 0 6px}.gfp-field input{width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px 13px;font:inherit;outline:none;background:#fff}.gfp-field input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.11)}.gfp-save{width:100%;border:0;border-radius:13px;padding:13px;margin-top:10px;color:#fff;font-weight:900;font-size:15px;cursor:pointer;background:linear-gradient(90deg,#2563eb,#7c3aed,#db2777);box-shadow:0 10px 24px rgba(79,70,229,.22)}.gfp-error{min-height:20px;margin-top:8px;text-align:center;color:#dc2626;font-weight:700;font-size:13px}.gfp-note{text-align:center;font-size:12px;color:#64748b;margin-top:9px}@media(max-width:520px){.google-first-profile-card{padding:22px 17px;border-radius:20px}}
-</style>
 </head>
 
 <style id="welcome-social-final-style">
@@ -965,7 +961,7 @@ async function setupCandidateGoogle(){
   btn.innerHTML='';google.accounts.id.renderButton(btn,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:320});
  }catch(e){wrap.style.display='none';console.warn(e.message)}
 }
-async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();showLoginCelebration(S.user);location.hash='#dashboard';if(d.new_account&&d.google_profile_required)setTimeout(()=>showGoogleFirstProfile(S.user),2850)}catch(e){authError.textContent=e.message}}
+async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();showLoginCelebration(S.user);location.hash='#dashboard'}catch(e){authError.textContent=e.message}}
 async function auth(mode){
  const m=document.getElementById('authModal');
  m.classList.add('show');m.dataset.mode=mode;m.dataset.method='password';m.dataset.adminChallenge='';m.dataset.adminSignupChallenge='';
@@ -3486,6 +3482,9 @@ body.jp-payment-off a[href="#pricing"]{display:none !important}
 </script>
 
 <style id="autoTablePagination15Style">
+.auto-table-search{display:flex;align-items:center;padding:10px 0 12px}
+.auto-table-search input{width:min(100%,520px);height:42px;padding:0 14px;border:1px solid var(--border,#d9dee7);border-radius:10px;background:var(--card,#fff);color:var(--text,#111827);font:inherit;outline:none}
+.auto-table-search input:focus{border-color:var(--accent,#f97316);box-shadow:0 0 0 3px rgba(249,115,22,.10)}
 .auto-table-pages{display:flex;gap:7px;flex-wrap:wrap;align-items:center;justify-content:center;padding:14px 10px;border-top:1px solid var(--border,#e5e7eb)}
 .auto-table-pages button{min-width:38px;height:38px;border:1px solid var(--border,#ddd);background:var(--card,#fff);color:var(--text,#111827);border-radius:9px;font-weight:800;cursor:pointer}
 .auto-table-pages button.active{background:var(--accent,#f97316);color:#fff;border-color:var(--accent,#f97316)}
@@ -3493,27 +3492,37 @@ body.jp-payment-off a[href="#pricing"]{display:none !important}
 </style>
 <script id="autoTablePagination15">
 (function(){
- const PAGE_SIZE=15;
- function paginateTable(table){
-  if(!table||table.dataset.paginationReady==='1')return;
+ const PAGE_SIZE=15, SEARCH_AT=11;
+ function enhance(table){
+  if(!table||table.dataset.listToolsReady==='1')return;
   const body=table.tBodies&&table.tBodies[0]; if(!body)return;
-  const rows=Array.from(body.rows); if(rows.length<=PAGE_SIZE)return;
-  table.dataset.paginationReady='1';
-  let page=1; const pages=Math.ceil(rows.length/PAGE_SIZE);
-  const nav=document.createElement('div'); nav.className='auto-table-pages';
+  const initial=Array.from(body.rows); if(initial.length<SEARCH_AT)return;
+  table.dataset.listToolsReady='1';
+  let page=1, query='';
+  const wrap=table.closest('.table-wrap')||table.parentElement;
+  const search=document.createElement('div'); search.className='auto-table-search';
+  const input=document.createElement('input'); input.type='search'; input.placeholder='Search...'; input.setAttribute('aria-label','Search list');
+  search.appendChild(input); wrap.parentNode.insertBefore(search,wrap);
+  const nav=document.createElement('div'); nav.className='auto-table-pages'; wrap.appendChild(nav);
   function draw(){
-   rows.forEach((r,i)=>r.style.display=(i>=(page-1)*PAGE_SIZE&&i<page*PAGE_SIZE)?'':'none');
-   nav.innerHTML='<span class="page-info">'+rows.length+' records</span>';
-   for(let i=1;i<=pages;i++){
-    const b=document.createElement('button'); b.type='button'; b.textContent=i; b.className=i===page?'active':'';
-    b.addEventListener('click',()=>{page=i;draw(); const wrap=table.closest('.table-wrap'); if(wrap)wrap.scrollIntoView({behavior:'smooth',block:'start'});});
-    nav.appendChild(b);
-   }
+   const rows=Array.from(body.rows), q=query.trim().toLowerCase();
+   const matched=rows.filter(r=>!q||(r.innerText||r.textContent||'').toLowerCase().includes(q));
+   const pages=Math.max(1,Math.ceil(matched.length/PAGE_SIZE)); if(page>pages)page=pages;
+   rows.forEach(r=>r.style.display='none');
+   matched.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).forEach(r=>r.style.display='');
+   nav.innerHTML='';
+   if(matched.length>PAGE_SIZE){
+    const info=document.createElement('span'); info.className='page-info'; info.textContent=matched.length+' records'; nav.appendChild(info);
+    for(let i=1;i<=pages;i++){const b=document.createElement('button');b.type='button';b.textContent=i;b.className=i===page?'active':'';b.onclick=()=>{page=i;draw();wrap.scrollIntoView({behavior:'smooth',block:'start'})};nav.appendChild(b)}
+    nav.style.display='flex';
+   }else nav.style.display='none';
   }
-  const wrap=table.closest('.table-wrap')||table.parentElement; wrap.appendChild(nav); draw();
+  input.addEventListener('input',()=>{query=input.value;page=1;draw()});
+  new MutationObserver(()=>draw()).observe(body,{childList:true});
+  draw();
  }
- function scan(root){(root||document).querySelectorAll('table.table').forEach(paginateTable)}
- let timer=0; const queue=()=>{clearTimeout(timer);timer=setTimeout(()=>scan(document),60)};
+ function scan(){document.querySelectorAll('table.table').forEach(enhance)}
+ let timer=0; const queue=()=>{clearTimeout(timer);timer=setTimeout(scan,60)};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',queue);else queue();
  new MutationObserver(queue).observe(document.body,{childList:true,subtree:true});
 })();
@@ -3525,18 +3534,6 @@ body.jp-payment-off a[href="#pricing"]{display:none !important}
 .picker-optionbar label.opt{display:flex!important;align-items:center!important;gap:8px!important}
 #pickerBackspace,#pickerHighlight{display:inline-block!important;visibility:visible!important;opacity:1!important;width:18px!important;height:18px!important}
 </style>
-
-<script id="google-first-profile-only-runtime">
-function showGoogleFirstProfile(user){
- document.getElementById('googleFirstProfileStage')?.remove();
- const st=document.createElement('div');st.id='googleFirstProfileStage';st.className='google-first-profile-stage';
- st.innerHTML=`<div class="google-first-profile-card"><div class="google-first-profile-badge">G</div><h2>Complete Your Login Profile</h2><p class="gfp-sub">पहली Google signup के लिए बस एक बार ये details save करें।</p><div class="gfp-email">📧 ${esc(String(user?.email||''))}</div><div class="gfp-field"><label>Full Name</label><input id="gfpName" autocomplete="name" value="${esc(String(user?.name||''))}" placeholder="Enter full name"></div><div class="gfp-field"><label>Mobile Number</label><input id="gfpPhone" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10-digit mobile number"></div><div class="gfp-field"><label>Create Password</label><input id="gfpPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Minimum 8 characters"></div><button class="gfp-save" id="gfpSaveBtn" onclick="saveGoogleFirstProfile()">Save & Continue →</button><div class="gfp-error" id="gfpError"></div><div class="gfp-note">इसके बाद Gmail या Mobile Number + Password से login कर सकेंगे।</div></div>`;
- document.body.appendChild(st);setTimeout(()=>document.getElementById('gfpPhone')?.focus(),80);
-}
-async function saveGoogleFirstProfile(){
- const e=document.getElementById('gfpError'),b=document.getElementById('gfpSaveBtn');try{e.textContent='';const name=document.getElementById('gfpName').value.trim(),phone=document.getElementById('gfpPhone').value.trim(),password=document.getElementById('gfpPassword').value;if(!name)throw Error('Full name डालें');if(!/^\d{10}$/.test(phone.replace(/\D/g,'')))throw Error('सही 10-digit mobile number डालें');if(password.length<8)throw Error('Password कम से कम 8 characters का रखें');b.disabled=true;b.textContent='Saving…';const d=await api('/api/me/google-first-profile',{method:'PATCH',body:JSON.stringify({name,phone,password})});S.user=d.user;localStorage.st_user=JSON.stringify(S.user);document.getElementById('googleFirstProfileStage')?.remove();layout();showToast('Login profile saved successfully');}catch(x){e.textContent=x.message||'Could not save details';b.disabled=false;b.textContent='Save & Continue →'}
-}
-</script>
 </body>
 </html>
 
@@ -4265,52 +4262,3 @@ body.mobile-menu-open{overflow:hidden!important}
 </style>
 
 
-
-
-<style id="jp-responsive-color-navbar-only-20260916">
-/* Navbar-only responsive visibility patch. No page/feature behaviour changed. */
-@media (max-width:760px){
-  .topbar{
-    height:auto!important;min-height:64px!important;padding:7px 9px 6px!important;
-    display:flex!important;flex-wrap:wrap!important;align-items:center!important;
-    gap:6px 8px!important;background:var(--nav,#fff)!important;
-  }
-  .topbar .menuBtn{order:1;display:block!important;flex:0 0 auto;border:1px solid var(--line)!important;background:var(--soft)!important;color:var(--blue)!important}
-  .topbar .brand{order:2;flex:1 1 auto;min-width:135px!important;max-width:calc(100% - 118px);gap:7px!important}
-  .topbar .brand img{width:36px!important;height:36px!important;flex:0 0 auto}
-  .topbar .brand strong{font-size:13px!important;white-space:nowrap}
-  .topbar .brand small{display:none!important}
-  .topbar .top-actions{order:3;flex:0 0 auto;max-width:96px;min-width:0}
-  .topbar .user-chip{max-width:96px;padding:4px 6px 4px 4px!important;gap:5px!important;overflow:hidden}
-  .topbar .user-chip .avatar{width:29px;height:29px;flex:0 0 29px}
-  .topbar .user-chip>*:not(.avatar){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .topbar .topnav{
-    order:4;display:flex!important;flex:1 0 100%!important;width:100%!important;
-    gap:6px!important;overflow-x:auto!important;overflow-y:hidden!important;
-    padding:5px 2px 3px!important;scrollbar-width:thin;-webkit-overflow-scrolling:touch;
-    scroll-snap-type:x proximity;
-  }
-  .topbar .topnav a{
-    display:inline-flex!important;align-items:center!important;justify-content:center!important;
-    flex:0 0 auto!important;white-space:nowrap!important;scroll-snap-align:start;
-    min-height:36px;padding:8px 12px!important;border:1px solid color-mix(in srgb,var(--blue) 24%,var(--line))!important;
-    border-radius:10px!important;background:color-mix(in srgb,var(--soft) 68%,#fff)!important;
-    color:var(--ink)!important;font-size:12px!important;font-weight:900!important;
-    box-shadow:0 2px 7px rgba(15,23,42,.07);
-  }
-  .topbar .topnav a:nth-child(3n+1){background:color-mix(in srgb,#fff0df 76%,var(--card))!important;border-color:#ffc98f!important}
-  .topbar .topnav a:nth-child(3n+2){background:color-mix(in srgb,#e8f2ff 76%,var(--card))!important;border-color:#a9cbff!important}
-  .topbar .topnav a:nth-child(3n){background:color-mix(in srgb,#e9f9ef 76%,var(--card))!important;border-color:#a9dfbc!important}
-  .topbar .topnav a.active{background:var(--blue)!important;color:#fff!important;border-color:var(--blue)!important;box-shadow:0 4px 12px color-mix(in srgb,var(--blue) 28%,transparent)!important}
-  .side{top:112px!important;min-height:calc(100vh - 112px)!important}
-  .mobile-overlay.show{inset:112px 0 0!important}
-}
-@media (max-width:420px){
-  .topbar{padding-inline:6px!important}
-  .topbar .brand{min-width:112px!important;max-width:calc(100% - 108px)}
-  .topbar .brand strong{font-size:12px!important}
-  .topbar .top-actions{max-width:88px}
-  .topbar .user-chip{max-width:88px}
-  .topbar .topnav a{padding:7px 10px!important;font-size:11.5px!important}
-}
-</style>
