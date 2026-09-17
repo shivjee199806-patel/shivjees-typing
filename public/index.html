@@ -2510,10 +2510,12 @@ function parseDurationWordMap(ex){
 }
 function defaultWordMapForExam(ex){
   const slug=String(ex?.slug||'').toLowerCase(),lang=String(ex?.language||'English').toLowerCase();
-  const stored=parseDurationWordMap(ex); if(Object.keys(stored).length)return stored;
   if(slug.includes('upp-co')||/up police computer operator/i.test(String(ex?.name||''))){
     return lang==='hindi'?{'5':136,'10':272,'15':408,'20':544,'30':816}:{'5':170,'10':340,'15':510,'20':680,'30':1020};
   }
+  const stored=parseDurationWordMap(ex),valid={};
+  for(const [key,value] of Object.entries(stored)){const k=Number(key),v=Number(value);if(Number.isFinite(k)&&k>0&&Number.isFinite(v)&&v>0)valid[String(k)]=v}
+  if(Object.keys(valid).length)return valid;
   const baseM=Math.max(1,Number(ex?.duration)||10);
   const baseWords=Math.max(0,Number(ex?.min_words)||0);
   const wpm=Math.max(0,Number(ex?.required_wpm)||0);
@@ -2522,16 +2524,17 @@ function defaultWordMapForExam(ex){
   return out;
 }
 function requiredMatterWords(ex,minutes){
-  const map=defaultWordMapForExam(ex),m=String(Math.max(1,Math.round(Number(minutes)||Number(ex?.duration)||10)));
-  if(map[m])return Math.max(1,Number(map[m])||1);
-  const ks=Object.keys(map).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
-  if(!ks.length)return Math.max(1,Math.round((Number(ex?.required_wpm)||30)*(Number(minutes)||10)));
-  const near=ks.reduce((a,b)=>Math.abs(b-Number(m))<Math.abs(a-Number(m))?b:a,ks[0]);
-  return Math.max(1,Math.round((Number(map[String(near)])||1)*(Number(m)/near)));
+  const mins=Math.max(1,Number(minutes)||Number(ex?.duration)||10),slug=String(ex?.slug||'').toLowerCase(),name=String(ex?.name||'').toLowerCase(),lang=String(ex?.language||'English').toLowerCase();
+  if(slug.includes('upp-co')||name.includes('up police computer operator'))return Math.max(1,Math.round((lang==='hindi'?408:510)*mins/15));
+  const map=parseDurationWordMap(ex),keys=Object.keys(map).map(Number).filter(k=>Number.isFinite(k)&&k>0&&Number.isFinite(Number(map[String(k)]))&&Number(map[String(k)])>0).sort((a,b)=>a-b);
+  if(keys.length){const near=keys.reduce((a,b)=>Math.abs(b-mins)<Math.abs(a-mins)?b:a,keys[0]);return Math.max(1,Math.round(Number(map[String(near)])*mins/near));}
+  const baseMinutes=Math.max(1,Number(ex?.duration)||mins),minimum=Math.max(0,Number(ex?.min_words)||0),wpm=Math.max(0,Number(ex?.required_wpm)||0);
+  return Math.max(1,Math.round(minimum>0?(minimum/baseMinutes)*mins:(wpm||30)*mins));
 }
 function cleanTrimWords(text,limit){
-  const words=String(text||'').trim().split(/\s+/).filter(Boolean);
-  return words.slice(0,Math.max(1,Number(limit)||words.length)).join(' ');
+  const raw=String(text||'').trim(),words=Array.from(raw.matchAll(/\S+/g)),count=Math.max(1,Math.floor(Number(limit)||words.length));
+  if(words.length<=count)return raw;
+  const last=words[count-1];return raw.slice(0,last.index+last[0].length).trimEnd();
 }
 function qCard(prefix,ex,label){
   const map=defaultWordMapForExam(ex), note=String(ex?.qualification_note||'');
@@ -2580,12 +2583,20 @@ async function saveLanguageExamRules(key){
   }catch(e){showToast(e.message||'Rules could not be saved')}
 }
 const _oldOpenPassagePickerFinal=openPassagePicker;
+function examDurationKey(ex){return String(ex?.id??ex?.slug??'')+'|'+String(ex?.language||'')}
+function selectedExamMinutes(ex){
+  const selected=S.attemptDurationExamKey===examDurationKey(ex)?Number(S.attemptDuration):NaN;
+  if(Number.isFinite(selected)&&selected>=1)return selected;
+  const configured=Number(ex?.duration);
+  return Number.isFinite(configured)&&configured>=1?configured:10;
+}
 openPassagePicker=async function(){
   if(!S.exam)return;
   // Read the exam before initializing attempt defaults; directory rows may be stale.
   try{S.exam=await api('/api/exams/'+S.exam.id)}catch(err){showToast(err.message||'Exam could not load');return}
   S.attemptBackspaceChoiceKey=null;
   S.attemptDuration=null;
+  S.attemptDurationExamKey=examDurationKey(S.exam);
   S.attemptBackspaceAllowed=!!S.exam.backspace_allowed;
   S.attemptHighlightMode=S.exam.highlight_mode||'none';
   await _oldOpenPassagePickerFinal();
@@ -2603,15 +2614,19 @@ renderPassagePicker=function(){
     // add 20 min if old picker does not contain it
     if(!Array.from(dur.options).some(o=>Number(o.value)===20)){const o=document.createElement('option');o.value='20';o.textContent='20 minutes';dur.insertBefore(o,dur.querySelector('option[value="30"]')||null)}
     const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;if(lim){lim.value=n;lim.readOnly=true;lim.style.background='#f3f6fa'}};
-    if(S.attemptDuration!=null)dur.value=String(S.attemptDuration);
-    dur.onchange=()=>{S.attemptDuration=Number(dur.value);sync()};sync();
+    const minutes=selectedExamMinutes(S.exam);
+    if(!Array.from(dur.options).some(o=>o.value===String(minutes))){const o=document.createElement('option');o.value=String(minutes);o.textContent=minutes+' minutes';dur.insertBefore(o,dur.options[0]||null)}
+    // Select explicitly, including nonstandard durations, after every render.
+    dur.value=String(minutes);
+    dur.onchange=()=>{S.attemptDuration=Number(dur.value);S.attemptDurationExamKey=examDurationKey(S.exam);sync()};sync();
   }
   if(bs){bs.checked=!!S.attemptBackspaceAllowed;bs.onchange=()=>{S.attemptBackspaceAllowed=bs.checked}}
 }
 prepareSelectedPassage=async function(id){
   if(!(await ensureExamCanStart()))return;
   const base=(S.exam.passages||[]).find(x=>x.id===id); if(!base)return;
-  const mins=Math.max(1,Number(document.getElementById('pickerDuration')?.value)||Number(base.duration_override)||Number(S.exam.duration)||10);
+  // A passage's old override must not replace the selected exam's default time.
+  const mins=selectedExamMinutes(S.exam);
   const wordLimit=requiredMatterWords(S.exam,mins);
   S.inputLimit=wordLimit;
   const examHM=S.exam.highlight_mode||'none';
