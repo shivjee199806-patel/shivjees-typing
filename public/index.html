@@ -511,6 +511,39 @@ input,select,textarea,button{max-width:100%}
   window.jpTrack = function(name, params){ try { gtag('event', name, params || {}); } catch(e) {} };
 </script>
 
+<style id="jp-collapsed-exam-directory-style-20260917">
+.jp-exam-tabs{display:flex;gap:7px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:thin}.jp-exam-tab{flex:0 0 auto;border:1px solid #b8c5d8;background:#fff;color:#172033;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:850;cursor:pointer}.jp-exam-tab:hover,.jp-exam-tab.active{background:#111827;color:#fff;border-color:#111827}.jp-exam-directory-head{display:flex;align-items:center;gap:10px}.jp-exam-directory-head .exam-searchbar{flex:1;border-bottom:0;padding-bottom:10px}.jp-exam-expand{width:34px;height:34px;flex:0 0 34px;border:1px solid #9aa9bd;border-radius:50%;background:#fff;color:#111827;font-size:16px;font-weight:900;cursor:pointer;transition:.18s}.jp-exam-expand.open{transform:rotate(180deg);background:#111827;color:#fff}.jp-exam-collapsed-note{grid-column:1/-1;text-align:center;padding:20px;border:1px dashed #c5cedb;border-radius:12px;color:#64748b;background:#f8fafc}@media(max-width:720px){.jp-exam-directory-head{align-items:flex-start}.jp-exam-tabs{padding-bottom:9px}.jp-exam-tab{padding:7px 11px}}
+</style>
+<script id="jp-collapsed-exam-directory-20260917">
+(()=>{
+ function variantCount(parent){const keys=new Set();for(const e of parent.exams||[]){let k='';try{k=typeof folderKeyFromExam==='function'?folderKeyFromExam(e):String(e.slug||e.id).replace(/-(english|hindi)$/i,'')}catch(_){k=String(e.slug||e.id)}keys.add(k)}return keys.size}
+ window.exams=async function(){
+  activeNav('exams');
+  setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>Typing Exams</h1><p>ऊपर exam tab चुनें या छोटे arrow से सभी Main Folders खोलें.</p></div></div><div class="exam-directory"><div id="jpExamTabs" class="jp-exam-tabs"></div><div class="jp-exam-directory-head"><div class="exam-searchbar"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search folder or exam..." autocomplete="off"></div></div><button id="jpExamExpand" class="jp-exam-expand" type="button" title="Show all exam folders" aria-label="Show all exam folders" aria-expanded="false">⌄</button></div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);
+  try{
+   const d=await api('/api/exam-directory-tree?_='+Date.now());window.EXAM_OPTIONS=d.rows||[];window.STRICT_EXAM_TREE=d.tree||[];
+   let selected='',allOpen=false;
+   const tabs=document.getElementById('jpExamTabs'),search=document.getElementById('examSearch'),toggle=document.getElementById('jpExamExpand'),grid=document.getElementById('examGrid'),count=document.getElementById('examCountLine');
+   tabs.innerHTML=(window.STRICT_EXAM_TREE||[]).map(p=>`<button type="button" class="jp-exam-tab" data-key="${esc(p.key)}">${esc(p.name)}</button>`).join('');
+   const render=()=>{
+    const q=String(search.value||'').trim().toLowerCase(),all=window.STRICT_EXAM_TREE||[];
+    const matches=all.filter(p=>!q||String(p.name||'').toLowerCase().includes(q)||(p.exams||[]).some(e=>String(e.name||'').toLowerCase().includes(q)));
+    const rows=q?matches:(selected?matches.filter(p=>p.key===selected):(allOpen?matches:[]));
+    tabs.querySelectorAll('.jp-exam-tab').forEach(b=>b.classList.toggle('active',b.dataset.key===selected&&!allOpen));
+    toggle.classList.toggle('open',allOpen);toggle.setAttribute('aria-expanded',String(allOpen));toggle.title=allOpen?'Hide all exam folders':'Show all exam folders';
+    count.textContent=q?`${rows.length} matching main exam folders found`:(selected?`${rows.length} selected exam folder`:(allOpen?`${rows.length} main exam folders found`:`${all.length} main exam folders • exam tab चुनें या arrow खोलें`));
+    grid.innerHTML=rows.map(p=>`<div class="browse-exam-card jp-main-folder-card" data-key="${esc(p.key)}"><div class="meta"><span>MAIN FOLDER</span><span>${variantCount(p)} subfolders</span></div><h3>📁 ${esc(p.name)}</h3><p>${(p.exams||[]).slice(0,3).map(e=>esc(String(e.name||'').replace(String(p.name||'')+' - ',''))).join(' • ')}${(p.exams||[]).length>3?' …':''}</p><div class="bottom"><span class="count">Open folder</span><button class="open-btn" type="button">Open Folder →</button></div></div>`).join('')||`<div class="jp-exam-collapsed-note">${q?'No exam found.':'ऊपर exam-name tab चुनें या ⌄ arrow दबाकर सभी folders खोलें।'}</div>`;
+    grid.querySelectorAll('.jp-main-folder-card').forEach(card=>{const open=()=>openStrictMainFolder(card.dataset.key);card.onclick=open;card.querySelector('.open-btn').onclick=e=>{e.stopPropagation();open()}});
+   };
+   tabs.onclick=e=>{const b=e.target.closest('.jp-exam-tab');if(!b)return;selected=b.dataset.key;allOpen=false;search.value='';render()};
+   toggle.onclick=()=>{allOpen=!allOpen;selected='';search.value='';render()};
+   search.oninput=()=>{selected='';allOpen=false;render()};render();
+  }catch(e){showToast(e.message||'Exam folders could not load')}
+ };
+ window.jpCollapsedExamDirectory=window.exams;
+})();
+</script>
+
 <style id="jp-candidate-app-download-style-20260917">
 .jp-app-download-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;background:#fff7ed;color:#7c2d12;border:1px solid #fed7aa;white-space:nowrap;font-size:12px}
 .jp-app-download-btn:hover{background:#ffedd5;color:#7c2d12}
@@ -539,6 +572,9 @@ window.downloadMobileApp=async function(){
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));
 const jpMarkInstalledApp=()=>{if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true)document.body?.classList.add('jp-installed-app')};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',jpMarkInstalledApp);else jpMarkInstalledApp();
+</script>
+<script id="jp-activate-collapsed-exam-directory-20260917">
+if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCollapsedExamDirectory;
 </script>
 </head>
 
@@ -3885,6 +3921,90 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
 .result-match-comparison .result-skipped{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:0!important;text-decoration:none!important;font-style:normal!important;color:inherit!important}
 @media(max-width:760px){.result-match-comparison{grid-template-columns:1fr!important}.result-match-comparison>div+div{border-left:0!important;border-top:1px solid #e5e7eb!important}}
 </style>
+<script id="jp-backspace-rules-20260917">
+(()=>{
+ const MODES=['off','unlimited','current_word','limited'];
+ const ruleOf=e=>{const mode=MODES.includes(e?.backspace_mode)?e.backspace_mode:(Number(e?.backspace_allowed)?'unlimited':'off');return {mode,limit:mode==='limited'?Math.max(1,Math.floor(Number(e?.backspace_limit)||1)):0}};
+ const labelOf=r=>r.mode==='off'?'Disabled':r.mode==='current_word'?'Current word only':r.mode==='limited'?`Limited (${r.limit} times)`:'Unlimited';
+ function examFor(select){
+  const list=window.OWNER?.e||window.ADMIN_EXAMS||[];
+  if(select.id==='eeBackspace')return list.find(x=>x.slug===document.getElementById('eeSlug')?.value);
+  if(select.id==='peBackspace')return list.find(x=>+x.id===+document.getElementById('peExam')?.value);
+  return null;
+ }
+ function enhanceSelect(select){
+  if(!select||select.dataset.jpBackspaceRule)return;
+  select.dataset.jpBackspaceRule='1';
+  const initial=ruleOf(examFor(select)||{backspace_allowed:select.value!=='0'});
+  select.innerHTML='<option value="unlimited">Backspace: Unlimited</option><option value="current_word">Backspace: Current Word Only</option><option value="limited">Backspace: Limited Count</option><option value="off">Backspace: Disabled</option>';
+  select.value=initial.mode;
+  const limit=document.createElement('input');limit.type='number';limit.min='1';limit.step='1';limit.className='input';limit.placeholder='Backspace limit';limit.value=initial.limit||10;limit.dataset.jpBackspaceLimit=select.id;limit.style.cssText='width:100%;margin-top:6px';
+  select.insertAdjacentElement('afterend',limit);
+  const sync=()=>limit.style.display=select.value==='limited'?'':'none';select.addEventListener('change',sync);sync();
+ }
+ function installOwnerControls(){['eb','eeBackspace','peBackspace'].forEach(id=>enhanceSelect(document.getElementById(id)))}
+ new MutationObserver(installOwnerControls).observe(document.documentElement,{childList:true,subtree:true});installOwnerControls();
+
+ const originalApi=window.api;
+ if(typeof originalApi==='function'&&!originalApi.__jpBackspaceRules){
+  const wrapped=async function(path,options){
+   const method=String(options?.method||'GET').toUpperCase();
+   if(/^\/api\/admin\/exams(?:\/\d+)?$/.test(path)&&(method==='POST'||method==='PUT')){
+    let control=null;
+    if(method==='POST')control=document.getElementById('eb');
+    else{
+     const id=Number(path.match(/\/(\d+)$/)?.[1]);
+     if(+document.getElementById('peExam')?.value===id)control=document.getElementById('peBackspace');
+     if(document.getElementById('eeBackspace'))control=document.getElementById('eeBackspace');
+    }
+    if(control?.dataset.jpBackspaceRule){
+     const next={...(options||{})};let body={};try{body=JSON.parse(next.body||'{}')}catch(_){body={}}
+     const mode=MODES.includes(control.value)?control.value:(control.value==='0'?'off':'unlimited');
+     const limit=document.querySelector(`[data-jp-backspace-limit="${control.id}"]`);
+     body.backspace_mode=mode;body.backspace_limit=mode==='limited'?Math.max(1,Math.floor(Number(limit?.value)||1)):0;body.backspace_allowed=mode!=='off';next.body=JSON.stringify(body);
+     return originalApi(path,next);
+    }
+   }
+   return originalApi(path,options);
+  };
+  wrapped.__jpBackspaceRules=true;window.api=wrapped;
+ }
+
+ function applyAttemptRule(){
+  if(typeof S==='undefined'||!S.exam)return null;
+  const r=ruleOf(S.exam);S.attemptBackspaceMode=r.mode;S.attemptBackspaceLimit=r.limit;S.attemptBackspaceAllowed=r.mode!=='off';return r;
+ }
+ function updatePicker(){
+  const box=document.getElementById('pickerBackspace');if(!box||!S?.exam)return;
+  const r=applyAttemptRule();box.checked=r.mode!=='off';box.disabled=true;box.onchange=null;
+  const opt=box.closest('label');if(opt){let note=opt.querySelector('.jp-backspace-rule-note');if(!note){note=document.createElement('b');note.className='jp-backspace-rule-note';opt.appendChild(note)}note.textContent=` (${labelOf(r)} — Owner rule)`}
+ }
+ new MutationObserver(updatePicker).observe(document.documentElement,{childList:true,subtree:true});
+
+ document.addEventListener('keydown',e=>{
+  if(e.key!=='Backspace'||typeof S==='undefined'||S.done||!S.started||!['exam','live'].includes(S.mode)||e.target?.id!=='typing')return;
+  const r=applyAttemptRule(),input=e.target;
+  let blocked=false,message='';
+  if(r.mode==='off'){blocked=true;message='Backspace इस exam में disabled है.'}
+  else if(r.mode==='limited'&&Number(S.backspaces||0)>=r.limit){blocked=true;message=`Backspace limit ${r.limit} पूरी हो गई है.`}
+  else if(r.mode==='current_word'){
+   const start=input.selectionStart??0,end=input.selectionEnd??start,value=input.value||'';
+   const selected=value.slice(start,end),before=value.charAt(start-1);
+   if(start<=0||/\s/.test(before)||(/\s/.test(selected))){blocked=true;message='Backspace केवल current word में उपयोग कर सकते हैं.'}
+  }
+  if(blocked){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();showToast(message)}
+ },true);
+
+ const oldLive=window.startLiveTest;
+  if(typeof oldLive==='function')window.startLiveTest=async function(id){await oldLive(id);if(S?.exam&&S?.liveTest){S.exam.backspace_mode=S.liveTest.backspace_mode;S.exam.backspace_limit=S.liveTest.backspace_limit;applyAttemptRule()}};
+ const oldPrepare=window.prepareSelectedPassage;
+ if(typeof oldPrepare==='function')window.prepareSelectedPassage=async function(id){await oldPrepare(id);applyAttemptRule()};
+ const oldSync=window.syncPassageEditorExam;
+ if(typeof oldSync==='function')window.syncPassageEditorExam=function(){oldSync();const control=document.getElementById('peBackspace'),ex=examFor(control);if(control&&ex){const r=ruleOf(ex);control.value=r.mode;const limit=document.querySelector('[data-jp-backspace-limit="peBackspace"]');if(limit){limit.value=r.limit||10;limit.style.display=r.mode==='limited'?'':'none'}}};
+ const oldInfo=window.openExamModal;
+ if(typeof oldInfo==='function')window.openExamModal=function(e){oldInfo(e);const body=document.getElementById('examModalBody'),r=ruleOf(e);if(body){const nodes=[...body.querySelectorAll('.rules-list>div')],node=nodes.find(x=>x.querySelector('b')?.textContent==='Backspace');if(node)node.innerHTML=`<b>Backspace</b><br>${labelOf(r)}`}};
+})();
+</script>
 </body>
 </html>
 
@@ -4790,7 +4910,10 @@ body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!importa
    }
    return originalApi(path,options)
   };
-  wrapped.__jpBrotherResultModeWrapped=true;window.api=wrapped;
+ wrapped.__jpBrotherResultModeWrapped=true;window.api=wrapped;
  }
 })();
+</script>
+<script id="jp-activate-collapsed-exam-directory-final-20260917">
+if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCollapsedExamDirectory;
 </script>
