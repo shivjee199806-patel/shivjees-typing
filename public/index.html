@@ -871,7 +871,7 @@ function comparisonWordPanels(original,typed){
  const a=alignWords(original,typed),left=[],right=[];
  for(const op of a.ops){
   if(op.type==='match'){left.push(esc(op.o));right.push(esc(op.t));continue}
-  if(op.type==='sub'){left.push(`<mark class="cmp-bad-word">${esc(op.o)}</mark>`);right.push(`<mark class="cmp-typed-word">${esc(op.t)}</mark>`);continue}
+  if(op.type==='sub'){left.push(`<mark class="cmp-bad-word cmp-wrong">${esc(op.o)}</mark>`);right.push(`<mark class="cmp-typed-word">${esc(op.t)}</mark>`);continue}
   if(op.type==='delete'){left.push(`<mark class="cmp-bad-word">${esc(op.o)}</mark>`);continue}
   if(op.type==='insert'){right.push(`<mark class="cmp-typed-word">${esc(op.t)}</mark>`);continue}
  }
@@ -3919,6 +3919,7 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
 /* Reference-style inline mismatch highlights only: flat panels remain unchanged. */
 .result-match-comparison .result-original-error{background:#fca5a5!important;color:#111827!important;border:0!important;border-radius:2px!important;box-shadow:none!important;padding:1px 2px!important;margin:0!important;text-decoration:none!important;font-style:normal!important}
 .result-match-comparison .result-original-error.result-original-wrong{text-decoration:line-through!important;text-decoration-color:#991b1b!important;text-decoration-thickness:2px!important}
+.cmp-bad-word.cmp-wrong{text-decoration:line-through!important;text-decoration-color:#991b1b!important;text-decoration-thickness:2px!important}
 .result-match-comparison .result-wrong-word{background:#86efac!important;color:#111827!important;border:0!important;border-radius:2px!important;box-shadow:none!important;padding:1px 2px!important;margin:0!important;text-decoration:none!important;font-style:normal!important}
 .result-match-comparison .result-skipped{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:0!important;text-decoration:none!important;font-style:normal!important;color:inherit!important}
 @media(max-width:760px){.result-match-comparison{grid-template-columns:1fr!important}.result-match-comparison>div+div{border-left:0!important;border-top:1px solid #e5e7eb!important}}
@@ -4921,4 +4922,23 @@ body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!importa
 </script>
 <script id="jp-activate-collapsed-exam-directory-final-20260917">
 if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCollapsedExamDirectory;
+</script>
+<script id="jp-all-result-error-difference-20260917">
+(()=>{
+ function applyDifference(){
+  if(typeof resultComparisonPanels!=='function')return;
+  document.querySelectorAll('.result-match-comparison:not([data-jp-error-difference])').forEach(panel=>{
+   const panes=panel.querySelectorAll('.result-passage-text');if(panes.length<2)return;
+   const original=panes[0].textContent||'',typed=panes[1].textContent||'';if(!original.trim())return;
+   const cmp=resultComparisonPanels(original,typed);panes[0].innerHTML=cmp.left;panes[1].innerHTML=cmp.right;panel.dataset.jpErrorDifference='1';
+  });
+  document.querySelectorAll('.analysis-two:not([data-jp-error-difference])').forEach(panel=>{
+   const panes=panel.querySelectorAll('.analysis-text');if(panes.length<2)return;
+   const original=panes[0].textContent||'',typed=panes[1].textContent||'';if(!original.trim())return;
+   const cmp=resultComparisonPanels(original,typed);panes[0].innerHTML=cmp.left;panes[1].innerHTML=cmp.right;panel.dataset.jpErrorDifference='1';
+  });
+ }
+ new MutationObserver(applyDifference).observe(document.documentElement,{childList:true,subtree:true});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyDifference);else applyDifference();
+})();
 </script>
