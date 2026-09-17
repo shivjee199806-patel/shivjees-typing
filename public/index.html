@@ -516,6 +516,8 @@ input,select,textarea,button{max-width:100%}
 .jp-app-download-btn:hover{background:#ffedd5;color:#7c2d12}
 .topnav .jp-topnav-download-app{background:#fff7ed!important;color:#9a3412!important;border:1px solid #fed7aa!important;font-weight:900!important;white-space:nowrap!important}
 .topnav .jp-topnav-download-app:hover{background:#ffedd5!important;color:#7c2d12!important}
+@media(display-mode:standalone){.jp-app-download-btn,.jp-topnav-download-app,.jp-mobile-download-app{display:none!important}}
+body.jp-installed-app .jp-app-download-btn,body.jp-installed-app .jp-topnav-download-app,body.jp-installed-app .jp-mobile-download-app{display:none!important}
 @media(max-width:700px){.jp-app-download-btn{padding:8px 9px;font-size:11px}.jp-app-download-btn span{font-size:0}.jp-app-download-btn span:after{content:'App';font-size:11px}.top-actions{gap:5px}}
 </style>
 <script id="jp-candidate-app-download-script-20260917">
@@ -535,6 +537,8 @@ window.downloadMobileApp=async function(){
  alert('Mobile App install करने के लिए Chrome menu (⋮) खोलें और “Install app” या “Add to Home screen” चुनें।');
 };
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));
+const jpMarkInstalledApp=()=>{if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true)document.body?.classList.add('jp-installed-app')};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',jpMarkInstalledApp);else jpMarkInstalledApp();
 </script>
 </head>
 
@@ -631,9 +635,9 @@ function layout(){
   document.getElementById('topActions').innerHTML=`<button class="btn btn-white" onclick="auth('login')">Login</button><button class="btn btn-primary" onclick="auth('register')">Sign Up</button>`;
   document.getElementById('adminNav').innerHTML='';
  }else{
-  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a><a data-route="information" href="#information">Information</a><a data-route="pricing" href="#pricing">Pricing</a>${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download Mobile App</a>':''}`;
+  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a><a data-route="information" href="#information">Information</a><a data-route="pricing" href="#pricing">Pricing</a>${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
   document.getElementById('topActions').innerHTML=`${S.user.role!=='admin'?'<button type="button" class="btn jp-app-download-btn" onclick="downloadMobileApp()" title="Download Mobile App">📱 <span>Download App</span></button>':''}<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="location.hash='#dashboard';closeProfileMenu()">📊 My Dashboard</button><button onclick="location.hash='#history';closeProfileMenu()">🕘 Test History</button><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
-  document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download Mobile App</a>`;
+  document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
  }
  markThemeSwatch();
 }
@@ -813,7 +817,7 @@ async function finishTest(manual=false,ended=false,fromPreview=false){
  const gross=(c.n/5)/mins,acc=(c.good+c.wrong)?c.good/(c.good+c.wrong)*100:0,net=Math.max(0,gross-(c.wrong/5)/mins),back=S.backspaces||0;
  if(S.timer)clearInterval(S.timer);
  try{
-  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
+  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
   S.done=true;S.submitting=false;window.onbeforeunload=null;toggleHallSound(false);try{if(typeof jpTrack==='function')jpTrack('test_complete',{test_mode:S.mode||'practice',exam_name:S.exam?.name||'Free Practice',passage_title:S.passage?.title||'',attempt_status:ended?'ended':'submitted'})}catch(_){}
   if(!ended&&(S.mode==='exam'||S.mode==='live')){try{localStorage.setItem('st_exam_completed_'+String(S.exam?.id||S.exam?.slug||'default'),'1')}catch(_){}}
   if(ended){leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();S.started=false;S.done=true;S.submitting=false;window.onbeforeunload=null;location.hash='#exams';await exams();showToast('Exam ended. Attempt History में Ended / Incomplete save हो गया.');return}
@@ -2470,7 +2474,7 @@ function defaultWordMapForExam(ex){
   const slug=String(ex?.slug||'').toLowerCase(),lang=String(ex?.language||'English').toLowerCase();
   const stored=parseDurationWordMap(ex); if(Object.keys(stored).length)return stored;
   if(slug.includes('upp-co')||/up police computer operator/i.test(String(ex?.name||''))){
-    return lang==='hindi'?{'5':137,'10':273,'15':410,'20':547,'30':820}:{'5':170,'10':340,'15':510,'20':680,'30':1020};
+    return lang==='hindi'?{'5':136,'10':272,'15':408,'20':544,'30':816}:{'5':170,'10':340,'15':510,'20':680,'30':1020};
   }
   const baseM=Math.max(1,Number(ex?.duration)||10);
   const baseWords=Math.max(0,Number(ex?.min_words)||0);
