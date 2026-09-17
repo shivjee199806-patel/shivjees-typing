@@ -761,25 +761,63 @@ ensureBulkPracticeContent();
 // remain available; when untouched they inherit the stored exam defaults.
 function applyVerifiedExamDefaultsOnce(){
  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
- const marker='verified_exam_defaults_v2_20260917';
+ const marker='exam_wise_behavior_defaults_v3_20260917';
  if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
- const profiles=[
-  // slug, minutes, WPM, accuracy, qualification, standard 5-keystroke counting
-  ['ssc-chsl-ldc-jsa-typing',10,35,0,'wpm',1],
-  ['delhi-police-hcm-typing',10,30,0,'wpm',1],
-  ['state-delhi-police-head-constable-ministerial',10,30,0,'wpm',1],
-  ['railway-rrb-ntpc-typing-skill-test',10,30,0,'wpm',1],
-  ['railway-rrb-ntpc-typing-skill-test-hindi',10,25,0,'wpm',1],
-  ['central-supreme-court-jca-typing',10,35,97,'wpm_accuracy',1],
-  ['upp-co-english',15,30,0,'wpm',1],
-  ['upp-co-hindi',15,25,0,'wpm',1]
- ];
- const updateExam=db.prepare(`UPDATE exams SET duration=?,required_wpm=?,required_accuracy=?,min_words=0,min_chars=0,qualification_method=? WHERE slug=?`);
- const updatePassages=db.prepare(`UPDATE passages SET result_count_mode='character' WHERE exam_id=(SELECT id FROM exams WHERE slug=?)`);
+ // Exact exceptions for named exams.  Remaining directory rows receive a conservative
+ // post-family default below; unlike the removed code, every base folder and its Hindi
+ // companion are resolved independently instead of one blanket English/Hindi rule.
+ const exact=new Map([
+  ['state-up-upsssc-junior-assistant',[5,30,25,0,'wpm']],
+  ['state-up-upsssc-stenographer',[10,30,25,0,'wpm']],
+  ['state-up-allahabad-high-court-junior-assistant',[10,30,25,0,'wpm']],
+  ['state-up-allahabad-high-court-stenographer',[10,40,30,0,'wpm']],
+  ['state-uttarakhand-uksssc-junior-assistant-deo',[10,35,30,0,'wpm']],
+  ['state-uttarakhand-uksssc-stenographer-pa',[10,40,30,0,'wpm']],
+  ['state-uttarakhand-high-court-junior-assistant',[10,35,30,0,'wpm']],
+  ['state-uttarakhand-high-court-stenographer-pa',[10,40,30,0,'wpm']],
+  ['state-delhi-dsssb-junior-assistant-ldc',[10,35,30,0,'wpm']],
+  ['state-delhi-police-head-constable-ministerial',[10,30,25,0,'wpm']],
+  ['state-delhi-high-court-junior-judicial-assistant',[10,35,30,97,'wpm_accuracy']],
+  ['state-delhi-district-courts-junior-judicial-assistant',[10,40,30,0,'wpm']],
+  ['state-delhi-dda-junior-secretariat-assistant',[10,35,30,0,'wpm']],
+  ['state-himachal-pradesh-hprca-junior-office-assistant-it',[5,30,25,0,'wpm']],
+  ['state-rajasthan-rssb-ldc-junior-assistant',[10,35,30,0,'wpm']],
+  ['state-rajasthan-rssb-informatics-assistant',[15,25,20,0,'wpm']],
+  ['state-jammu-kashmir-jkssb-junior-assistant',[10,35,30,0,'wpm']],
+  ['central-supreme-court-jca-typing',[10,35,30,97,'wpm_accuracy']],
+  ['central-dsssb-typing-skill-posts',[10,35,30,0,'wpm']],
+  ['railway-rrb-ntpc-typing-skill-test',[10,30,25,0,'wpm']],
+  ['railway-rrb-ministerial-stenographer-typing-posts',[10,40,30,0,'wpm']]
+ ]);
+ const familyProfile=(name,slug)=>{
+  const n=(name+' '+slug).toLowerCase();
+  if(exact.has(slug))return exact.get(slug);
+  if(/steno|stenographer|personal-assistant|\bpa\b/.test(n))return [10,40,30,0,'wpm'];
+  if(/typist|copyist/.test(n))return [10,40,30,0,'wpm'];
+  if(/high-court|judicial|judiciary|court/.test(n))return [10,35,30,0,'wpm'];
+  if(/deo|data-entry/.test(n))return [10,35,30,0,'wpm'];
+  return [10,30,25,0,'wpm'];
+ };
+ const profiles=[];
+ for(const [name,slug] of STATE_EXAM_DIRECTORY){
+  const [duration,enWpm,hiWpm,accuracy,qualification]=familyProfile(name,slug);
+  profiles.push([slug,duration,enWpm,accuracy,qualification]);
+  profiles.push([slug+'-hindi',duration,hiWpm,accuracy,qualification]);
+ }
+ profiles.push(
+  ['ssc-chsl-ldc-jsa-typing',10,35,0,'wpm'],
+  ['ssc-selection-post-typing',10,35,0,'wpm'],
+  ['delhi-police-hcm-typing',10,30,0,'wpm'],
+  ['up-police-ministerial-typing',10,25,0,'wpm'],
+  ['upp-co-english',15,30,85,'wpm_accuracy'],
+  ['upp-co-hindi',15,25,85,'wpm_accuracy']
+ );
+ const updateExam=db.prepare(`UPDATE exams SET duration=?,required_wpm=?,required_accuracy=?,min_words=0,min_chars=0,qualification_method=?,backspace_allowed=1,backspace_mode='unlimited',backspace_limit=0,highlight_mode='none',highlight_user_change_allowed=1 WHERE slug=?`);
+ const updatePassages=db.prepare(`UPDATE passages SET result_count_mode='character',highlight_mode='none' WHERE exam_id=(SELECT id FROM exams WHERE slug=?)`);
  db.transaction(()=>{
-  for(const [slug,duration,wpm,accuracy,qualification,standardCount] of profiles){
+  for(const [slug,duration,wpm,accuracy,qualification] of profiles){
    updateExam.run(duration,wpm,accuracy,qualification,slug);
-   if(standardCount)updatePassages.run(slug);
+   updatePassages.run(slug);
   }
   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
  })();
