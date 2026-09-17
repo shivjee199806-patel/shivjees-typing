@@ -2800,10 +2800,12 @@ else{board.innerHTML=`<div class="kids-feedback" id="kgFeedback"></div><div styl
     const target=e.target;
     const inTyping=target===typing;
     const k=String(e.key||'');
+    // Shift is required for capitals and symbols, so it must stay available in exam typing.
+    if(k==='Shift')return;
     const printable=k.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey;
     const typingKey=printable || k==='Backspace' || k==='Enter';
     // Only the typing textarea may consume typing keys. Everything else from the keyboard is locked during the run.
-    if(!inTyping || !typingKey || e.ctrlKey || e.metaKey || e.altKey || /^F\d{1,2}$/.test(k) || ['Escape','Tab','Delete','Insert','Home','End','PageUp','PageDown','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){
+    if(!inTyping || !typingKey || e.ctrlKey || e.metaKey || e.altKey || k==='Fn' || /^F\d{1,2}$/.test(k) || ['Escape','Tab','Delete','Insert','Home','End','PageUp','PageDown','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
       if(typing && !['INPUT','SELECT','BUTTON'].includes(target?.tagName)) typing.focus();
       showToast('Exam running — केवल typing keys उपयोग करें. End/Submit के बाद normal controls वापस मिलेंगे.');
