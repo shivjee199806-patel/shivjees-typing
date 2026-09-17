@@ -751,26 +751,40 @@ ensureBulkPracticeContent();
  const tx=db.transaction(()=>{for(const e of exams){const rows=db.prepare('SELECT id,content,language FROM passages WHERE exam_id=? ORDER BY id').all(e.id),seen=new Set();for(const r of rows){let c=String(r.content||'').trim(),key=c.replace(/\s+/g,' ').toLowerCase();if(!key||!seen.has(key)){seen.add(key);continue}const suffix=r.language==='Hindi'?` इस अभिलेख की विशिष्ट समीक्षा संख्या ${r.id} है और अंतिम प्रविष्टि को मूल स्रोत से मिलाकर सुरक्षित किया गया।`:` This record carries unique review reference ${r.id}, and its final entry was checked against the source before archiving.`;c+=suffix;upd.run(c,r.id);seen.add(c.replace(/\s+/g,' ').toLowerCase())}}});tx();
 })();
 
-// Exam-simulation defaults. Owner can edit every value later.
-function applyTypingSimulationDefaults(){
- const all=db.prepare(`SELECT * FROM exams WHERE active=1`).all();
- const upd=db.prepare(`UPDATE exams SET duration=?,required_wpm=?,required_accuracy=?,min_words=?,min_chars=?,qualification_method=?,backspace_allowed=?,highlight_mode=?,highlight_user_change_allowed=1 WHERE id=?`);
- const tx=db.transaction(()=>{for(const e of all){
-   const n=(e.name+' '+e.slug).toLowerCase(); if(n.includes('live-template'))continue;
-   let dur=10,wpm=e.language==='Hindi'?30:35,acc=0,mw=0,mc=0,q='wpm',back=1,hi='none';
-   if(n.includes('upp-co')||n.includes('computer operator')){dur=15;wpm=e.language==='Hindi'?25:30;acc=85;mw=e.language==='Hindi'?375:450;q='words_wpm_accuracy';hi='none'}
-   else if(n.includes('rrb-ntpc')||n.includes('rrb ntpc')){dur=10;wpm=e.language==='Hindi'?25:30;mw=e.language==='Hindi'?250:300;q='words_wpm_accuracy';back=0;hi='none'}
-   else if(n.includes('allahabad')&&n.includes('steno')){dur=10;wpm=e.language==='Hindi'?30:40;q='wpm'}
-   else if(n.includes('allahabad')){dur=10;wpm=e.language==='Hindi'?25:30;q='wpm'}
-   else if(n.includes('delhi police')){dur=10;wpm=e.language==='Hindi'?25:30;q='wpm'}
-   else if(n.includes('dsssb')||n.includes('dda')||n.includes('ssc')){dur=10;wpm=e.language==='Hindi'?30:35;q='wpm'}
-   else if(n.includes('steno')){dur=10;wpm=e.language==='Hindi'?30:40;q='wpm'}
-   upd.run(dur,wpm,acc,mw,mc,q,back,hi,e.id);
- }});tx();
- // Passage badge follows the exam default; candidate may override unless Owner locks it.
- db.prepare(`UPDATE passages SET highlight_mode=COALESCE((SELECT highlight_mode FROM exams WHERE exams.id=passages.exam_id),'none') WHERE exam_id IS NOT NULL`).run();
+// Official exam defaults are deliberately exact-slug only.  A broad folder such as
+// "Government / Court Typing Posts" can cover several notifications with different
+// rules, so it must never receive a guessed rule merely because its name contains
+// words such as clerk, steno, SSC or court.
+//
+// This migration runs once.  Afterwards Owner edits remain authoritative and are not
+// overwritten on every server restart.  Candidate Backspace/Highlight controls also
+// remain available; when untouched they inherit the stored exam defaults.
+function applyVerifiedExamDefaultsOnce(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='verified_exam_defaults_v2_20260917';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ const profiles=[
+  // slug, minutes, WPM, accuracy, qualification, standard 5-keystroke counting
+  ['ssc-chsl-ldc-jsa-typing',10,35,0,'wpm',1],
+  ['delhi-police-hcm-typing',10,30,0,'wpm',1],
+  ['state-delhi-police-head-constable-ministerial',10,30,0,'wpm',1],
+  ['railway-rrb-ntpc-typing-skill-test',10,30,0,'wpm',1],
+  ['railway-rrb-ntpc-typing-skill-test-hindi',10,25,0,'wpm',1],
+  ['central-supreme-court-jca-typing',10,35,97,'wpm_accuracy',1],
+  ['upp-co-english',15,30,0,'wpm',1],
+  ['upp-co-hindi',15,25,0,'wpm',1]
+ ];
+ const updateExam=db.prepare(`UPDATE exams SET duration=?,required_wpm=?,required_accuracy=?,min_words=0,min_chars=0,qualification_method=? WHERE slug=?`);
+ const updatePassages=db.prepare(`UPDATE passages SET result_count_mode='character' WHERE exam_id=(SELECT id FROM exams WHERE slug=?)`);
+ db.transaction(()=>{
+  for(const [slug,duration,wpm,accuracy,qualification,standardCount] of profiles){
+   updateExam.run(duration,wpm,accuracy,qualification,slug);
+   if(standardCount)updatePassages.run(slug);
+  }
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
 }
-applyTypingSimulationDefaults();
+applyVerifiedExamDefaultsOnce();
 app.use(express.json({limit:'1mb'}));
 function loginClientInfo(req){
  const ua=String(req.get('user-agent')||'').slice(0,1000),low=ua.toLowerCase();
