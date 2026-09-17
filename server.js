@@ -464,6 +464,19 @@ if(!resultCols.includes('attempt_status')) db.exec("ALTER TABLE results ADD COLU
 db.exec("CREATE INDEX IF NOT EXISTS idx_live_tests_window ON live_tests(start_at,end_at,active)");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_results_attempt_id ON results(attempt_id) WHERE attempt_id IS NOT NULL");
 db.exec("CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id,created_at DESC)");
+db.exec(`CREATE TABLE IF NOT EXISTS login_history(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ login_method TEXT,
+ device_type TEXT,
+ operating_system TEXT,
+ browser TEXT,
+ ip_address TEXT,
+ user_agent TEXT,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);`);
+db.exec("CREATE INDEX IF NOT EXISTS idx_login_history_user_created ON login_history(user_id,created_at DESC)");
 const MASTER_OWNER_EMAIL=String(process.env.MASTER_OWNER_EMAIL||'shivjee199806@gmail.com').trim().toLowerCase();
 const MASTER_OWNER_PHONE=normalizePhone(process.env.MASTER_OWNER_PHONE||'8707893228');
 const adminEmail=MASTER_OWNER_EMAIL,adminPass=process.env.ADMIN_PASSWORD||'Admin@12345';
@@ -755,6 +768,20 @@ function applyTypingSimulationDefaults(){
 }
 applyTypingSimulationDefaults();
 app.use(express.json({limit:'1mb'}));
+function loginClientInfo(req){
+ const ua=String(req.get('user-agent')||'').slice(0,1000),low=ua.toLowerCase();
+ const device=/ipad|tablet|kindle|silk|playbook/i.test(ua)?'Tablet':/mobile|iphone|ipod|android/i.test(ua)?'Mobile':'Desktop';
+ const os=/windows nt/i.test(ua)?'Windows':/iphone|ipad|ipod/i.test(ua)?'iOS':/android/i.test(ua)?'Android':/mac os x|macintosh/i.test(ua)?'macOS':/linux/i.test(ua)?'Linux':'Unknown';
+ const browser=/edg\//i.test(ua)?'Edge':/opr\//i.test(ua)?'Opera':/firefox\//i.test(ua)?'Firefox':/chrome\//i.test(ua)?'Chrome':/safari\//i.test(ua)?'Safari':'Other';
+ const forwarded=String(req.headers['x-forwarded-for']||'').split(',')[0].trim(),ip=String(forwarded||req.ip||req.socket?.remoteAddress||'Unknown').slice(0,100);
+ return{ua,device,os,browser,ip};
+}
+function loginMethodFromPath(pathname){const p=String(pathname||'').toLowerCase();if(p.includes('google'))return'Google';if(p.includes('verify-otp')||p.includes('owner-login')||p.includes('2fa'))return'OTP';if(p.includes('register'))return'Registration';return'Password'}
+app.use('/api/auth',(req,res,next)=>{
+ const send=res.json.bind(res);let recorded=false;
+ res.json=body=>{if(!recorded&&body?.token&&body?.user?.id){recorded=true;try{const c=loginClientInfo(req);db.prepare('INSERT INTO login_history(user_id,login_method,device_type,operating_system,browser,ip_address,user_agent) VALUES(?,?,?,?,?,?,?)').run(Number(body.user.id),loginMethodFromPath(req.path),c.device,c.os,c.browser,c.ip,c.ua)}catch(_){ }}return send(body)};
+ next();
+});
 app.use('/api',(req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 app.use(express.static(path.join(__dirname,'public'),{etag:false,maxAge:0,extensions:['html']}));
 function auth(req,res,next){const h=req.headers.authorization||'';if(!h.startsWith('Bearer '))return res.status(401).json({error:'Login required'});try{const tokenUser=jwt.verify(h.slice(7),SECRET);const live=db.prepare('SELECT id,name,email,role,active,plan,valid_until,phone,father_name,dob,target_exam,phone_verified,is_owner,owner_uid FROM users WHERE id=?').get(tokenUser.id);if(!live)return res.status(401).json({error:'Account not found'});if(live.role!=='admin'){if(!live.active)return res.status(403).json({error:'Your account is inactive. Contact admin.'});if(live.valid_until && new Date(live.valid_until+'T23:59:59')<new Date())return res.status(403).json({error:'Your plan has expired. Contact admin to renew.'})}req.user=live;next()}catch(e){return res.status(401).json({error:'Session expired'})}}
@@ -1133,6 +1160,7 @@ app.post('/api/admin/users/:id/extend',auth,admin,(req,res)=>{
  const days=Math.max(1,Math.min(3650,Number(req.body?.days)||30)),id=Number(req.params.id);const u=db.prepare('SELECT * FROM users WHERE id=?').get(id);if(!u)return res.status(404).json({error:'User not found'});
  const base=(u.valid_until&&new Date(u.valid_until+'T23:59:59')>new Date())?new Date(u.valid_until+'T00:00:00'):new Date();base.setDate(base.getDate()+days);const valid=base.toISOString().slice(0,10);db.prepare("UPDATE users SET valid_until=?,active=1,plan=CASE WHEN plan='Free' THEN 'Paid' ELSE plan END WHERE id=?").run(valid,id);res.json({ok:true,valid_until:valid});
 });
+app.get('/api/admin/users/:id/login-history',auth,admin,(req,res)=>res.json(db.prepare('SELECT id,login_method,device_type,operating_system,browser,ip_address,created_at FROM login_history WHERE user_id=? ORDER BY id DESC LIMIT 100').all(Number(req.params.id))));
 app.get('/api/admin/recent-logins',auth,admin,(req,res)=>res.json(db.prepare("SELECT id,name,email,plan,active,last_login FROM users WHERE role='student' AND last_login IS NOT NULL ORDER BY datetime(last_login) DESC LIMIT 25").all()));
 app.get('/api/admin/results',auth,admin,(req,res)=>{const limit=Math.max(1,Math.min(500,Number(req.query.limit||200)));res.json(db.prepare(`SELECT r.*,u.name user_name,u.email user_email,e.name exam_name,p.title passage_title FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id ORDER BY r.id DESC LIMIT ?`).all(limit))});
 app.get('/api/admin/passages',auth,admin,(req,res)=>{
