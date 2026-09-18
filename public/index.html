@@ -733,12 +733,12 @@ function browseExamCard(x){const pc=Number(x.passage_count||0);return `<div clas
 function loadExamDirectory(){const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase(),type=document.getElementById('examType')?.value||'',order=document.getElementById('examOrder')?.value||'relevance';let rows=(window.EXAM_OPTIONS||[]).filter(x=>(!q||(x.name||'').toLowerCase().includes(q)||(x.description||'').toLowerCase().includes(q)||examKeyword(x).toLowerCase().includes(q))&&(!type||examGroup(x)===type));if(order==='az')rows.sort((a,b)=>a.name.localeCompare(b.name));else if(order==='passages')rows.sort((a,b)=>Number(b.passage_count||0)-Number(a.passage_count||0)||a.name.localeCompare(b.name));else if(order==='newest')rows.sort((a,b)=>Number(b.id)-Number(a.id));document.getElementById('examCountLine').textContent=`${rows.length} exam${rows.length===1?'':'s'} found`;document.getElementById('examGrid').innerHTML=rows.map(browseExamCard).join('')||`<div class="card exam-empty">No exam found. Owner → Exams से नया exam add कर सकते हैं.</div>`}
 async function openExamPassages(id){if(!S.user){auth('login');return}try{const cached=(window.ACTIVE_EXAM_FOLDER?.details||[]).find(x=>+x.id===+id);S.exam=cached||await api('/api/exams/'+id);await openPassagePicker()}catch(err){showToast(err.message||'Exam passages could not be opened')}}
 async function examInfo(id){try{const e=await api('/api/exams/'+id);S.exam=e;openExamModal(e)}catch(err){showToast(err.message)}}
-function openExamModal(e){document.getElementById('examModalTitle').textContent=e.name;const accRule=e.required_accuracy>0?`${e.required_accuracy}% minimum`:'Not used for qualification';document.getElementById('examModalBody').innerHTML=`<span class="badge">${esc(e.language)} · ${esc(e.layout)}</span><p style="line-height:1.6;color:var(--muted)">${esc(e.description||'')}</p><div class="rules-list"><div><b>Duration</b><br>${e.duration} minutes</div><div><b>Required speed</b><br>${e.required_wpm} WPM</div><div><b>Accuracy</b><br>${accRule}</div><div><b>Backspace</b><br>${e.backspace_allowed?'Allowed':'Not allowed'}</div><div><b>Error rule</b><br>${esc(e.error_rule||'Configured')}</div><div><b>Passages</b><br>${Array.isArray(e.passages)?e.passages.length:0} passage(s) assigned to this exam</div></div><div class="notice" style="margin-top:14px"><b>Before you start:</b> Keep the correct keyboard/layout selected. The timer begins with your first keystroke and the test auto-submits when time expires.</div><div style="margin-top:14px"><b>Assigned Passages</b><div style="margin-top:7px;display:flex;gap:7px;flex-wrap:wrap">${(e.passages||[]).map(p=>`<span class="badge">${esc(p.title)}</span>`).join('')||'<span class="muted">No passage assigned yet</span>'}</div></div><div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="closeModal('examModal');openPassagePicker()">Open This Exam Passages →</button><button class="btn btn-white" onclick="closeModal('examModal')">Cancel</button></div>`;document.getElementById('examModal').classList.add('show')}
+function openExamModal(e){document.getElementById('examModalTitle').textContent=e.name;if(String(e.official_rule_status||'')==='needs_rules'){document.getElementById('examModalBody').innerHTML=`<span class="badge amber">Exact rules required</span><p style="line-height:1.7">यह broad folder कई recruitments/cycles को cover कर सकता है। इसके लिए duration, WPM, Backspace, Highlight, counting और qualification का एक verified official profile अभी set नहीं है, इसलिए अनुमानित Exam Mode start नहीं होगा। Owner exact notification के rules configure करने के बाद यह folder start हो सकेगा।</p><button class="btn btn-white" onclick="closeModal('examModal')">Close</button>`;document.getElementById('examModal').classList.add('show');return}const accRule=e.required_accuracy>0?`${e.required_accuracy}% minimum`:'Not used for qualification';document.getElementById('examModalBody').innerHTML=`<span class="badge">${esc(e.language)} · ${esc(e.layout)}</span><p style="line-height:1.6;color:var(--muted)">${esc(e.description||'')}</p><div class="rules-list"><div><b>Duration</b><br>${e.duration} minutes</div><div><b>Required speed</b><br>${e.required_wpm} WPM</div><div><b>Accuracy</b><br>${accRule}</div><div><b>Backspace</b><br>${e.backspace_allowed?'Allowed':'Not allowed'}</div><div><b>Error rule</b><br>${esc(e.error_rule||'Configured')}</div><div><b>Passages</b><br>${Array.isArray(e.passages)?e.passages.length:0} passage(s) assigned to this exam</div></div><div class="notice" style="margin-top:14px"><b>Before you start:</b> Keep the correct keyboard/layout selected. The timer begins with your first keystroke and the test auto-submits when time expires.</div><div style="margin-top:14px"><b>Assigned Passages</b><div style="margin-top:7px;display:flex;gap:7px;flex-wrap:wrap">${(e.passages||[]).map(p=>`<span class="badge">${esc(p.title)}</span>`).join('')||'<span class="muted">No passage assigned yet</span>'}</div></div><div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="closeModal('examModal');openPassagePicker()">Open This Exam Passages →</button><button class="btn btn-white" onclick="closeModal('examModal')">Cancel</button></div>`;document.getElementById('examModal').classList.add('show')}
 async function quickStart(id){if(!S.user){auth('login');return}try{const e=await api('/api/exams/'+id);S.exam=e;await openPassagePicker()}catch(err){showToast(err.message||'Exam could not start')}}
 function showExamFeeLock(a){document.body.classList.add('exam-mode');activeNav('exams');setApp(`<div class="page"><div class="card fee-lock"><div style="font-size:48px">🔒</div><h1>${esc(a.exam.name)}</h1><p>आज के ${a.exam.daily_demo_limit} free demo attempts पूरे हो गए हैं। इस exam को जारी रखने के लिए access unlock करें।</p><div class="fee-price">₹${Number(a.exam.fee_amount||0).toFixed(0)}</div><p class="muted">Validity: ${a.exam.validity_days} days</p><div class="notice"><b>Demo used:</b> ${a.demo_used} / ${a.exam.daily_demo_limit}. Logout/Login करने से यह daily count reset नहीं होगा।</div><button class="btn btn-primary" onclick="showContactCard()">Contact for Access</button> <button class="btn btn-white" onclick="exams()">Back to Exams</button></div></div>`)}
-async function ensureExamCanStart(){if(!S.exam||!S.user)return true;if(typeof clientIsMasterOwner==='function'&&clientIsMasterOwner())return true;const c=window.__JP_EXAM_ACCESS_CACHE;const a=(c&&+c.examId===+S.exam.id&&(Date.now()-c.at)<3000)?c.state:await api('/api/exam-access/'+S.exam.id);window.__JP_EXAM_ACCESS_CACHE={examId:S.exam.id,state:a,at:Date.now()};if(!a.can_start){showToast('Payment required for this exam sub-folder');setTimeout(()=>{if(typeof showPaymentGate==='function')showPaymentGate(S.exam.id,a);else showExamFeeLock(a)},2050);return false}return true}
-async function openPassagePicker(){if(!S.exam)return;try{if(!Array.isArray(S.exam.passages))S.exam=await api('/api/exams/'+S.exam.id);if(!(await ensureExamCanStart()))return}catch(err){showToast(err.message);return}document.body.classList.add('exam-mode');S.pickerDifficulty='';S.pickerSearch='';S.inputLimit=510;if(S.attemptBackspaceAllowed===undefined||S.attemptBackspaceAllowed===null){const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}const examHM=S.exam.highlight_mode||'current_char';if(S.attemptHighlightMode===undefined||S.attemptHighlightMode===null)S.attemptHighlightMode=examHM==='none'?'none':examHM;if(examHM==='none')S.attemptHighlightMode='none';renderPassagePicker()}
-function renderPassagePicker(){const e=S.exam,all=Array.isArray(e.passages)?e.passages:[];const q=(S.pickerSearch||'').toLowerCase(),diff=S.pickerDifficulty||'';const rows=all.filter(p=>(!diff||p.difficulty===diff)&&(!q||p.title.toLowerCase().includes(q)||p.content.toLowerCase().includes(q)));const ownerHighlight=(e.highlight_mode||'current_char')!=='none';const highlightChangeAllowed=Number(e.highlight_user_change_allowed??1)===1;if(!ownerHighlight&&!highlightChangeAllowed)S.attemptHighlightMode='none';const hm=S.attemptHighlightMode||'none';setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Select passage for the typing exam</small><h1>${esc(e.name)}</h1><p class="muted">Choose a passage, duration and word limit before entering the exam hall.</p></div><div class="picker-panel"><div class="picker-controls"><label>Search Passage<input class="input" id="pickerSearch" value="${esc(S.pickerSearch||'')}" placeholder="Search title or passage..." style="width:100%;margin-top:6px"></label><label>Time Duration<select id="pickerDuration" class="select" style="width:100%;margin-top:6px"><option value="${e.duration}" selected>${e.duration} minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label>Input Limit<input id="pickerLimit" class="input" type="number" min="50" max="5000" value="${S.inputLimit||510}" style="width:100%;margin-top:6px"><small class="muted">Words</small></label></div><div class="topic-keyword-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0">${['Abhibhashan','Budget','CPCT','Health','History','Legal','NCERT','Parliament','Plants','President','Prime Minister','Science','UPSSSC','Vocab','Women'].map(k=>`<button type="button" class="keyword-chip" onclick="S.pickerSearch='${k}';renderPassagePicker()">${k}</button>`).join('')}<button type="button" class="keyword-chip" onclick="S.pickerSearch='';renderPassagePicker()">All Topics</button></div><div class="notice" style="margin:14px 0"><b>${esc(e.name)}:</b> नीचे केवल इसी exam को Owner द्वारा assign किए गए passages दिख रहे हैं। Topic chip चुनने पर उसी विषय का matter filter होगा.</div><div class="notice" style="margin:14px 0;border:2px solid #f59e0b;background:#fff7d6;padding:14px 16px;border-radius:14px;box-shadow:0 6px 18px rgba(245,158,11,.16)"><div style="font-weight:900;font-size:16px;color:#9a3412">⚠️ Practice सुविधा — Official Exam Feature नहीं</div><div style="margin-top:5px;font-weight:800">क्या आप इस attempt में Word Highlight सुविधा चाहते हैं?</div><div style="margin-top:4px">चाहते हैं तो नीचे Highlight चुनें; नहीं चाहते तो <b>Highlight Off</b> चुनकर आगे बढ़ें। यह Shivjee’s Typing की अतिरिक्त सुविधा है; वास्तविक परीक्षा में यह सुविधा उपलब्ध हो, यह जरूरी नहीं है।</div></div><div class="picker-optionbar" style="display:grid;gap:10px"><label class="opt"><input id="pickerBackspace" type="checkbox" ${S.attemptBackspaceAllowed?'checked':''} onchange="S.attemptBackspaceAllowed=this.checked;localStorage.setItem('st_backspace_choice',this.checked?'1':'0')"> Backspace <span class="muted">(Your choice for this attempt)</span></label><label class="opt"><input id="pickerHighlight" type="checkbox" ${hm!=='none'?'checked':''} onchange="S.attemptHighlightMode=this.checked?((S.exam.highlight_mode&&S.exam.highlight_mode!=='none')?S.exam.highlight_mode:'current_word'):'none'"> Highlight <span class="muted">(Exam default; tick/untick applies to this attempt)</span></label></div><div class="difficulty-row"><b>Difficulty Level:</b>${['','Easy','Medium','Hard'].map(d=>{const cls=d==='Easy'?'diff-easy':d==='Medium'?'diff-medium':d==='Hard'?'diff-hard':'diff-all';return `<button class="${cls} ${diff===d?'active':''}" onclick="S.pickerDifficulty='${d}';renderPassagePicker()">${d||'All'}</button>`}).join('')}</div><div class="passage-list"><table><thead><tr><th>Sl.No.</th><th>Passage Id</th><th>Passage Title</th><th>Passage Date</th><th>Status</th></tr></thead><tbody>${rows.map((p,i)=>`<tr><td>${i+1}</td><td>${p.id}</td><td><b>${esc(p.title)}</b> <span class="badge ${p.difficulty==='Hard'?'amber':''}">${esc((p.difficulty||'M')[0])}</span> <span class="badge ${(p.highlight_mode==='none'||!ownerHighlight)?'amber':'green'}">Highlight ${(p.highlight_mode==='none'||!ownerHighlight)?'Off':'On'}</span></td><td>${p.created_at?new Date(p.created_at).toLocaleDateString():'—'}</td><td><button type="button" class="btn btn-soft passage-start-btn" data-passage-id="${p.id}">Start Typing</button></td></tr>`).join('')||'<tr><td colspan="5">No passage is assigned to this exam. Owner → Passages में इस passage का Exam Name यही exam चुनकर Save करें.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><small><b style="color:#1849d6">B</b> - Basic, <b style="color:#16803c">E</b> - Easy, <b style="color:#d97706">M</b> - Medium, <b style="color:#dc2626">H</b> - Hard</small><button class="btn btn-white" onclick="cancelTypingFlow('exams')">Choose another exam</button></div></div></div>`);const se=document.getElementById('pickerSearch');if(se)se.oninput=()=>{S.pickerSearch=se.value;renderPassagePicker()};document.querySelectorAll('.passage-start-btn').forEach(btn=>{btn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const id=Number(btn.dataset.passageId);if(!id)return showToast('Passage id missing');try{prepareSelectedPassage(id)}catch(err){console.error(err);showToast(err.message||'Could not open typing instructions')}})})}
+async function ensureExamCanStart(){if(!S.exam||!S.user)return true;if(typeof clientIsMasterOwner==='function'&&clientIsMasterOwner())return true;if(String(S.exam.official_rule_status||'')==='needs_rules'){showToast('इस exam folder के exact official rules अभी configured नहीं हैं. अनुमानित format से test start नहीं किया जाएगा.');return false;}const c=window.__JP_EXAM_ACCESS_CACHE;const a=(c&&+c.examId===+S.exam.id&&(Date.now()-c.at)<3000)?c.state:await api('/api/exam-access/'+S.exam.id);window.__JP_EXAM_ACCESS_CACHE={examId:S.exam.id,state:a,at:Date.now()};if(!a.can_start){showToast('Payment required for this exam sub-folder');setTimeout(()=>{if(typeof showPaymentGate==='function')showPaymentGate(S.exam.id,a);else showExamFeeLock(a)},2050);return false}return true}
+async function openPassagePicker(){if(!S.exam)return;try{if(!(await ensureExamCanStart()))return;if(!Array.isArray(S.exam.passages))S.exam=await api('/api/exams/'+S.exam.id)}catch(err){showToast(err.message);return}document.body.classList.add('exam-mode');S.pickerDifficulty='';S.pickerSearch='';S.inputLimit=0;S.attemptBackspaceChoiceKey=null;S.attemptBackspaceStudentMode=null;S.attemptBackspaceStudentLimit=null;S.attemptBackspaceMode=null;S.attemptBackspaceLimit=0;S.attemptBackspaceAllowed=!!S.exam.backspace_allowed;S.attemptHighlightMode=S.exam.highlight_mode||'none';renderPassagePicker()}
+function renderPassagePicker(){const e=S.exam,all=Array.isArray(e.passages)?e.passages:[];const q=(S.pickerSearch||'').toLowerCase(),diff=S.pickerDifficulty||'';const rows=all.filter(p=>(!diff||p.difficulty===diff)&&(!q||p.title.toLowerCase().includes(q)||p.content.toLowerCase().includes(q)));const ownerHighlight=(e.highlight_mode||'current_char')!=='none';const highlightChangeAllowed=Number(e.highlight_user_change_allowed??1)===1;if(!ownerHighlight&&!highlightChangeAllowed)S.attemptHighlightMode='none';const hm=S.attemptHighlightMode||'none';const _er=String(e.evaluation_rule||'generic'),_officialVisual=['dda_jsa','upsssc_ja'].includes(_er),highlightNotice=_officialVisual?`<div class="notice" style="margin:14px 0;border:2px solid #16a34a;background:#f0fdf4;padding:14px 16px;border-radius:14px"><div style="font-weight:900;font-size:16px;color:#166534">✓ Exam visual default loaded</div><div style="margin-top:5px">इस exam profile का verified/observed highlight behaviour default रूप में लागू है। Student चाहे तो इस attempt में इसे बदल सकता है.</div></div>`:`<div class="notice" style="margin:14px 0;border:2px solid #f59e0b;background:#fff7d6;padding:14px 16px;border-radius:14px"><div style="font-weight:900;font-size:16px;color:#9a3412">Exam default loaded</div><div style="margin-top:5px">जहाँ authority ने live highlight UI publish नहीं किया है वहाँ कोई highlight अनुमान से नहीं जोड़ा गया। Student चाहे तो practice के लिए इस attempt में बदल सकता है.</div></div>`;setApp(`<div class="picker-wrap"><div class="picker-hero"><small>Select passage for the typing exam</small><h1>${esc(e.name)}</h1><p class="muted">Choose a passage, duration and word limit before entering the exam hall.</p></div><div class="picker-panel"><div class="picker-controls"><label>Search Passage<input class="input" id="pickerSearch" value="${esc(S.pickerSearch||'')}" placeholder="Search title or passage..." style="width:100%;margin-top:6px"></label><label>Time Duration<select id="pickerDuration" class="select" style="width:100%;margin-top:6px"><option value="${e.duration}" selected>${e.duration} minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label><label>Input Limit<input id="pickerLimit" class="input" type="number" min="50" max="5000" value="${S.inputLimit||510}" style="width:100%;margin-top:6px"><small class="muted">Words</small></label></div><div class="topic-keyword-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0">${['Abhibhashan','Budget','CPCT','Health','History','Legal','NCERT','Parliament','Plants','President','Prime Minister','Science','UPSSSC','Vocab','Women'].map(k=>`<button type="button" class="keyword-chip" onclick="S.pickerSearch='${k}';renderPassagePicker()">${k}</button>`).join('')}<button type="button" class="keyword-chip" onclick="S.pickerSearch='';renderPassagePicker()">All Topics</button></div><div class="notice" style="margin:14px 0"><b>${esc(e.name)}:</b> नीचे केवल इसी exam को Owner द्वारा assign किए गए passages दिख रहे हैं। Topic chip चुनने पर उसी विषय का matter filter होगा.</div>${highlightNotice}<div class="picker-optionbar" style="display:grid;gap:10px"><label class="opt"><input id="pickerBackspace" type="checkbox" ${S.attemptBackspaceAllowed?'checked':''} onchange="S.attemptBackspaceAllowed=this.checked"> Backspace <span class="muted">(Your choice for this attempt)</span></label><label class="opt"><input id="pickerHighlight" type="checkbox" ${hm!=='none'?'checked':''} onchange="S.attemptHighlightMode=this.checked?((S.exam.highlight_mode&&S.exam.highlight_mode!=='none')?S.exam.highlight_mode:'current_word'):'none'"> Highlight <span class="muted">(Exam default; tick/untick applies to this attempt)</span></label></div><div class="difficulty-row"><b>Difficulty Level:</b>${['','Easy','Medium','Hard'].map(d=>{const cls=d==='Easy'?'diff-easy':d==='Medium'?'diff-medium':d==='Hard'?'diff-hard':'diff-all';return `<button class="${cls} ${diff===d?'active':''}" onclick="S.pickerDifficulty='${d}';renderPassagePicker()">${d||'All'}</button>`}).join('')}</div><div class="passage-list"><table><thead><tr><th>Sl.No.</th><th>Passage Id</th><th>Passage Title</th><th>Passage Date</th><th>Status</th></tr></thead><tbody>${rows.map((p,i)=>`<tr><td>${i+1}</td><td>${p.id}</td><td><b>${esc(p.title)}</b> <span class="badge ${p.difficulty==='Hard'?'amber':''}">${esc((p.difficulty||'M')[0])}</span> <span class="badge ${(p.highlight_mode==='none'||!ownerHighlight)?'amber':'green'}">Highlight ${(p.highlight_mode==='none'||!ownerHighlight)?'Off':'On'}</span></td><td>${p.created_at?new Date(p.created_at).toLocaleDateString():'—'}</td><td><button type="button" class="btn btn-soft passage-start-btn" data-passage-id="${p.id}">Start Typing</button></td></tr>`).join('')||'<tr><td colspan="5">No passage is assigned to this exam. Owner → Passages में इस passage का Exam Name यही exam चुनकर Save करें.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><small><b style="color:#1849d6">B</b> - Basic, <b style="color:#16803c">E</b> - Easy, <b style="color:#d97706">M</b> - Medium, <b style="color:#dc2626">H</b> - Hard</small><button class="btn btn-white" onclick="cancelTypingFlow('exams')">Choose another exam</button></div></div></div>`);const se=document.getElementById('pickerSearch');if(se)se.oninput=()=>{S.pickerSearch=se.value;renderPassagePicker()};document.querySelectorAll('.passage-start-btn').forEach(btn=>{btn.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const id=Number(btn.dataset.passageId);if(!id)return showToast('Passage id missing');try{prepareSelectedPassage(id)}catch(err){console.error(err);showToast(err.message||'Could not open typing instructions')}})})}
 function truncateWords(text,limit){const s=String(text??'');const max=Math.max(1,Math.floor(Number(limit)||510));let count=0,end=s.length,m;const re=/\S+/g;while((m=re.exec(s))){count++;if(count===max){end=m.index+m[0].length;break}}return count>=max?s.slice(0,end):s}
 async function prepareSelectedPassage(id){if(!(await ensureExamCanStart()))return;const base=(S.exam.passages||[]).find(x=>x.id===id);if(!base)return;S.inputLimit=Math.max(50,Math.min(5000,Number(document.getElementById('pickerLimit')?.value)||510));const mins=Math.max(1,Number(base.duration_override)||Number(document.getElementById('pickerDuration')?.value)||S.exam.duration);S.attemptBackspaceAllowed=!!document.getElementById('pickerBackspace')?.checked;const examHM=S.exam.highlight_mode||'current_char',passHM=base.highlight_mode||examHM;const ownerAllows=examHM!=='none'&&passHM!=='none';const hcb=document.getElementById('pickerHighlight');const chosen=hcb?(hcb.checked?((examHM&&examHM!=='none')?examHM:'current_word'):'none'):(S.attemptHighlightMode||passHM);S.attemptHighlightMode=chosen;S.passage={...base,highlight_mode:S.attemptHighlightMode,content:truncateWords(base.content,S.inputLimit)};S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions()}
 function renderInstructions(){const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा. यह website की extra सुविधा है, real exam में जरूरी नहीं.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol><div class="exam-checks"><label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}</div><button id="goPractice" class="btn btn-primary" disabled>Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);const update=()=>{const a=document.getElementById('readCheck')?.checked,b=!hindi||document.getElementById('hindiCheck')?.checked;document.getElementById('goPractice').disabled=!(a&&b)};document.getElementById('readCheck').onchange=update;if(hindi)document.getElementById('hindiCheck').onchange=update;document.getElementById('goPractice').onclick=renderPrePractice}
@@ -823,7 +823,7 @@ function resyncAlign(original,typed,maxLook=32){
  }
  return{ops,good,wrong,n:t.length,progressOriginal:i,originalUnits:o,typedUnits:t}
 }
-function updatePassage(t){const spans=document.querySelectorAll('#passage .tc'),p=S.passage.content,mode=S.passage.highlight_mode||'current_char',a=resyncAlign(p,t);let cur=null;spans.forEach(sp=>sp.classList.remove('typed-correct','typed-wrong','current','current-word'));if(mode!=='none')a.ops.forEach(op=>{if((op.type==='sub'||op.type==='delete')&&op.oIndex<spans.length)spans[op.oIndex]?.classList.add('typed-wrong')});const pos=Math.min(a.progressOriginal,spans.length-1);if(mode==='current_char'&&a.progressOriginal<spans.length)spans[a.progressOriginal]?.classList.add('current');cur=spans[Math.max(0,pos)]||null;if(mode==='current_word'&&a.progressOriginal<spans.length){let x=a.progressOriginal,b=x;const pu=textUnits(p);while(x>0&&!/\s/.test(pu[x-1]))x--;while(b<pu.length&&!/\s/.test(pu[b]))b++;for(let k=x;k<b;k++)spans[k]?.classList.add('current-word');cur=spans[a.progressOriginal]||cur}if(mode==='errors_only'||mode==='none')cur=spans[Math.max(0,pos)]||null;if(cur&&Number(S.passage?.auto_scroll??1)===1){const box=document.getElementById('passage');if(box){const top=cur.offsetTop-box.offsetTop;if(top<box.scrollTop+35||top>box.scrollTop+box.clientHeight-45)box.scrollTop=Math.max(0,top-box.clientHeight/2)}}}
+function updatePassage(t){const spans=document.querySelectorAll('#passage .tc'),p=S.passage.content,mode=S.passage.highlight_mode||'current_char',a=resyncAlign(p,t);let cur=null;spans.forEach(sp=>sp.classList.remove('typed-correct','typed-wrong','current','current-word'));if(mode!=='none')a.ops.forEach(op=>{if((op.type==='sub'||op.type==='delete')&&op.oIndex<spans.length){if(mode==='errors_only'&&String(S.exam?.evaluation_rule||'')==='upsssc_ja'){const pu=textUnits(p);let x=op.oIndex,b=op.oIndex;while(x>0&&!/\s/.test(pu[x-1]))x--;while(b<pu.length&&!/\s/.test(pu[b]))b++;for(let k=x;k<b;k++)spans[k]?.classList.add('typed-wrong')}else spans[op.oIndex]?.classList.add('typed-wrong')}});const pos=Math.min(a.progressOriginal,spans.length-1);if(mode==='current_char'&&a.progressOriginal<spans.length)spans[a.progressOriginal]?.classList.add('current');cur=spans[Math.max(0,pos)]||null;if(mode==='current_word'&&a.progressOriginal<spans.length){let x=a.progressOriginal,b=x;const pu=textUnits(p);while(x>0&&!/\s/.test(pu[x-1]))x--;while(b<pu.length&&!/\s/.test(pu[b]))b++;for(let k=x;k<b;k++)spans[k]?.classList.add('current-word');cur=spans[a.progressOriginal]||cur}if(mode==='errors_only'||mode==='none')cur=spans[Math.max(0,pos)]||null;if(cur&&Number(S.passage?.auto_scroll??1)===1){const box=document.getElementById('passage');if(box){const top=cur.offsetTop-box.offsetTop;if(top<box.scrollTop+35||top>box.scrollTop+box.clientHeight-45)box.scrollTop=Math.max(0,top-box.clientHeight/2)}}}
 function wordErrorMetrics(original,typed){
  const a=alignWords(original,typed);let correct=0,wrong=0,omissions=0,extra=0,substitutions=0;
  for(const op of a.ops){
@@ -854,7 +854,7 @@ async function finishTest(manual=false,ended=false,fromPreview=false){
  const gross=(c.n/5)/mins,acc=(c.good+c.wrong)?c.good/(c.good+c.wrong)*100:0,net=Math.max(0,gross-(c.wrong/5)/mins),back=S.backspaces||0;
  if(S.timer)clearInterval(S.timer);
  try{
-  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
+  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),typed_text:t,input_limit:Math.max(0,Math.floor(Number(S.inputLimit)||0)),backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
   S.done=true;S.submitting=false;window.onbeforeunload=null;toggleHallSound(false);try{if(typeof jpTrack==='function')jpTrack('test_complete',{test_mode:S.mode||'practice',exam_name:S.exam?.name||'Free Practice',passage_title:S.passage?.title||'',attempt_status:ended?'ended':'submitted'})}catch(_){}
   if(!ended&&(S.mode==='exam'||S.mode==='live')){try{localStorage.setItem('st_exam_completed_'+String(S.exam?.id||S.exam?.slug||'default'),'1')}catch(_){}}
   if(ended){leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();S.started=false;S.done=true;S.submitting=false;window.onbeforeunload=null;location.hash='#exams';await exams();showToast('Exam ended. Attempt History में Ended / Incomplete save हो गया.');return}
@@ -877,7 +877,17 @@ function comparisonWordPanels(original,typed){
  }
  return {left:left.join(' '),right:right.join(' ')}
 }
-function resultComparisonPanels(original,typed){const a=alignWords(original,typed),left=[],right=[];for(const op of a.ops){if(op.o){if(op.type==='sub')left.push(`<span class="result-original-error result-original-wrong" title="Wrong typed word">${esc(op.o)}</span>`);else if(op.type==='delete')left.push(`<span class="result-original-error" title="Skipped / Omission">${esc(op.o)}</span>`);else left.push(esc(op.o))}if(op.type==='match'){right.push(esc(op.t));continue}if(op.type==='sub'||op.type==='insert'){right.push(`<span class="result-wrong-word" title="Wrong word">${esc(op.t)}</span>`);continue}/* delete = omission: show it only in Given Passage; Typed Passage must contain typed data only */}return{left:left.join(' '),right:right.length?right.join(' '):'<span class="muted">Nothing typed</span>'}}
+function resultComparisonPanels(original,typed){
+ const a=alignWords(original,typed),oBad=new Map(),tBad=new Set();let oi=0,ti=0;
+ for(const op of a.ops){
+  if(op.type==='match'){oi++;ti++;continue}
+  if(op.type==='sub'){oBad.set(oi,'wrong');tBad.add(ti);oi++;ti++;continue}
+  if(op.type==='delete'){oBad.set(oi,'missing');oi++;continue}
+  if(op.type==='insert'){tBad.add(ti);ti++;continue}
+ }
+ const preserve=(text,bad,isOriginal)=>{const raw=String(text||''),ms=Array.from(raw.matchAll(/\S+/g));let out='',last=0;ms.forEach((m,i)=>{out+=esc(raw.slice(last,m.index));const word=esc(m[0]),kind=bad instanceof Map?bad.get(i):(bad.has(i)?'wrong':'');if(kind){if(isOriginal)out+=`<span class="result-original-error ${kind==='wrong'?'result-original-wrong':''}" title="${kind==='wrong'?'Wrong typed word':'Skipped / Omission'}">${word}</span>`;else out+=`<span class="result-wrong-word" title="Wrong word">${word}</span>`}else out+=word;last=m.index+m[0].length});out+=esc(raw.slice(last));return out};
+ return{left:preserve(original,oBad,true),right:String(typed||'').length?preserve(typed,tBad,false):'<span class="muted">Nothing typed</span>'}
+}
 function comparisonOriginalLine(text,typed){return resultComparisonPanels(text,typed).left}
 function comparisonTypedLine(text,original){return resultComparisonPanels(original,text).right}
 function highlightedTypedPassage(original,typed){return resultComparisonPanels(original,typed).right}
@@ -2508,33 +2518,19 @@ function parseDurationWordMap(ex){
     return x&&typeof x==='object'?x:{};
   }catch(_){return {}}
 }
-function defaultWordMapForExam(ex){
-  const slug=String(ex?.slug||'').toLowerCase(),lang=String(ex?.language||'English').toLowerCase();
-  if(slug.includes('upp-co')||/up police computer operator/i.test(String(ex?.name||''))){
-    return lang==='hindi'?{'5':136,'10':272,'15':408,'20':544,'30':816}:{'5':170,'10':340,'15':510,'20':680,'30':1020};
-  }
-  const stored=parseDurationWordMap(ex),valid={};
-  for(const [key,value] of Object.entries(stored)){const k=Number(key),v=Number(value);if(Number.isFinite(k)&&k>0&&Number.isFinite(v)&&v>0)valid[String(k)]=v}
-  if(Object.keys(valid).length)return valid;
-  const baseM=Math.max(1,Number(ex?.duration)||10);
-  const baseWords=Math.max(0,Number(ex?.min_words)||0);
-  const wpm=Math.max(0,Number(ex?.required_wpm)||0);
-  const perMin=baseWords>0?baseWords/baseM:(wpm>0?wpm:30);
-  const out={}; [5,10,15,20,30].forEach(m=>out[String(m)]=Math.max(1,Math.round(perMin*m)));
-  return out;
-}
+function defaultWordMapForExam(ex){return parseDurationWordMap(ex)}
 function requiredMatterWords(ex,minutes){
-  const mins=Math.max(1,Number(minutes)||Number(ex?.duration)||10),slug=String(ex?.slug||'').toLowerCase(),name=String(ex?.name||'').toLowerCase(),lang=String(ex?.language||'English').toLowerCase();
-  if(slug.includes('upp-co')||name.includes('up police computer operator'))return Math.max(1,Math.round((lang==='hindi'?408:510)*mins/15));
-  const map=parseDurationWordMap(ex),keys=Object.keys(map).map(Number).filter(k=>Number.isFinite(k)&&k>0&&Number.isFinite(Number(map[String(k)]))&&Number(map[String(k)])>0).sort((a,b)=>a-b);
-  if(keys.length){const near=keys.reduce((a,b)=>Math.abs(b-mins)<Math.abs(a-mins)?b:a,keys[0]);return Math.max(1,Math.round(Number(map[String(near)])*mins/near));}
-  const baseMinutes=Math.max(1,Number(ex?.duration)||mins),minimum=Math.max(0,Number(ex?.min_words)||0),wpm=Math.max(0,Number(ex?.required_wpm)||0);
-  return Math.max(1,Math.round(minimum>0?(minimum/baseMinutes)*mins:(wpm||30)*mins));
+ const map=parseDurationWordMap(ex),m=String(Math.max(1,Math.round(Number(minutes)||Number(ex?.duration)||10)));
+ return Number(map[m])>0?Math.floor(Number(map[m])):0;
 }
 function cleanTrimWords(text,limit){
-  const raw=String(text||'').trim(),words=Array.from(raw.matchAll(/\S+/g)),count=Math.max(1,Math.floor(Number(limit)||words.length));
-  if(words.length<=count)return raw;
-  const last=words[count-1];return raw.slice(0,last.index+last[0].length).trimEnd();
+ // Keep the Owner's exact matter layout (paragraphs/newlines/multiple spaces).
+ // Frontend and server must cut at the same Nth-word boundary so Given Matter == evaluated matter.
+ const raw=String(text||'').trim();if(!(Number(limit)>0))return raw;
+ const words=Array.from(raw.matchAll(/\S+/g)),n=Math.floor(Number(limit));
+ if(words.length<=n)return raw;
+ const last=words[n-1],end=Number(last.index||0)+last[0].length;
+ return raw.slice(0,end).trimEnd();
 }
 function qCard(prefix,ex,label){
   const map=defaultWordMapForExam(ex), note=String(ex?.qualification_note||'');
@@ -2583,29 +2579,19 @@ async function saveLanguageExamRules(key){
   }catch(e){showToast(e.message||'Rules could not be saved')}
 }
 const _oldOpenPassagePickerFinal=openPassagePicker;
-function examDurationKey(ex){return String(ex?.id??ex?.slug??'')+'|'+String(ex?.language||'')}
-function selectedExamMinutes(ex){
-  const selected=S.attemptDurationExamKey===examDurationKey(ex)?Number(S.attemptDuration):NaN;
-  if(Number.isFinite(selected)&&selected>=1)return selected;
-  const configured=Number(ex?.duration);
-  return Number.isFinite(configured)&&configured>=1?configured:10;
-}
 openPassagePicker=async function(){
   if(!S.exam)return;
-  // Read the exam before initializing attempt defaults; directory rows may be stale.
-  try{S.exam=await api('/api/exams/'+S.exam.id)}catch(err){showToast(err.message||'Exam could not load');return}
-  S.attemptBackspaceChoiceKey=null;
-  S.attemptDuration=null;
-  S.attemptDurationExamKey=examDurationKey(S.exam);
-  S.attemptBackspaceAllowed=!!S.exam.backspace_allowed;
+  S.attemptBackspaceAllowed=!!S.exam?.backspace_allowed;
   S.attemptHighlightMode=S.exam.highlight_mode||'none';
   await _oldOpenPassagePickerFinal();
   const dur=document.getElementById('pickerDuration');
   if(dur){
-    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;const lim=document.getElementById('pickerLimit');if(lim){lim.value=n;lim.readOnly=true;lim.title='Exam condition के अनुसार auto-selected matter length';}};
+    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;const lim=document.getElementById('pickerLimit');if(lim){lim.value=n>0?n:'';lim.readOnly=true;lim.placeholder=n>0?'':'Full passage (no guessed limit)';lim.title=n>0?'Verified exam matter length':'No inferred matter limit';}};
     dur.addEventListener('change',sync);sync();
   }
 }
+const _jpFreshOpenPassagePicker=openPassagePicker;
+openPassagePicker=async function(){if(S?.exam){S.attemptBackspaceChoiceKey=null;S.attemptBackspaceStudentMode=null;S.attemptBackspaceStudentLimit=null;S.attemptBackspaceMode=null;S.attemptBackspaceLimit=0;S.attemptBackspaceAllowed=!!S.exam.backspace_allowed;S.attemptHighlightMode=S.exam.highlight_mode||'none'}return _jpFreshOpenPassagePicker()}
 const _oldRenderPassagePickerFinal=renderPassagePicker;
 renderPassagePicker=function(){
   _oldRenderPassagePickerFinal();
@@ -2613,20 +2599,15 @@ renderPassagePicker=function(){
   if(dur){
     // add 20 min if old picker does not contain it
     if(!Array.from(dur.options).some(o=>Number(o.value)===20)){const o=document.createElement('option');o.value='20';o.textContent='20 minutes';dur.insertBefore(o,dur.querySelector('option[value="30"]')||null)}
-    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;if(lim){lim.value=n;lim.readOnly=true;lim.style.background='#f3f6fa'}};
-    const minutes=selectedExamMinutes(S.exam);
-    if(!Array.from(dur.options).some(o=>o.value===String(minutes))){const o=document.createElement('option');o.value=String(minutes);o.textContent=minutes+' minutes';dur.insertBefore(o,dur.options[0]||null)}
-    // Select explicitly, including nonstandard durations, after every render.
-    dur.value=String(minutes);
-    dur.onchange=()=>{S.attemptDuration=Number(dur.value);S.attemptDurationExamKey=examDurationKey(S.exam);sync()};sync();
+    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;if(lim){if(n>0){lim.value=n;lim.readOnly=true;lim.style.background='#f3f6fa'}else{lim.value='';lim.readOnly=true;lim.style.background='#f3f6fa';lim.placeholder='Full passage (no guessed limit)'}}};
+    dur.onchange=sync;sync();
   }
-  if(bs){bs.checked=!!S.attemptBackspaceAllowed;bs.onchange=()=>{S.attemptBackspaceAllowed=bs.checked}}
+  if(bs){const chosen=S.attemptBackspaceAllowed??!!S.exam?.backspace_allowed;bs.checked=!!chosen;S.attemptBackspaceAllowed=!!chosen;bs.onchange=()=>{S.attemptBackspaceAllowed=bs.checked}}
 }
 prepareSelectedPassage=async function(id){
   if(!(await ensureExamCanStart()))return;
   const base=(S.exam.passages||[]).find(x=>x.id===id); if(!base)return;
-  // A passage's old override must not replace the selected exam's default time.
-  const mins=selectedExamMinutes(S.exam);
+  const mins=Math.max(1,Number(document.getElementById('pickerDuration')?.value)||Number(base.duration_override)||Number(S.exam.duration)||10);
   const wordLimit=requiredMatterWords(S.exam,mins);
   S.inputLimit=wordLimit;
   const examHM=S.exam.highlight_mode||'none';
@@ -2634,7 +2615,8 @@ prepareSelectedPassage=async function(id){
   // Candidate checkbox is authoritative for THIS attempt: unchecked = absolutely no highlight,
   // checked = use the exam's configured highlight style (fallback current_word only when no style exists).
   S.attemptHighlightMode=hcb?(hcb.checked?(examHM!=='none'?examHM:'current_word'):'none'):examHM;
-  S.passage={...base,highlight_mode:S.attemptHighlightMode,content:cleanTrimWords(base.content,wordLimit)};
+  const firstCycle=cleanTrimWords(base.content,wordLimit),attemptMatter=String(S.exam?.evaluation_rule||'')==='rrb_ntpc'&&firstCycle?[firstCycle,firstCycle,firstCycle].join(' '):firstCycle;
+  S.passage={...base,highlight_mode:S.attemptHighlightMode,display_content:firstCycle,content:attemptMatter};
   S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;
   S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
   renderInstructions();
@@ -2644,10 +2626,10 @@ startLiveTest=async function(id){
   try{
     const x=await api('/api/live-tests/'+id);
     S.liveTest=x;
-    S.exam={id:x.exam_id,name:x.exam_name,slug:x.exam_slug||'',language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.exam_highlight_mode||'none',highlight_user_change_allowed:x.highlight_user_change_allowed??1,duration_word_map:x.duration_word_map||'{}',qualification_note:x.qualification_note||'',passages:[]};
+    S.exam={id:x.exam_id,name:x.exam_name,slug:x.exam_slug||'',language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.exam_highlight_mode||'none',highlight_user_change_allowed:x.highlight_user_change_allowed??1,duration_word_map:x.duration_word_map||'{}',qualification_note:x.qualification_note||'',evaluation_rule:x.evaluation_rule||'generic',official_rule_status:x.official_rule_status||'owner_configured',official_rule_note:x.official_rule_note||'',passages:[]};
     const mins=Math.max(1,Number(x.duration||10)),limit=requiredMatterWords(S.exam,mins);
-    S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:cleanTrimWords(x.content,limit),highlight_mode:S.exam.highlight_mode,auto_scroll:Number(x.auto_scroll??1),result_count_mode:x.result_count_mode||'word'};
-    S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='live';S.backspaces=0;{const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}S.attemptHighlightMode=S.exam.highlight_mode;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions();
+    const firstCycle=String(x.display_content||cleanTrimWords(x.content,limit));S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,display_content:firstCycle,content:String(x.content||firstCycle),highlight_mode:S.exam.highlight_mode,auto_scroll:Number(x.auto_scroll??1),result_count_mode:x.result_count_mode||'word'};
+    S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='live';S.backspaces=0;S.attemptBackspaceChoiceKey=null;S.attemptBackspaceStudentMode=null;S.attemptBackspaceStudentLimit=null;S.attemptBackspaceAllowed=!!S.exam?.backspace_allowed;S.attemptHighlightMode=S.exam.highlight_mode;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions();
   }catch(e){showToast(e.message||'Live test could not start')}
 }
 const _oldShowLoginCelebrationFinal=showLoginCelebration;
@@ -3042,7 +3024,8 @@ window.myCertificates=async function(){
 };
 window.demoPayCertificate=async function(id){try{const txn=document.getElementById('certTxn'+id)?.value.trim();if(!txn)return showToast('Demo Transaction Number भरें');await api('/api/certificates/'+id+'/demo-pay',{method:'POST',body:JSON.stringify({txn_ref:txn,method:'demo'})});showToast('✅ Payment successful — Download unlocked');myCertificates()}catch(e){showToast(e.message)}};
 // Print/download ONLY the certificate, never the surrounding application page.
-window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);w.document.close()}catch(e){showToast(e.message)}};
+window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>\n<style id="jp-exam-defaults-given-matter-v8-style">\n#pickerLimit.jp-student-editable{background:#fff!important;cursor:text}\n#pickerLimit.jp-exam-default{border-color:#2563eb}\n.jp-given-matter-v8-note{display:block;margin-top:5px;font-size:11px;color:#475569}\n</style>\n<script id="jp-exam-defaults-given-matter-v8">\n(function(){\n if(window.__jpExamDefaultsGivenMatterV8)return;window.__jpExamDefaultsGivenMatterV8=true;\n const parseMap=ex=>{try{const x=typeof ex?.duration_word_map==='string'?JSON.parse(ex.duration_word_map||'{}'):(ex?.duration_word_map||{});return x&&typeof x==='object'?x:{}}catch(_){return {}}};\n const examLimit=(ex,mins)=>{const m=String(Math.max(1,Math.round(Number(mins)||Number(ex?.duration)||10))),n=Number(parseMap(ex)[m]);return n>0?Math.floor(n):0};\n function applyGivenMatterControl(){\n  const dur=document.getElementById('pickerDuration'),lim=document.getElementById('pickerLimit');if(!dur||!lim||!S?.exam)return;\n  lim.readOnly=false;lim.disabled=false;lim.classList.add('jp-student-editable');\n  const paint=()=>{\n   const mins=Math.max(1,Number(dur.value)||Number(S.exam.duration)||10),def=examLimit(S.exam,mins);\n   if(S.jpGivenMatterEdited){lim.value=S.jpGivenMatterCustomLimit>0?S.jpGivenMatterCustomLimit:'';S.inputLimit=S.jpGivenMatterCustomLimit||0;lim.classList.remove('jp-exam-default');lim.placeholder='Full passage';}\n   else{lim.value=def>0?def:'';S.inputLimit=def;lim.classList.toggle('jp-exam-default',def>0);lim.placeholder=def>0?'': 'Full passage (no guessed limit)';}\n   lim.title=S.jpGivenMatterEdited?'Student setting for this attempt':(def>0?'Exam profile default — editable':'No verified word limit — full passage by default');\n  };\n  dur.onchange=()=>{paint()};\n  lim.oninput=()=>{S.jpGivenMatterEdited=true;S.jpGivenMatterCustomLimit=Math.max(0,Math.min(5000,Math.floor(Number(lim.value)||0)));S.inputLimit=S.jpGivenMatterCustomLimit;paint()};\n  let note=lim.parentElement?.querySelector('.jp-given-matter-v8-note');if(!note&&lim.parentElement){note=document.createElement('small');note.className='jp-given-matter-v8-note';lim.parentElement.appendChild(note)}\n  if(note)note.textContent='Untouched = exam default. You may change it for this attempt.';\n  paint();\n }\n const prevRenderPicker=window.renderPassagePicker;\n window.renderPassagePicker=function(){const r=prevRenderPicker.apply(this,arguments);try{applyGivenMatterControl()}catch(_){}return r};\n const prevOpenPicker=window.openPassagePicker;\n window.openPassagePicker=async function(){S.jpGivenMatterEdited=false;S.jpGivenMatterCustomLimit=0;const r=await prevOpenPicker.apply(this,arguments);try{applyGivenMatterControl()}catch(_){}return r};\n const prevPrepare=window.prepareSelectedPassage;\n window.prepareSelectedPassage=async function(id){\n  const dur=document.getElementById('pickerDuration'),lim=document.getElementById('pickerLimit'),mins=Math.max(1,Number(dur?.value)||Number(S?.exam?.duration)||10);\n  const oldMap=S?.exam?.duration_word_map;\n  if(S?.exam&&S.jpGivenMatterEdited){const map=parseMap(S.exam);map[String(Math.round(mins))]=Math.max(0,Math.min(5000,Math.floor(Number(lim?.value)||0)));S.exam.duration_word_map=JSON.stringify(map)}\n  try{return await prevPrepare.apply(this,arguments)}finally{if(S?.exam)S.exam.duration_word_map=oldMap}\n };\n try{applyGivenMatterControl()}catch(_){}\n})();\n</script>\n
+</body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 })();
 </script>
 
@@ -3944,9 +3927,9 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
 </style>
 <script id="jp-backspace-rules-20260917">
 (()=>{
- const MODES=['off','unlimited','current_word','limited'];
+ const MODES=['off','unlimited','current_word','current_prev_word','limited'];
  const ruleOf=e=>{const mode=MODES.includes(e?.backspace_mode)?e.backspace_mode:(Number(e?.backspace_allowed)?'unlimited':'off');return {mode,limit:mode==='limited'?Math.max(1,Math.floor(Number(e?.backspace_limit)||1)):0}};
- const labelOf=r=>r.mode==='off'?'Disabled':r.mode==='current_word'?'Current word only':r.mode==='limited'?`Limited (${r.limit} times)`:'Unlimited';
+ const labelOf=r=>r.mode==='off'?'Disabled':r.mode==='current_word'?'Current word only':r.mode==='current_prev_word'?'Current + previous word':r.mode==='limited'?`Limited (${r.limit} times)`:'Unlimited';
  function examFor(select){
   const list=window.OWNER?.e||window.ADMIN_EXAMS||[];
   if(select.id==='eeBackspace')return list.find(x=>x.slug===document.getElementById('eeSlug')?.value);
@@ -3957,7 +3940,7 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
   if(!select||select.dataset.jpBackspaceRule)return;
   select.dataset.jpBackspaceRule='1';
   const initial=ruleOf(examFor(select)||{backspace_allowed:select.value!=='0'});
-  select.innerHTML='<option value="unlimited">Backspace: Unlimited</option><option value="current_word">Backspace: Current Word Only</option><option value="limited">Backspace: Limited Count</option><option value="off">Backspace: Disabled</option>';
+  select.innerHTML='<option value="unlimited">Backspace: Unlimited</option><option value="current_word">Backspace: Current Word Only</option><option value="current_prev_word">Backspace: Current + Previous Word</option><option value="limited">Backspace: Limited Count</option><option value="off">Backspace: Disabled</option>';
   select.value=initial.mode;
   const limit=document.createElement('input');limit.type='number';limit.min='1';limit.step='1';limit.className='input';limit.placeholder='Backspace limit';limit.value=initial.limit||10;limit.dataset.jpBackspaceLimit=select.id;limit.style.cssText='width:100%;margin-top:6px';
   select.insertAdjacentElement('afterend',limit);
@@ -3994,14 +3977,14 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
  function applyAttemptRule(){
   if(typeof S==='undefined'||!S.exam)return null;
   const owner=ruleOf(S.exam),base=String(S.exam?.id||S.exam?.slug||'default'),modeKey='st_backspace_mode_exam_'+base,limitKey='st_backspace_limit_exam_'+base;
-  if(S.attemptBackspaceChoiceKey!==modeKey){S.attemptBackspaceStudentMode=owner.mode;S.attemptBackspaceStudentLimit=owner.mode==='limited'?owner.limit:10;S.attemptBackspaceChoiceKey=modeKey}
+  if(S.attemptBackspaceChoiceKey!==modeKey){S.attemptBackspaceStudentMode=owner.mode;S.attemptBackspaceStudentLimit=Math.max(1,Math.floor(Number(owner.limit)||(owner.mode==='limited'?10:10)));S.attemptBackspaceChoiceKey=modeKey}
   const mode=MODES.includes(S.attemptBackspaceStudentMode)?S.attemptBackspaceStudentMode:owner.mode,r={mode,limit:mode==='limited'?Math.max(1,Number(S.attemptBackspaceStudentLimit)||1):0};
   S.attemptBackspaceMode=r.mode;S.attemptBackspaceLimit=r.limit;S.attemptBackspaceAllowed=r.mode!=='off';return r;
  }
  function updatePicker(){
   const box=document.getElementById('pickerBackspace');if(!box||!S?.exam)return;
   const r=applyAttemptRule(),base=String(S.exam?.id||S.exam?.slug||'default'),modeKey='st_backspace_mode_exam_'+base,limitKey='st_backspace_limit_exam_'+base,opt=box.closest('label');box.style.display='none';box.checked=r.mode!=='off';box.disabled=false;box.onchange=null;
-  if(opt){let select=opt.querySelector('#pickerBackspaceModeChoice'),limit=opt.querySelector('#pickerBackspaceLimitChoice');if(!select){select=document.createElement('select');select.id='pickerBackspaceModeChoice';select.className='select';select.style.cssText='margin-left:8px;max-width:230px';select.innerHTML='<option value="unlimited">Unlimited</option><option value="current_word">Current Word Only</option><option value="limited">Limited Count</option><option value="off">Disabled</option>';opt.appendChild(select);limit=document.createElement('input');limit.id='pickerBackspaceLimitChoice';limit.type='number';limit.min='1';limit.className='input';limit.placeholder='Limit';limit.style.cssText='width:90px;margin-left:7px';opt.appendChild(limit)}select.value=r.mode;limit.value=S.attemptBackspaceStudentLimit||10;limit.style.display=r.mode==='limited'?'':'none';select.onchange=()=>{S.attemptBackspaceStudentMode=select.value;localStorage.setItem(modeKey,select.value);limit.style.display=select.value==='limited'?'':'none';applyAttemptRule()};limit.onchange=()=>{S.attemptBackspaceStudentLimit=Math.max(1,Math.floor(Number(limit.value)||1));limit.value=S.attemptBackspaceStudentLimit;localStorage.setItem(limitKey,String(S.attemptBackspaceStudentLimit));applyAttemptRule()};let note=opt.querySelector('.jp-backspace-rule-note');if(!note){note=document.createElement('b');note.className='jp-backspace-rule-note';opt.appendChild(note)}const text=' (Student Choice)';if(note.textContent!==text)note.textContent=text}
+  if(opt){let select=opt.querySelector('#pickerBackspaceModeChoice'),limit=opt.querySelector('#pickerBackspaceLimitChoice');if(!select){select=document.createElement('select');select.id='pickerBackspaceModeChoice';select.className='select';select.style.cssText='margin-left:8px;max-width:230px';select.innerHTML='<option value="unlimited">Unlimited</option><option value="current_word">Current Word Only</option><option value="current_prev_word">Current + Previous Word</option><option value="limited">Limited Count</option><option value="off">Disabled</option>';opt.appendChild(select);limit=document.createElement('input');limit.id='pickerBackspaceLimitChoice';limit.type='number';limit.min='1';limit.className='input';limit.placeholder='Limit';limit.style.cssText='width:90px;margin-left:7px';opt.appendChild(limit)}select.value=r.mode;limit.value=S.attemptBackspaceStudentLimit||10;limit.style.display=r.mode==='limited'?'':'none';select.onchange=()=>{S.attemptBackspaceStudentMode=select.value;limit.style.display=select.value==='limited'?'':'none';applyAttemptRule()};limit.onchange=()=>{S.attemptBackspaceStudentLimit=Math.max(1,Math.floor(Number(limit.value)||1));limit.value=S.attemptBackspaceStudentLimit;applyAttemptRule()};let note=opt.querySelector('.jp-backspace-rule-note');if(!note){note=document.createElement('b');note.className='jp-backspace-rule-note';opt.appendChild(note)}const text=' (Student Choice)';if(note.textContent!==text)note.textContent=text}
  }
  new MutationObserver(updatePicker).observe(document.documentElement,{childList:true,subtree:true});
 
@@ -4014,23 +3997,32 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
   else if(r.mode==='current_word'){
    const start=input.selectionStart??0,end=input.selectionEnd??start,value=input.value||'';
    const selected=value.slice(start,end),before=value.charAt(start-1);
-   const currentStart=value.search(/\S*$/);
-   // Moving the caret into an earlier word must not bypass Current Word Only.
-   if(start<currentStart||(start===end&&start<=currentStart)||/\s/.test(selected)||e.ctrlKey||e.metaKey||e.altKey){blocked=true;message='Backspace केवल current word में उपयोग कर सकते हैं.'}
+   if(start<=0||/\s/.test(before)||(/\s/.test(selected))){blocked=true;message='Backspace केवल current word में उपयोग कर सकते हैं.'}
+  }
+  else if(r.mode==='current_prev_word'){
+   if(e.ctrlKey||e.metaKey){blocked=true;message='इस exam में Ctrl+Backspace allowed नहीं है.';}
+   const start=input.selectionStart??0,end=input.selectionEnd??start,value=input.value||'';
+   const words=[...value.matchAll(/\S+/g)],last=words.length?words[words.length-1]:null,prev=words.length>1?words[words.length-2]:null;
+   const earliest=prev?prev.index:(last?last.index:0);
+   // UPSSSC-style two-word correction window: current word plus the immediately
+   // preceding word (including the separating space). Older text is locked.
+   if(!blocked&&(start<=earliest||(end>start&&start<earliest))){blocked=true;message='Backspace केवल current + previous word तक allowed है.'}
   }
   if(blocked){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();showToast(message)}
  },true);
 
  const oldLive=window.startLiveTest;
-  if(typeof oldLive==='function')window.startLiveTest=async function(id){S.attemptBackspaceChoiceKey=null;await oldLive(id);if(S?.exam&&S?.liveTest){S.exam.backspace_mode=S.liveTest.backspace_mode;S.exam.backspace_limit=S.liveTest.backspace_limit;applyAttemptRule()}};
+  if(typeof oldLive==='function')window.startLiveTest=async function(id){await oldLive(id);if(S?.exam&&S?.liveTest){S.exam.backspace_mode=S.liveTest.backspace_mode;S.exam.backspace_limit=S.liveTest.backspace_limit;applyAttemptRule()}};
  const oldPrepare=window.prepareSelectedPassage;
- if(typeof oldPrepare==='function')window.prepareSelectedPassage=async function(id){applyAttemptRule();await oldPrepare(id)};
+ if(typeof oldPrepare==='function')window.prepareSelectedPassage=async function(id){await oldPrepare(id);applyAttemptRule()};
  const oldSync=window.syncPassageEditorExam;
  if(typeof oldSync==='function')window.syncPassageEditorExam=function(){oldSync();const control=document.getElementById('peBackspace'),ex=examFor(control);if(control&&ex){const r=ruleOf(ex);control.value=r.mode;const limit=document.querySelector('[data-jp-backspace-limit="peBackspace"]');if(limit){limit.value=r.limit||10;limit.style.display=r.mode==='limited'?'':'none'}}};
  const oldInfo=window.openExamModal;
  if(typeof oldInfo==='function')window.openExamModal=function(e){oldInfo(e);const body=document.getElementById('examModalBody'),r=ruleOf(e);if(body){const nodes=[...body.querySelectorAll('.rules-list>div')],node=nodes.find(x=>x.querySelector('b')?.textContent==='Backspace');if(node)node.innerHTML=`<b>Backspace</b><br>${labelOf(r)}`}};
 })();
 </script>
+
+
 </body>
 </html>
 
@@ -4961,5 +4953,60 @@ if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCol
  }
  new MutationObserver(applyDifference).observe(document.documentElement,{childList:true,subtree:true});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyDifference);else applyDifference();
+})();
+</script>
+
+<style id="jp-highlight-given-matter-fix-v7">
+/* DDA official unrestricted mode: correct original text GREEN, incorrect original word RED. */
+.exam-passage.jp-dda-live-feedback .typed-correct{background:#bbf7d0!important;color:#14532d!important;text-decoration:none!important}
+.exam-passage.jp-dda-live-feedback .typed-wrong{background:#fecaca!important;color:#991b1b!important;text-decoration:none!important}
+.jp-highlight-mode-select{margin-left:8px;max-width:210px;vertical-align:middle}
+.jp-given-matter-note{display:block;margin-top:4px;font-size:11px;color:#64748b}
+</style>
+<script id="jp-highlight-given-matter-fix-v7-script">
+(function(){
+ if(window.__jpHighlightGivenMatterV7)return;window.__jpHighlightGivenMatterV7=true;
+ const valid=['current_char','current_word','errors_only','none'];
+ const normalize=m=>valid.includes(String(m||''))?String(m):'none';
+ function installHighlightChoice(){
+  const cb=document.getElementById('pickerHighlight');if(!cb||!S?.exam)return;
+  const label=cb.closest('label');if(!label)return;
+  let sel=document.getElementById('pickerHighlightModeChoice');
+  if(!sel){sel=document.createElement('select');sel.id='pickerHighlightModeChoice';sel.className='select jp-highlight-mode-select';sel.innerHTML='<option value="current_char">Current Character</option><option value="current_word">Current Word</option><option value="errors_only">Errors Only</option>';label.appendChild(sel)}
+  const examDefault=normalize(S.exam.highlight_mode),current=normalize(S.attemptHighlightMode||examDefault);
+  cb.checked=current!=='none';sel.value=current==='none'?(examDefault!=='none'?examDefault:'current_word'):current;sel.style.display=cb.checked?'inline-block':'none';
+  const sync=()=>{S.attemptHighlightMode=cb.checked?normalize(sel.value):'none';sel.style.display=cb.checked?'inline-block':'none'};
+  cb.onchange=sync;sel.onchange=sync;
+  const old=label.querySelector('.jp-highlight-default-note');if(old)old.remove();
+  const note=document.createElement('small');note.className='jp-highlight-default-note jp-given-matter-note';note.textContent='Untouched = this exam profile default. Any change applies only to this attempt.';label.appendChild(note);
+ }
+ const prevPicker=window.renderPassagePicker;
+ window.renderPassagePicker=function(){const r=prevPicker.apply(this,arguments);installHighlightChoice();return r};
+ const prevPrepare=window.prepareSelectedPassage;
+ window.prepareSelectedPassage=async function(id){
+  const cb=document.getElementById('pickerHighlight'),sel=document.getElementById('pickerHighlightModeChoice');
+  const examDefault=normalize(S?.exam?.highlight_mode),chosen=cb?(cb.checked?normalize(sel?.value||(examDefault!=='none'?examDefault:'current_word')):'none'):examDefault;
+  await prevPrepare.apply(this,arguments);S.attemptHighlightMode=chosen;if(S.passage)S.passage.highlight_mode=chosen;
+ };
+ const prevRender=window.renderTest;
+ window.renderTest=function(){
+  const r=prevRender.apply(this,arguments),box=document.getElementById('passage');
+  if(box&&S?.passage?.display_content&&String(S.passage.display_content)!==String(S.passage.content||'')){
+   box.innerHTML=renderNoBreakPassage(String(S.passage.display_content));
+   box.dataset.jpDisplayedMatter='official-first-cycle';
+  }
+  if(box)box.classList.toggle('jp-dda-live-feedback',String(S?.exam?.evaluation_rule||'')==='dda_jsa'&&normalize(S?.attemptHighlightMode)!=='none');
+  return r
+ };
+ const prevUpdate=window.updatePassage;
+ window.updatePassage=function(t){
+  const r=prevUpdate.apply(this,arguments);if(String(S?.exam?.evaluation_rule||'')!=='dda_jsa'||normalize(S?.attemptHighlightMode)==='none')return r;
+  const spans=document.querySelectorAll('#passage .tc'),p=String(S?.passage?.content||''),ops=resyncAlign(p,t).ops,units=textUnits(p);
+  const markWord=(idx,cls)=>{if(idx==null||idx<0||idx>=units.length)return;let a=idx,b=idx;while(a>0&&!/\s/.test(units[a-1]))a--;while(b<units.length&&!/\s/.test(units[b]))b++;for(let k=a;k<b;k++)spans[k]?.classList.add(cls)};
+  ops.forEach(op=>{if(op.type==='match'&&op.oIndex<spans.length)spans[op.oIndex]?.classList.add('typed-correct');else if(['sub','delete','insert'].includes(op.type))markWord(Math.min(op.oIndex,Math.max(0,units.length-1)),'typed-wrong')});
+  return r;
+ };
+ // Re-run once if the picker is already visible when this patch loads.
+ try{installHighlightChoice()}catch(_){}
 })();
 </script>
