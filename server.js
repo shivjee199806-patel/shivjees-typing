@@ -1117,8 +1117,10 @@ function examMatterWordLimit(exam,minutes){
  const baseMinutes=Math.max(1,Number(exam?.duration)||mins),minimum=Math.max(0,Number(exam?.min_words)||0),wpm=Math.max(0,Number(exam?.required_wpm)||0);
  return Math.max(1,Math.round(minimum>0?(minimum/baseMinutes)*mins:(wpm||30)*mins));
 }
-function trimExamPassageContent(content,exam,minutes){
- const raw=String(content||'').trim(),words=Array.from(raw.matchAll(/\S+/g)),limit=examMatterWordLimit(exam,minutes);
+function trimExamPassageContent(content,exam,minutes,manualWords){
+ const chosen=Number(manualWords);
+ const limit=Number.isFinite(chosen)&&chosen>0?Math.max(1,Math.min(5000,Math.floor(chosen))):examMatterWordLimit(exam,minutes);
+ const raw=String(content||'').trim(),words=Array.from(raw.matchAll(/\S+/g));
  if(words.length<=limit)return raw;
  const last=words[limit-1],end=Number(last.index||0)+last[0].length;
  return raw.slice(0,end).trimEnd();
@@ -1126,9 +1128,44 @@ function trimExamPassageContent(content,exam,minutes){
 // Keep the complete source passage. Trim only the attempt/evaluation copy using
 // the selected duration; shortening stored content loses matter for longer tests.
 
+// Only fields explicitly stated in these notices are applied. In particular,
+// neither notice for the English-only courts specifies a Backspace/Highlight
+// policy: do not invent one, or apply their rules to generated Hindi variants.
+function applyDocumentedExamFieldsOnce(){
+ const profiles=[
+  {slug:'state-delhi-high-court-junior-judicial-assistant',language:'English',
+   fields:{duration:10,required_wpm:35},
+   source:'https://delhihighcourt.nic.in/files/2026-01/recuritment/vacancy_notice_jja_0.pdf',
+   scope:'2026, page 6: duration and minimum English speed only. Error rounding and character calculation require separate implementation.'},
+  {slug:'central-supreme-court-jca-typing',language:'English',
+   fields:{duration:10,required_wpm:35},
+   source:'https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/uploads/2025/02/2025020434.pdf',
+   scope:'2025, page 2: duration and minimum English speed only. The 3-percent error qualification needs its own evaluation rule.'},
+  ...['state-rajasthan-high-court-jja-clerk','state-rajasthan-high-court-jja-clerk-hindi'].map((slug,i)=>({
+   slug,language:i?'Hindi':'English',fields:{duration:5,backspace_allowed:1,backspace_mode:'current_word',backspace_limit:0},
+   source:'https://hcraj.nic.in/hcraj/hcraj_admin/uploadfile/recruitment/cns176899653055.pdf',
+   scope:'2022 recruitment, instructions dated 2026-01-21, page 3, rules 7 and 8: five minutes each language; Backspace within current word only. No inferred highlighting or qualification.'}))
+ ];
+ db.exec(`CREATE TABLE IF NOT EXISTS documented_exam_field_changes(
+  revision TEXT NOT NULL,exam_id INTEGER NOT NULL,original_fields TEXT NOT NULL,
+  applied_fields TEXT NOT NULL,source TEXT NOT NULL,scope TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(revision,exam_id))`);
+ const revision='documented_duration_backspace_20260918';
+ db.transaction(()=>{
+  for(const profile of profiles){
+   const exam=db.prepare('SELECT * FROM exams WHERE slug=? AND language=?').get(profile.slug,profile.language);
+   if(!exam||db.prepare('SELECT 1 FROM documented_exam_field_changes WHERE revision=? AND exam_id=?').get(revision,exam.id))continue;
+   const keys=Object.keys(profile.fields),original=Object.fromEntries(keys.map(k=>[k,exam[k]]));
+   db.prepare('INSERT INTO documented_exam_field_changes(revision,exam_id,original_fields,applied_fields,source,scope) VALUES(?,?,?,?,?,?)').run(revision,exam.id,JSON.stringify(original),JSON.stringify(profile.fields),profile.source,profile.scope);
+   db.prepare('UPDATE exams SET '+keys.map(k=>k+'=?').join(',')+' WHERE id=?').run(...keys.map(k=>profile.fields[k]),exam.id);
+  }
+ })();
+}
+try{applyDocumentedExamFieldsOnce();}catch(error){console.error('Documented exam defaults were not applied:',error.message);}
+
 // Extend the old exam bank once, preserving its exact prefix and every setting.
 function extendOldExamMatterOnce(){
- const marker='old_exam_matter_30_minutes_20260918';
+ const marker='old_exam_matter_30_minutes_20260918_v2';
  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
  if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
  const count=text=>(String(text||'').match(/\S+/g)||[]).length;
@@ -1238,7 +1275,7 @@ app.post('/api/results',auth,(req,res)=>{
  if(e&&passage.language!==e.language)return res.status(400).json({error:'Passage language does not match the exam'});
  let accessGate=null;if(e){const folderCfg=examFolderConfig(e);accessGate=examAccessState(req.user,folderCfg);if(accessGate.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:accessGate.block_reason});if(folderCfg.paid_enabled&&!accessGate.can_start)return res.status(402).json({error:`Free demo access finished. Unlock ${examFolderBaseName(e)||e.name} to continue.`,code:'EXAM_PAYMENT_REQUIRED',exam:{id:e.id,name:examFolderBaseName(e)||e.name,fee_amount:folderCfg.fee_amount,validity_days:folderCfg.validity_days,daily_demo_limit:folderCfg.daily_demo_limit},demo_used:accessGate.demo_used,demo_remaining:accessGate.demo_remaining,bonus_remaining:accessGate.bonus_remaining});}
  const liveTestId=Number(b.live_test_id)||0;let liveTest=null;if(liveTestId){liveTest=db.prepare('SELECT * FROM live_tests WHERE id=? AND active=1').get(liveTestId);if(!liveTest)return res.status(400).json({error:'Invalid live test'});if(Number(liveTest.exam_id)!==Number(e?.id)||Number(liveTest.passage_id)!==Number(passage.id))return res.status(400).json({error:'Live test exam/passage mismatch'});const now=Date.now(),st=parseLiveTime(liveTest.start_at),en=parseLiveTime(liveTest.end_at);if(now<st||now>en+120000)return res.status(403).json({error:'Live test submission window is closed'})}
- const mode=liveTest?'live':(e?'exam':'practice'),duration=Math.max(1,Math.round(num(b.duration,1,e?Math.max(Number(e.duration)||1,Number(b.scheduled_minutes)||0)*60:24*60*60))),scheduledMatterMinutes=e?Math.max(1,Math.min(120,Number(b.scheduled_minutes)||Number(e.duration)||10)):null,evaluationContent=e?trimExamPassageContent(passage.content,e,scheduledMatterMinutes):passage.content,typed=String(b.typed_text??'').slice(0,evaluationContent.length);
+ const mode=liveTest?'live':(e?'exam':'practice'),duration=Math.max(1,Math.round(num(b.duration,1,e?Math.max(Number(e.duration)||1,Number(b.scheduled_minutes)||0)*60:24*60*60))),scheduledMatterMinutes=e?Math.max(1,Math.min(120,Number(b.scheduled_minutes)||Number(e.duration)||10)):null,evaluationContent=e?trimExamPassageContent(passage.content,e,scheduledMatterMinutes,mode==='exam'?b.matter_word_limit:undefined):passage.content,typed=String(b.typed_text??'').slice(0,evaluationContent.length);
  const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
  const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),speedMinutes=(e&&e.speed_based_time_taken)?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
  const standardCount=String(passage.result_count_mode||e?.default_result_count_mode||'word')==='character';

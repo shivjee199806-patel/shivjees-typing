@@ -854,7 +854,7 @@ async function finishTest(manual=false,ended=false,fromPreview=false){
  const gross=(c.n/5)/mins,acc=(c.good+c.wrong)?c.good/(c.good+c.wrong)*100:0,net=Math.max(0,gross-(c.wrong/5)/mins),back=S.backspaces||0;
  if(S.timer)clearInterval(S.timer);
  try{
-  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
+  const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),matter_word_limit:S.mode==='exam'?S.examMatterWordLimit:undefined,typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
   S.done=true;S.submitting=false;window.onbeforeunload=null;toggleHallSound(false);try{if(typeof jpTrack==='function')jpTrack('test_complete',{test_mode:S.mode||'practice',exam_name:S.exam?.name||'Free Practice',passage_title:S.passage?.title||'',attempt_status:ended?'ended':'submitted'})}catch(_){}
   if(!ended&&(S.mode==='exam'||S.mode==='live')){try{localStorage.setItem('st_exam_completed_'+String(S.exam?.id||S.exam?.slug||'default'),'1')}catch(_){}}
   if(ended){leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();S.started=false;S.done=true;S.submitting=false;window.onbeforeunload=null;location.hash='#exams';await exams();showToast('Exam ended. Attempt History में Ended / Incomplete save हो गया.');return}
@@ -2584,6 +2584,17 @@ async function saveLanguageExamRules(key){
 }
 const _oldOpenPassagePickerFinal=openPassagePicker;
 function examDurationKey(ex){return String(ex?.id??ex?.slug??'')+'|'+String(ex?.language||'')}
+function selectedHighlightMode(){
+ const modes=['none','current_word','current_char','errors_only'];
+ const control=document.getElementById('pickerHighlightMode');
+ const value=control?control.value:S.attemptHighlightMode;
+ return modes.includes(value)?value:(modes.includes(S.exam?.highlight_mode)?S.exam.highlight_mode:'none');
+}
+function selectedMatterWords(ex,minutes){
+ const manual=Number(S.attemptMatterWords);
+ return S.attemptDurationExamKey===examDurationKey(ex)&&Number.isFinite(manual)&&manual>0
+  ?Math.max(1,Math.min(5000,Math.floor(manual))):requiredMatterWords(ex,minutes);
+}
 function selectedExamMinutes(ex){
   const selected=S.attemptDurationExamKey===examDurationKey(ex)?Number(S.attemptDuration):NaN;
   if(Number.isFinite(selected)&&selected>0)return Math.max(5,Math.min(30,Math.round(selected)));
@@ -2596,20 +2607,28 @@ openPassagePicker=async function(){
   try{S.exam=await api('/api/exams/'+S.exam.id)}catch(err){showToast(err.message||'Exam could not load');return}
   S.attemptBackspaceChoiceKey=null;
   S.attemptDuration=null;
+  S.attemptMatterWords=null;
   S.attemptDurationExamKey=examDurationKey(S.exam);
   S.attemptBackspaceAllowed=!!S.exam.backspace_allowed;
   S.attemptHighlightMode=S.exam.highlight_mode||'none';
   await _oldOpenPassagePickerFinal();
-  const dur=document.getElementById('pickerDuration');
-  if(dur){
-    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;const lim=document.getElementById('pickerLimit');if(lim){lim.value=n;lim.readOnly=true;lim.title='Exam condition के अनुसार auto-selected matter length';}};
-    dur.addEventListener('change',sync);sync();
-  }
 }
 const _oldRenderPassagePickerFinal=renderPassagePicker;
 renderPassagePicker=function(){
+  const highlightChoice=S.attemptHighlightMode;
   _oldRenderPassagePickerFinal();
+  S.attemptHighlightMode=highlightChoice;
   const dur=document.getElementById('pickerDuration'),lim=document.getElementById('pickerLimit'),bs=document.getElementById('pickerBackspace');
+  const oldHighlight=document.getElementById('pickerHighlight');
+  if(oldHighlight){
+    const label=oldHighlight.closest('label');
+    const choice=document.createElement('select');choice.id='pickerHighlightMode';choice.className='select';
+    for(const [value,title] of [['none','Off — कोई highlight नहीं'],['current_word','Current Word — वर्तमान शब्द'],['current_char','Current Character — वर्तमान अक्षर'],['errors_only','Errors Only — केवल गलतियाँ']]){
+      const option=document.createElement('option');option.value=value;option.textContent=title;choice.appendChild(option);
+    }
+    choice.value=selectedHighlightMode();choice.onchange=()=>{S.attemptHighlightMode=choice.value};
+    if(label){label.replaceChildren(document.createTextNode('Highlight '),choice)}
+  }
   if(dur){
     // Manual practice time is 5–30 minutes; keep the exam default separately.
     const configured=Number(S.exam?.duration),defaultMinutes=Number.isFinite(configured)&&configured>=1?configured:10;
@@ -2618,11 +2637,12 @@ renderPassagePicker=function(){
     values.sort((a,b)=>a-b);
     dur.replaceChildren();
     for(const value of values){const o=document.createElement('option');o.value=String(value);o.textContent=value+' minutes'+(value===defaultMinutes?' (Exam default)':'');dur.appendChild(o)}
-    const sync=()=>{const n=requiredMatterWords(S.exam,Number(dur.value));S.inputLimit=n;if(lim){lim.value=n;lim.readOnly=true;lim.style.background='#f3f6fa'}};
+    const sync=()=>{const n=selectedMatterWords(S.exam,Number(dur.value));S.inputLimit=n;if(lim){lim.value=n;lim.readOnly=false;lim.min='1';lim.max='5000';lim.title='Default matter; आप अपने अनुसार शब्दों की संख्या बदल सकते हैं';}};
     const minutes=selectedExamMinutes(S.exam);
     // Select explicitly, including nonstandard durations, after every render.
     dur.value=String(minutes);
     dur.onchange=()=>{const value=Number(dur.value);S.attemptDuration=value===defaultMinutes?null:Math.max(5,Math.min(30,Math.round(value)||5));S.attemptDurationExamKey=examDurationKey(S.exam);dur.value=String(selectedExamMinutes(S.exam));sync()};sync();
+    if(lim){lim.oninput=()=>{const value=Number(lim.value);S.attemptMatterWords=Number.isFinite(value)&&value>0?Math.max(1,Math.min(5000,Math.floor(value))):null;S.inputLimit=selectedMatterWords(S.exam,Number(dur.value))};lim.onchange=sync;}
   }
   if(bs){bs.checked=!!S.attemptBackspaceAllowed;bs.onchange=()=>{S.attemptBackspaceAllowed=bs.checked}}
 }
@@ -2631,14 +2651,13 @@ prepareSelectedPassage=async function(id){
   const base=(S.exam.passages||[]).find(x=>x.id===id); if(!base)return;
   // A passage's old override must not replace the selected exam's default time.
   const mins=selectedExamMinutes(S.exam);
-  const wordLimit=requiredMatterWords(S.exam,mins);
+  const wordLimit=selectedMatterWords(S.exam,mins);
   S.inputLimit=wordLimit;
-  const examHM=S.exam.highlight_mode||'none';
-  const hcb=document.getElementById('pickerHighlight');
-  // Candidate checkbox is authoritative for THIS attempt: unchecked = absolutely no highlight,
-  // checked = use the exam's configured highlight style (fallback current_word only when no style exists).
-  S.attemptHighlightMode=hcb?(hcb.checked?(examHM!=='none'?examHM:'current_word'):'none'):examHM;
+  S.attemptHighlightMode=selectedHighlightMode();
   S.passage={...base,highlight_mode:S.attemptHighlightMode,content:cleanTrimWords(base.content,wordLimit)};
+  const available=(S.passage.content.match(/\S+/g)||[]).length;
+  if(available<wordLimit)showToast('इस passage में केवल '+available+' words उपलब्ध हैं.');
+  S.examMatterWordLimit=wordLimit;
   S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;
   S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
   renderInstructions();
@@ -3002,7 +3021,7 @@ const _myCert=window.myCertificates;window.myCertificates=async function(){await
 window.startCertificateSkillTest=async function(id){try{const t=await api('/api/certificates/skill-tests/'+id);let left=t.duration*60,started=Date.now();setApp(`<div class="page"><div class="toolbar"><h2>Certificate Skill Test · ${esc(t.language)}</h2><b id="ctTimer"></b></div><div class="passage-box">${esc(t.content)}</div><textarea id="ctType" class="input" style="width:100%;height:220px;margin-top:12px;font-size:18px" spellcheck="false" autofocus></textarea><button class="btn btn-primary" style="margin-top:12px" id="ctSubmit">Submit Skill Test</button></div>`);const tick=setInterval(()=>{left=Math.max(0,t.duration*60-Math.floor((Date.now()-started)/1000));ctTimer.textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');if(left<=0){clearInterval(tick);submit()}},500);async function submit(){clearInterval(tick);ctType.disabled=true;try{await api('/api/certificates/skill-tests/'+id+'/submit',{method:'POST',body:JSON.stringify({typed_text:ctType.value,seconds_used:Math.max(1,Math.floor((Date.now()-started)/1000))})});showToast('Skill Test submitted to Owner');myCertificates()}catch(e){showToast(e.message)}}ctSubmit.onclick=submit;ctType.focus()}catch(e){showToast(e.message)}};
 
 // P3: explicit highlight selection must win for this attempt.
-const _prep=window.prepareSelectedPassage;window.prepareSelectedPassage=async function(id){const sel=document.getElementById('pickerHighlight');if(sel)S.attemptHighlightMode=sel.checked?((S.exam?.highlight_mode&&S.exam.highlight_mode!=='none')?S.exam.highlight_mode:'current_word'):'none';return _prep(id)};
+const _prep=window.prepareSelectedPassage;window.prepareSelectedPassage=async function(id){S.attemptHighlightMode=selectedHighlightMode();return _prep(id)};
 })();
 </script>
 
@@ -3011,7 +3030,7 @@ const _prep=window.prepareSelectedPassage;window.prepareSelectedPassage=async fu
 // 1) Highlight choice: candidate's explicit picker choice wins for THIS attempt.
 const basePrepare=window.prepareSelectedPassage;
 window.prepareSelectedPassage=async function(id){
-  const _hcb=document.getElementById('pickerHighlight');const chosen=_hcb?(_hcb.checked?((S.exam?.highlight_mode&&S.exam.highlight_mode!=='none')?S.exam.highlight_mode:'current_word'):'none'):(S.attemptHighlightMode||'none');
+  const chosen=selectedHighlightMode();
   await basePrepare(id);
   S.attemptHighlightMode=chosen;
   if(S.passage) S.passage.highlight_mode=chosen;
