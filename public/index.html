@@ -5055,3 +5055,122 @@ if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCol
  try{installHighlightChoice()}catch(_){}
 })();
 </script>
+
+<!-- JP v10 FINAL: ONLY manual matter words + four highlight choices. Appended last so older picker patches cannot override it. -->
+<style id="jp-manual-matter-four-highlight-v10-style">
+#pickerLimit.jp-manual-matter-input{background:#fff!important;cursor:text!important;border-color:#2563eb!important}
+#pickerHighlightModeManual{width:100%;margin-top:6px}
+.jp-manual-matter-help{display:block;margin-top:5px;font-size:11px;color:#475569;font-weight:600}
+</style>
+<script id="jp-manual-matter-four-highlight-v10-final">
+(function(){
+ if(window.__jpManualMatterFourHighlightV10Final)return;
+ window.__jpManualMatterFourHighlightV10Final=true;
+ const validModes=['current_char','current_word','errors_only','none'];
+ const normMode=m=>validModes.includes(String(m||''))?String(m):'none';
+
+ function installManualAttemptControls(){
+   const dur=document.getElementById('pickerDuration');
+   const lim=document.getElementById('pickerLimit');
+   if(!dur||!lim||!window.S||!S.exam)return;
+
+   if(S.jpManualDuration>0 && Array.from(dur.options).some(o=>Number(o.value)===Number(S.jpManualDuration))){
+     dur.value=String(S.jpManualDuration);
+   }else{
+     S.jpManualDuration=Math.max(1,Number(dur.value)||Number(S.exam.duration)||10);
+   }
+
+   lim.readOnly=false;lim.disabled=false;lim.min='1';lim.max='5000';
+   lim.classList.add('jp-manual-matter-input');
+   lim.value=S.jpManualMatterLimit>0?String(S.jpManualMatterLimit):'';
+   lim.placeholder='Type required words, e.g. 300';
+   lim.title='Manual matter word count for this attempt';
+   lim.style.background='#fff';
+   const limitLabel=lim.closest('label');
+   if(limitLabel){
+     for(const n of Array.from(limitLabel.childNodes)){
+       if(n.nodeType===3 && n.nodeValue && n.nodeValue.trim()){n.nodeValue='Matter Words (Manual)';break;}
+     }
+     limitLabel.querySelectorAll('.jp-given-matter-v8-note,.jp-given-matter-note').forEach(x=>x.remove());
+     let help=limitLabel.querySelector('.jp-manual-matter-help');
+     if(!help){help=document.createElement('small');help.className='jp-manual-matter-help';limitLabel.appendChild(help)}
+     help.textContent='Required: enter how many words of the passage you want for this attempt.';
+   }
+
+   // Remove every older automatic duration→matter handler by replacing the select with a clone.
+   const durClone=dur.cloneNode(true);
+   dur.parentNode.replaceChild(durClone,dur);
+   durClone.value=String(S.jpManualDuration);
+   durClone.onchange=()=>{
+     S.jpManualDuration=Math.max(1,Number(durClone.value)||Number(S.exam.duration)||10);
+     S.jpManualMatterLimit=0;S.inputLimit=0;lim.value='';
+   };
+   lim.oninput=()=>{
+     const n=Math.max(0,Math.min(5000,Math.floor(Number(lim.value)||0)));
+     S.jpManualMatterLimit=n;S.inputLimit=n;
+   };
+
+   const oldCb=document.getElementById('pickerHighlight');
+   const oldSel=document.getElementById('pickerHighlightModeChoice');
+   const optBar=document.querySelector('.picker-optionbar');
+   if(oldSel)oldSel.remove();
+   if(oldCb){const oldLabel=oldCb.closest('label');if(oldLabel)oldLabel.remove();}
+   if(optBar){
+     let wrap=document.getElementById('jpHighlightManualWrap');
+     if(!wrap){
+       wrap=document.createElement('label');wrap.id='jpHighlightManualWrap';wrap.className='opt';
+       wrap.innerHTML='<span><b>Highlight</b> <span class="muted">(Your choice for this attempt)</span></span><select id="pickerHighlightModeManual" class="select"><option value="current_char">Current Character</option><option value="current_word">Current Word</option><option value="errors_only">Errors Only</option><option value="none">Off</option></select>';
+       optBar.appendChild(wrap);
+     }
+     const hs=document.getElementById('pickerHighlightModeManual');
+     const initial=normMode(S.jpManualHighlightMode||S.attemptHighlightMode||S.exam.highlight_mode||'none');
+     hs.value=initial;S.jpManualHighlightMode=initial;S.attemptHighlightMode=initial;
+     hs.onchange=()=>{S.jpManualHighlightMode=normMode(hs.value);S.attemptHighlightMode=S.jpManualHighlightMode};
+   }
+ }
+
+ const previousRender=window.renderPassagePicker;
+ window.renderPassagePicker=function(){
+   const r=previousRender.apply(this,arguments);
+   try{installManualAttemptControls()}catch(e){console.error('manual attempt controls',e)}
+   return r;
+ };
+ const previousOpen=window.openPassagePicker;
+ window.openPassagePicker=async function(){
+   S.jpManualMatterLimit=0;S.inputLimit=0;S.jpManualDuration=0;
+   S.jpManualHighlightMode=normMode(S?.exam?.highlight_mode||'none');
+   S.attemptHighlightMode=S.jpManualHighlightMode;
+   const r=await previousOpen.apply(this,arguments);
+   try{installManualAttemptControls()}catch(e){console.error('manual attempt controls',e)}
+   return r;
+ };
+
+ // Authoritative start: selected time + REQUIRED manual word amount + selected highlight.
+ window.prepareSelectedPassage=async function(id){
+   if(!(await ensureExamCanStart()))return;
+   const base=(S.exam.passages||[]).find(x=>Number(x.id)===Number(id));
+   if(!base)return showToast('Passage not found');
+   const dur=document.getElementById('pickerDuration');
+   const lim=document.getElementById('pickerLimit');
+   const mins=Math.max(1,Number(dur?.value)||Number(S.jpManualDuration)||Number(S.exam.duration)||10);
+   const wordLimit=Math.max(0,Math.min(5000,Math.floor(Number(lim?.value)||Number(S.jpManualMatterLimit)||0)));
+   if(wordLimit<1){
+     if(lim){lim.focus();lim.style.outline='2px solid #dc2626';setTimeout(()=>lim.style.outline='',1200)}
+     return showToast('Matter Words में जितने words चाहिए, वह number लिखें');
+   }
+   const matter=cleanTrimWords(base.content,wordLimit);
+   if(!String(matter||'').trim())return showToast('Passage matter empty है');
+   S.jpManualDuration=mins;S.jpManualMatterLimit=wordLimit;S.inputLimit=wordLimit;
+   S.attemptBackspaceAllowed=!!document.getElementById('pickerBackspace')?.checked;
+   const hs=document.getElementById('pickerHighlightModeManual');
+   const chosen=normMode(hs?.value||S.jpManualHighlightMode||S.attemptHighlightMode||S.exam.highlight_mode||'none');
+   S.jpManualHighlightMode=chosen;S.attemptHighlightMode=chosen;
+   S.passage={...base,highlight_mode:chosen,display_content:matter,content:matter};
+   S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='exam';S.backspaces=0;S.submitting=false;
+   S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
+   renderInstructions();
+ };
+
+ try{installManualAttemptControls()}catch(_){}
+})();
+</script>
