@@ -4058,6 +4058,9 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
 <style id="jp-learning-guided-upgrade-20260919">
 .jp-learn-shell{max-width:1250px;margin:auto}.jp-posture{display:grid;grid-template-columns:minmax(240px,.7fr) minmax(520px,1.3fr);gap:16px}.jp-posture-card{padding:18px}.jp-posture-list{margin:10px 0 0;padding-left:20px;line-height:1.75}.jp-keyboard{padding:14px;overflow-x:auto}.jp-key-row{display:flex;gap:5px;margin:5px auto;min-width:690px}.jp-key{height:42px;min-width:42px;padding:0 7px;display:grid;place-items:center;border:1px solid #b8c4d4;border-bottom:4px solid #94a3b8;border-radius:8px;background:#f8fafc;color:#152238;font-size:12px;font-weight:900;transition:.08s}.jp-key.w15{min-width:63px}.jp-key.w2{min-width:86px}.jp-key.w25{min-width:108px}.jp-key.space{flex:1}.jp-key.active{transform:translateY(2px);background:#ff7a00;color:#fff;border-color:#c65300;box-shadow:0 0 0 4px rgba(255,122,0,.18)}.jp-current-key{min-height:70px;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;border-radius:14px;background:linear-gradient(135deg,#102a56,#174c91);color:#fff}.jp-current-key b{font-size:28px;color:#ffd166}.jp-learning-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.jp-learning-controls select{width:auto;min-width:150px}.jp-word-passage{min-height:145px;max-height:250px;overflow:auto;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--panel);font-size:19px;line-height:1.9;white-space:pre-wrap}.jp-word-passage span{border-radius:4px}.jp-word-passage .done{color:#15803d}.jp-word-passage .current{background:#ffe08a;color:#111827;padding:2px 3px;box-shadow:0 0 0 2px #f59e0b}.jp-word-passage .wrong{background:#fecaca;color:#991b1b}.jp-learning-status{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.jp-learning-status .badge{font-size:13px}.jp-learn-input{width:100%;min-height:180px;margin-top:10px;font-size:19px;line-height:1.7}.jp-key-voice{display:flex;align-items:center;gap:7px;font-weight:800}.jp-hand-hint{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}@media(max-width:850px){.jp-posture{grid-template-columns:1fr}.jp-keyboard{margin:0 -8px}.jp-word-passage{font-size:17px}.jp-learn-input{min-height:150px}}
 </style>
+<style id="jp-hindi-keyboard-layout-fix-20260919">
+.jp-key{height:48px!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}.jp-key small{font-size:9px;color:#64748b;margin-top:3px}.jp-key.active small{color:#fff}.jp-layout-name{text-align:center;font-weight:900;margin:0 0 10px;color:var(--ink)}
+</style>
 <script id="jp-learning-guided-upgrade-20260919">
 (()=>{
  const rows=[
@@ -4068,14 +4071,11 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
   [['Ctrl','ControlLeft','w15'],['Win','MetaLeft','w15'],['Alt','AltLeft','w15'],['Space','Space','space'],['Alt','AltRight','w15'],['Menu','ContextMenu','w15'],['Ctrl','ControlRight','w15']]
  ];
  const keyNames={Space:'Space',Backspace:'Backspace',Enter:'Enter',Tab:'Tab',ShiftLeft:'Shift',ShiftRight:'Shift',ControlLeft:'Control',ControlRight:'Control',AltLeft:'Alt',AltRight:'Alt',CapsLock:'Caps Lock'};
- const hindiLayouts={
-  'inscript':[['ौ','ऐ','आ','ई','ऊ','भ','ङ','घ','ध','झ'],['ो','े','्','ि','ु','प','र','क','त','च'],['ं','म','न','व','ल','स','य','।','़','/']],
-  'remington-gail':[['अ','आ','इ','ई','उ','ऊ','ए','ऐ','ओ','औ'],['क','ख','ग','घ','च','छ','ज','झ','ट','ठ'],['त','थ','द','ध','न','प','फ','ब','म','य']],
-  'krutidev':[['क','ख','ग','घ','ङ','च','छ','ज','झ','ञ'],['ट','ठ','ड','ढ','ण','त','थ','द','ध','न'],['प','फ','ब','भ','म','य','र','ल','व','स']],
-  'devlys':[['क','ख','ग','घ','च','छ','ज','झ','ट','ठ'],['ड','ढ','त','थ','द','ध','न','प','फ','ब'],['भ','म','य','र','ल','व','श','ष','स','ह']],
-  'chanakya':[['अ','आ','इ','ई','उ','ऊ','ए','ऐ','ओ','औ'],['क','ख','ग','घ','च','छ','ज','झ','ट','ठ'],['त','थ','द','ध','न','प','फ','ब','म','र']]
- };
- const keyboard=(lang,trackId)=>{const display=rows.map(r=>r.map(k=>[...k]));if(lang==='Hindi'){const glyphs=hindiLayouts[trackId]||hindiLayouts.inscript;[1,2,3].forEach((ri,n)=>display[ri].forEach((k,i)=>{if(glyphs[n]?.[i])k[0]=glyphs[n][i]}))}return `<div class="jp-keyboard card"><div class="jp-current-key"><span>${lang==='Hindi'?'दबाई गई कुंजी':'Pressed key'}</span><b id="jpPressedKey">—</b></div>${display.map(r=>`<div class="jp-key-row">${r.map(k=>`<span class="jp-key ${k[2]||''}" data-code="${k[1]}">${k[0]}</span>`).join('')}</div>`).join('')}<div class="jp-hand-hint">F और J की उभरी हुई लाइन पर index fingers रखें · दोनों अंगूठे Spacebar के ऊपर रखें</div></div>`};
+ const inscriptMap={KeyQ:'ौ',KeyW:'ै',KeyE:'ा',KeyR:'ी',KeyT:'ू',KeyY:'ब',KeyU:'ह',KeyI:'ग',KeyO:'द',KeyP:'ज',BracketLeft:'ड',BracketRight:'़',KeyA:'ो',KeyS:'े',KeyD:'्',KeyF:'ि',KeyG:'ु',KeyH:'प',KeyJ:'र',KeyK:'क',KeyL:'त',Semicolon:'च',Quote:'ट',KeyZ:'ं',KeyX:'म',KeyC:'न',KeyV:'व',KeyB:'ल',KeyN:'स',KeyM:'य',Comma:'श',Period:'ष',Slash:'।'};
+ const remingtonMap={KeyQ:'ु',KeyW:'ू',KeyE:'म',KeyR:'त',KeyT:'ज',KeyY:'ल',KeyU:'न',KeyI:'प',KeyO:'व',KeyP:'च',BracketLeft:'ख',BracketRight:',',KeyA:'ं',KeyS:'े',KeyD:'क',KeyF:'ि',KeyG:'ह',KeyH:'ी',KeyJ:'र',KeyK:'ा',KeyL:'स',Semicolon:'य',Quote:'श',KeyZ:'्र',KeyX:'ग',KeyC:'ब',KeyV:'अ',KeyB:'इ',KeyN:'द',KeyM:'उ',Comma:'ए',Period:'ण',Slash:'ध'};
+ const legacyIds=['krutidev','krutidev010','krutidev011','krutidev012','krutidev013','krutidev014','krutidev015','krutidev016','devlys','chanakya'];
+ const layoutMap=id=>id==='inscript'?inscriptMap:id==='remington-gail'?remingtonMap:legacyIds.includes(id)?remingtonMap:inscriptMap;
+ const keyboard=(lang,trackId)=>{const display=rows.map(r=>r.map(k=>[...k]));const map=lang==='Hindi'?layoutMap(trackId):{};display.forEach(r=>r.forEach(k=>{if(map[k[1]])k[0]=`${map[k[1]]}<small>${k[0]}</small>`}));const name=lang==='Hindi'?(HINDI_LEARNING_TRACKS.find(x=>x.id===trackId)?.name||'Hindi Keyboard'):'English QWERTY';return `<div class="jp-keyboard card"><div class="jp-layout-name">${esc(name)} Keyboard</div><div class="jp-current-key"><span>${lang==='Hindi'?'दबाई गई कुंजी':'Pressed key'}</span><b id="jpPressedKey">—</b></div>${display.map(r=>`<div class="jp-key-row">${r.map(k=>`<span class="jp-key ${k[2]||''}" data-code="${k[1]}">${k[0]}</span>`).join('')}</div>`).join('')}<div class="jp-hand-hint">बड़ा अक्षर/चिह्न Hindi output है और छोटा अक्षर physical English key है · F/J पर index fingers रखें</div></div>`};
  const expand=(text,minutes)=>{const clean=String(text||'').trim();if(!clean)return '';const target=Math.max(180,minutes*175);let out=clean;while(out.split(/\s+/).length<target)out+=' '+clean;return out.split(/\s+/).slice(0,target).join(' ')};
  const spokenName=e=>{if(e.code==='Space')return 'space';if(e.code==='Backspace')return 'backspace';if(e.code==='Enter')return 'enter';if(e.code.startsWith('Key'))return e.code.slice(3);if(e.code.startsWith('Digit'))return e.code.slice(5);return String(e.key||keyNames[e.code]||'').replace('Arrow',' arrow')};
  function speakKey(name,lang){if(!document.getElementById('jpKeyNarration')?.checked||!('speechSynthesis' in window)||!name)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(name);u.lang=lang==='Hindi'?'hi-IN':'en-IN';u.rate=1.25;u.volume=.85;speechSynthesis.speak(u)}
@@ -4087,13 +4087,14 @@ body:not(.exam-mode) .topnav:has(a[data-route="home"].active) a.active{color:#ff
   const minutes=3,text=expand(base.text,minutes);S.learning={...base,text,start:Date.now(),errors:0,v3:true,index,minutes};
   setApp(`<div class="page jp-learn-shell"><div class="toolbar"><button class="btn btn-white" onclick="learning();setTimeout(()=>{openLearningFolderV3('${lang}');setTimeout(()=>renderLearningCourseV3('${lang}','${track.id}'),0)},0)">← Course</button><b>${esc(track.name)} · Stage ${index+1}/${learnerStages(lang,track).length}</b></div><div class="jp-posture"><div class="card jp-posture-card"><span class="badge">${esc(base.level)}</span><h2>${esc(base.title)}</h2><p>${esc(base.instruction)}</p><h3>Correct Keyboard Posture</h3><ul class="jp-posture-list"><li>पीठ सीधी, कंधे ढीले और दोनों पैर जमीन पर रखें।</li><li>कोहनी लगभग 90° और कलाई सीधी रखें।</li><li>नज़र matter पर रखें; keyboard को बार-बार न देखें।</li><li>F/J पर index fingers और Space पर thumbs रखें।</li></ul></div>${keyboard(lang,trackId)}</div><div class="card" style="padding:20px;margin-top:16px"><div class="jp-learning-controls"><label><b>Learning time</b> <select id="jpLearnMinutes" class="select"><option value="3" selected>3 Minutes (Minimum)</option><option value="5">5 Minutes</option><option value="10">10 Minutes</option></select></label><label class="jp-key-voice"><input id="jpKeyNarration" type="checkbox" checked> ${lang==='Hindi'?'दबाई गई Hindi key की आवाज ON':'Pressed key narration ON'}</label><button class="btn btn-white" id="jpRestartLearning">Restart selected time</button></div><h3 style="margin:5px 0 10px">Word Highlight Learning Matter</h3><div id="jpLearningPassage" class="jp-word-passage">${renderWords(text,0)}</div><textarea id="guidedTypingV3" class="input jp-learn-input" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Highlighted word यहाँ type करें..."></textarea><div class="jp-learning-status"><span id="guidedStatsV3" class="badge">0% complete · 0 errors</span><span id="jpLearnClock" class="badge">03:00 remaining</span></div><div style="margin-top:12px"><button class="btn btn-primary" onclick="finishGuidedV3('${lang}','${track.id}',${index})">Complete Stage</button>${index<learnerStages(lang,track).length-1?` <button class="btn btn-soft" onclick="startGuidedLessonV3('${lang}','${track.id}',${index+1})">Next Stage →</button>`:''}</div></div></div>`);
   const ta=document.getElementById('guidedTypingV3'),pass=document.getElementById('jpLearningPassage'),clock=document.getElementById('jpLearnClock');let duration=180,started=Date.now(),timer;
+  if(lang==='Hindi'&&legacyIds.includes(trackId)){const legacyFont=track?.layout||'Kruti Dev 010';pass.style.fontFamily=`"${legacyFont}","Kruti Dev 010",sans-serif`;ta.style.fontFamily=`"${legacyFont}","Kruti Dev 010",sans-serif`}
   const reset=()=>{duration=Number(document.getElementById('jpLearnMinutes').value)*60;const fresh=expand(base.text,duration/60);S.learning.text=fresh;S.learning.start=started=Date.now();ta.value='';previousValue='';rejectedErrors=0;pass.innerHTML=renderWords(fresh,0);clearInterval(timer);timer=setInterval(()=>{if(!document.body.contains(clock))return clearInterval(timer);const left=Math.max(0,duration-Math.floor((Date.now()-started)/1000));clock.textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')} remaining`;if(!left){clearInterval(timer);showToast('Selected learning time completed — अब stage complete कर सकते हैं।')}},1000);ta.focus()};
   document.getElementById('jpRestartLearning').onclick=reset;document.getElementById('jpLearnMinutes').onchange=reset;
   let previousValue='',rejectedErrors=0;
-  ta.addEventListener('keydown',e=>{document.querySelectorAll('.jp-key.active').forEach(x=>x.classList.remove('active'));const key=document.querySelector(`.jp-key[data-code="${e.code}"]`);key?.classList.add('active')});
+  ta.addEventListener('keydown',e=>{document.querySelectorAll('.jp-key.active').forEach(x=>x.classList.remove('active'));const key=document.querySelector(`.jp-key[data-code="${e.code}"]`);key?.classList.add('active');if(lang==='Hindi'){const shown=layoutMap(trackId)[e.code]||(e.code==='Space'?'स्पेस':'');if(shown){document.getElementById('jpPressedKey').textContent=shown;speakKey(shown,lang)}}});
   ta.addEventListener('keyup',e=>document.querySelector(`.jp-key[data-code="${e.code}"]`)?.classList.remove('active'));
   ta.addEventListener('beforeinput',e=>{if(lang!=='English'||e.isComposing||e.inputType!=='insertText'||!e.data)return;const start=ta.selectionStart,end=ta.selectionEnd,proposed=ta.value.slice(0,start)+e.data+ta.value.slice(end);if(S.learning.text.slice(0,proposed.length)!==proposed){e.preventDefault();rejectedErrors++;const shown=e.data===' '?'Space':e.data;document.getElementById('jpPressedKey').textContent=shown;speakKey(shown,lang);document.getElementById('guidedStatsV3').textContent=`${Math.min(100,ta.value.length/S.learning.text.length*100).toFixed(0)}% complete · ${rejectedErrors} errors`;showToast('Wrong key — highlight सही key आने तक आगे नहीं बढ़ेगा।')}});
-  ta.addEventListener('input',()=>{let correct=0,wrong=rejectedErrors;while(correct<ta.value.length&&ta.value[correct]===S.learning.text[correct])correct++;for(let i=0;i<ta.value.length;i++)if(ta.value[i]!==S.learning.text[i])wrong++;pass.innerHTML=renderWords(S.learning.text,correct);pass.querySelector('.current')?.scrollIntoView({block:'nearest'});document.getElementById('guidedStatsV3').textContent=`${Math.min(100,correct/S.learning.text.length*100).toFixed(0)}% complete · ${wrong} errors`;if(ta.value.length>previousValue.length){const added=ta.value.slice(previousValue.length);const spoken=lang==='Hindi'?(Array.from(added).filter(x=>x.trim()).pop()||'स्पेस'):(added.slice(-1)===' '?'Space':added.slice(-1));document.getElementById('jpPressedKey').textContent=spoken;speakKey(spoken,lang)}previousValue=ta.value});reset();
+  ta.addEventListener('input',()=>{let correct=0,wrong=rejectedErrors;while(correct<ta.value.length&&ta.value[correct]===S.learning.text[correct])correct++;for(let i=0;i<ta.value.length;i++)if(ta.value[i]!==S.learning.text[i])wrong++;pass.innerHTML=renderWords(S.learning.text,correct);pass.querySelector('.current')?.scrollIntoView({block:'nearest'});document.getElementById('guidedStatsV3').textContent=`${Math.min(100,correct/S.learning.text.length*100).toFixed(0)}% complete · ${wrong} errors`;if(ta.value.length>previousValue.length&&lang==='English'){const added=ta.value.slice(previousValue.length),spoken=added.slice(-1)===' '?'Space':added.slice(-1);document.getElementById('jpPressedKey').textContent=spoken;speakKey(spoken,lang)}previousValue=ta.value});reset();
  };
  window.jpLearningUpgradeStart=window.startGuidedLessonV3;
 })();
@@ -4177,27 +4178,48 @@ function closeMemorialThanks(){document.getElementById('memorialOverlay')?.class
 const HINDI_LEARNING_TRACKS=[
  {id:'inscript',name:'Unicode Hindi — InScript',layout:'InScript Unicode',note:'Government/exam focused Unicode keyboard learning'},
  {id:'remington-gail',name:'Unicode Hindi — Remington / GAIL',layout:'Remington / GAIL Unicode',note:'Unicode Remington/GAIL key mapping and drills'},
- {id:'krutidev',name:'Kruti Dev — Remington',layout:'Kruti Dev',note:'Kruti Dev Remington-style learning'},
+ {id:'krutidev010',name:'Kruti Dev 010 — Remington',layout:'Kruti Dev 010',note:'Kruti Dev 010 legacy Remington typing'},
+ {id:'krutidev011',name:'Kruti Dev 011 — Remington',layout:'Kruti Dev 011',note:'Kruti Dev 011 legacy Remington typing'},
+ {id:'krutidev012',name:'Kruti Dev 012 — Remington',layout:'Kruti Dev 012',note:'Kruti Dev 012 legacy Remington typing'},
+ {id:'krutidev013',name:'Kruti Dev 013 — Remington',layout:'Kruti Dev 013',note:'Kruti Dev 013 legacy Remington typing'},
+ {id:'krutidev014',name:'Kruti Dev 014 — Remington',layout:'Kruti Dev 014',note:'Kruti Dev 014 legacy Remington typing'},
+ {id:'krutidev015',name:'Kruti Dev 015 — Remington',layout:'Kruti Dev 015',note:'Kruti Dev 015 legacy Remington typing'},
+ {id:'krutidev016',name:'Kruti Dev 016 — Remington',layout:'Kruti Dev 016',note:'Kruti Dev 016 legacy Remington typing'},
  {id:'devlys',name:'DevLys',layout:'DevLys',note:'DevLys key mapping and practice'},
  {id:'chanakya',name:'Chanakya',layout:'Chanakya',note:'Chanakya layout learning'}
 ];
 function learnerStages(lang,track){
  const hi=lang==='Hindi', lay=track?.name||'English QWERTY';
+ const legacy=hi&&(/^(krutidev|devlys|chanakya)/.test(track?.id||''));
+ const hp=legacy?[
+  'd d f f j j k k l l ; ;','d f j k l ; d f j k l ;','df jk kl fd kj lj','qwer uiop qwer uiop','zxcv nm,. zxcv nm,.',
+  `d f g h j k l ; x c v b n m`,`dk fd dh dq dw ds dS dkS dks d`,`Hkkjr ljdkj dk;kZy; vH;FkhZ ijh{kk dEI;wVj izf'k{k.k`,
+  `fnukad 12-09-2026] Øekad 245@26] izfr'kr 85%`,`fu;fer vH;kl ls Vad.k dh xfr vkSj 'kq)rk esa lq/kkj gksrk gSA`,
+  `ljdkjh dk;kZy; esa vkosnu] vfHkys[k] i=kpkj vkSj fMftVy fjdkWMZ dh 'kq) izfof"V vko';d gSA`,
+  `vH;FkhZ dks fu/kkZfjr le; esa ewy ikB ds vuqlkj 'kq) Vad.k djrs gq, xfr cuk, j[kuh pkfg,A`,
+  `iz Ø = J {k K dk;kZy; Øekad izf'k{k.k vH;FkhZ`,`ijh{kk ds nkSjku 'kkar jgsa] ewy ikB dks /;ku ls i<+sa vkSj 'kCn Øe lqjf{kr j[ksaA`
+ ]:[
+  'क क र र त त स स च च ट ट','क र त स च ट क र त स च ट','कर तर सर रक सत चट','ौ ऐ ा ी ू ब ह ग द ज','ं म न व ल स य श ष ।',
+  'क ख ग घ च छ ज झ ट ठ ड ढ त थ द ध न प फ ब भ म य र ल व श स ह','का कि की कु कू के कै को कौ कृ प्र क्र त्र श्र','प्रशासन कार्यालय अभ्यर्थी परीक्षा कंप्यूटर प्रशिक्षण दृष्टि क्षेत्र क्रमांक',
+  'दिनांक 12-09-2026, क्रमांक 245/26, प्रतिशत 85%, (परीक्षा)।','नियमित अभ्यास से टंकण की गति और शुद्धता दोनों में सुधार होता है।',
+  'सरकारी कार्यालय में आवेदन, अभिलेख, पत्राचार, सत्यापन और डिजिटल रिकॉर्ड की शुद्ध प्रविष्टि आवश्यक है।','अभ्यर्थी को निर्धारित समय में मूल पाठ के अनुसार शुद्ध टंकण करते हुए गति और एकाग्रता बनाए रखनी चाहिए।',
+  'प्र क्र त्र श्र क्ष ज्ञ कार्यालय क्रमांक प्रशिक्षण अभ्यर्थी','परीक्षा के दौरान शांत रहें, मूल पाठ को ध्यान से पढ़ें, शब्द क्रम और विराम चिह्न सुरक्षित रखें तथा अनावश्यक सुधार से बचें।'
+ ];
  const stages=hi?[
-  ['01','Keyboard & Posture','Basic','कीबोर्ड की पहचान, सही बैठने की स्थिति, कलाई सीधी और स्क्रीन पर नजर रखें।','asdf jkl; asdf jkl;'],
-  ['02','Finger Positioning','Basic','Home position और हर उंगली की जिम्मेदारी समझें। Layout: '+lay,'asdf jkl; asdf jkl;'],
-  ['03','Home Row Control','Basic','Home-row keys को बिना keyboard देखे बार-बार दबाने का अभ्यास करें।','asdf jkl; fdsa ;lkj asdf jkl;'],
-  ['04','Top Row','Basic','ऊपरी row के अक्षर/keys को संबंधित उंगली से दबाएँ।','qwer uiop qwer uiop'],
-  ['05','Bottom Row','Basic','नीचे की row पर finger reach और home position पर वापसी का अभ्यास करें।','zxcv nm,. zxcv nm,.'],
-  ['06','Hindi Key Mapping','Basic','इस layout में स्वर, व्यंजन और प्रमुख key mapping को चरणबद्ध सीखें।','क ख ग घ च छ ज झ ट ठ ड ढ त थ द ध न प फ ब भ म य र ल व श स ह'],
-  ['07','Matra Practice','Intermediate','मात्राओं को सही अक्षर के साथ टाइप करें और गलत key-combination दोहराएँ।','का कि की कु कू के कै को कौ कृ प्र क्र त्र श्र'],
-  ['08','Words & Conjuncts','Intermediate','संयुक्त अक्षर, आधे अक्षर और सामान्य शब्दों का अभ्यास करें।','प्रशासन कार्यालय अभ्यर्थी परीक्षा कंप्यूटर प्रशिक्षण दृष्टि क्षेत्र क्रमांक'],
-  ['09','Numbers & Punctuation','Intermediate','अंक, तिथि, प्रतिशत, कोष्ठक और विराम चिह्न का अभ्यास करें।','दिनांक 12-09-2026, क्रमांक 245/26, प्रतिशत 85%, (परीक्षा)।'],
-  ['10','Sentence Rhythm','Intermediate','वाक्यों में समान लय, सही spacing और कम backspace पर ध्यान दें।','नियमित अभ्यास से टंकण की गति और शुद्धता दोनों में सुधार होता है।'],
-  ['11','Office & Exam Matter','Advanced','कार्यालयी और परीक्षा-उन्मुख शब्दावली के लंबे वाक्य टाइप करें।','सरकारी कार्यालय में आवेदन, अभिलेख, पत्राचार, सत्यापन और डिजिटल रिकॉर्ड की शुद्ध प्रविष्टि आवश्यक है।'],
-  ['12','Speed + Accuracy','Advanced','समयबद्ध अभ्यास में पहले accuracy सुरक्षित रखें, फिर controlled speed बढ़ाएँ।','अभ्यर्थी को निर्धारित समय में मूल पाठ के अनुसार शुद्ध टंकण करते हुए गति और एकाग्रता बनाए रखनी चाहिए।'],
-  ['13','Error Correction Drill','Advanced','अपनी repeated errors पहचानें और उन्हीं key combinations का targeted drill करें।','प्र क्र त्र श्र क्ष ज्ञ कार्यालय क्रमांक प्रशिक्षण अभ्यर्थी'],
-  ['14','Exam Ready Mock','Exam Ready','पूरा passage बिना keyboard देखे, निर्धारित समय और exam-like discipline में टाइप करें।','परीक्षा के दौरान शांत रहें, मूल पाठ को ध्यान से पढ़ें, शब्द क्रम और विराम चिह्न सुरक्षित रखें तथा अनावश्यक सुधार से बचें।']
+  ['01','Keyboard & Posture','Basic','कीबोर्ड की पहचान, सही बैठने की स्थिति, कलाई सीधी और स्क्रीन पर नजर रखें।',hp[0]],
+  ['02','Finger Positioning','Basic','Home position और हर उंगली की जिम्मेदारी समझें। Layout: '+lay,hp[1]],
+  ['03','Home Row Control','Basic','Home-row keys को बिना keyboard देखे बार-बार दबाने का अभ्यास करें।',hp[2]],
+  ['04','Top Row','Basic','ऊपरी row के अक्षर/keys को संबंधित उंगली से दबाएँ।',hp[3]],
+  ['05','Bottom Row','Basic','नीचे की row पर finger reach और home position पर वापसी का अभ्यास करें।',hp[4]],
+  ['06','Hindi Key Mapping','Basic','इस layout में स्वर, व्यंजन और प्रमुख key mapping को चरणबद्ध सीखें।',hp[5]],
+  ['07','Matra Practice','Intermediate','मात्राओं को सही अक्षर के साथ टाइप करें और गलत key-combination दोहराएँ।',hp[6]],
+  ['08','Words & Conjuncts','Intermediate','संयुक्त अक्षर, आधे अक्षर और सामान्य शब्दों का अभ्यास करें।',hp[7]],
+  ['09','Numbers & Punctuation','Intermediate','अंक, तिथि, प्रतिशत, कोष्ठक और विराम चिह्न का अभ्यास करें।',hp[8]],
+  ['10','Sentence Rhythm','Intermediate','वाक्यों में समान लय, सही spacing और कम backspace पर ध्यान दें।',hp[9]],
+  ['11','Office & Exam Matter','Advanced','कार्यालयी और परीक्षा-उन्मुख शब्दावली के लंबे वाक्य टाइप करें।',hp[10]],
+  ['12','Speed + Accuracy','Advanced','समयबद्ध अभ्यास में पहले accuracy सुरक्षित रखें, फिर controlled speed बढ़ाएँ।',hp[11]],
+  ['13','Error Correction Drill','Advanced','अपनी repeated errors पहचानें और उन्हीं key combinations का targeted drill करें।',hp[12]],
+  ['14','Exam Ready Mock','Exam Ready','पूरा passage बिना keyboard देखे, निर्धारित समय और exam-like discipline में टाइप करें।',hp[13]]
  ]:[
   ['01','Keyboard & Posture','Basic','Sit upright, keep wrists neutral, eyes on the passage, and feet comfortably supported.','asdf jkl; asdf jkl;'],
   ['02','Finger Positioning','Basic','Place left fingers on A S D F and right fingers on J K L ;. F and J are index-finger anchors.','asdf jkl; fj fj dk sl a;'],
