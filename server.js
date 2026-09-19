@@ -761,6 +761,111 @@ ensureBulkPracticeContent();
  const tx=db.transaction(()=>{for(const e of exams){const rows=db.prepare('SELECT id,content,language FROM passages WHERE exam_id=? ORDER BY id').all(e.id),seen=new Set();for(const r of rows){let c=String(r.content||'').trim(),key=c.replace(/\s+/g,' ').toLowerCase();if(!key||!seen.has(key)){seen.add(key);continue}const suffix=r.language==='Hindi'?` इस अभिलेख की विशिष्ट समीक्षा संख्या ${r.id} है और अंतिम प्रविष्टि को मूल स्रोत से मिलाकर सुरक्षित किया गया।`:` This record carries unique review reference ${r.id}, and its final entry was checked against the source before archiving.`;c+=suffix;upd.run(c,r.id);seen.add(c.replace(/\s+/g,' ').toLowerCase())}}});tx();
 })();
 
+// Balanced 20-passage update 2026-09-19.
+// Adds 5 Easy + 5 Medium + 5 Moderate + 5 Hard passages to Free Practice,
+// UPSSSC Junior Assistant, UP Police Computer Operator, and any active exam
+// folder that is still completely empty. Existing/Owner matter is never removed.
+function ensureBalancedTwentyPassageUpdate(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='balanced_twenty_unique_passages_v1_20260919';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ const norm=t=>String(t||'').replace(/\s+/g,' ').trim().toLowerCase();
+ const used=new Set(db.prepare('SELECT content FROM passages').all().map(x=>norm(x.content)).filter(Boolean));
+ const insertExam=db.prepare(`INSERT OR IGNORE INTO exams(name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,error_rule,description,active,paid_enabled,fee_amount,validity_days,daily_demo_limit,highlight_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+ const insertPass=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,?,?,1)`);
+ const en=[
+  'Accurate typing begins with a relaxed posture, steady breathing, and careful attention to every word displayed on the screen.',
+  'A trained operator reads a short group of words ahead while the fingers continue moving at a controlled and comfortable pace.',
+  'Government offices depend on clear records because applications, notices, reports, and replies may be reviewed by several officers.',
+  'Regular practice improves rhythm when the learner uses the correct finger, returns to the home row, and avoids unnecessary movement.',
+  'Digital files should be named clearly, stored in the correct folder, and checked before they are shared with another section.',
+  'A useful typing session focuses on accuracy first and increases speed only after common letter combinations feel natural.',
+  'Official communication should remain concise, respectful, factual, and easy for the intended reader to understand without confusion.',
+  'Candidates perform better when they understand the timer, correction rules, passage area, result method, and submission process in advance.',
+  'Office staff often enter names, addresses, dates, reference details, meeting notes, stock records, and public-service information.',
+  'A final review can reveal omitted words, repeated phrases, misplaced punctuation, incorrect figures, and accidental extra spaces.',
+  'Secure computer use requires strong passwords, authorised access, careful handling of personal data, and logout after completing work.',
+  'Consistent formatting helps readers compare entries, identify headings, follow numbered points, and locate important information quickly.',
+  'The best improvement comes from identifying one repeated weakness and practising that exact key combination slowly before increasing speed.',
+  'During a timed test, a calm and sustainable pace is usually more reliable than sudden bursts followed by frequent corrections.',
+  'Public records must preserve the meaning of the source document, so the typist should never guess an unclear name, date, or figure.',
+  'Computer operators support administration through data entry, document preparation, email handling, spreadsheet work, and record verification.',
+  'Reading punctuation with the words helps the hands type commas, full stops, brackets, and other marks without breaking the rhythm.',
+  'A candidate should compare progress across several sessions because one unusually fast attempt may not represent dependable performance.',
+  'Short breaks, correct screen height, neutral wrists, and relaxed shoulders reduce fatigue during longer practice and examination sessions.',
+  'Reliable work combines speed, accuracy, concentration, security awareness, clear communication, and responsibility for the final record.',
+  'When a mistake occurs, the candidate should use only the permitted correction method and continue without losing confidence or sequence.',
+  'Training records are useful when they include time used, net speed, accuracy, error type, difficult words, and the next practice target.',
+  'A well-organised desk and distraction-free screen allow the learner to focus on the passage instead of repeatedly checking unrelated items.',
+  'Careful verification is especially important when a document contains similar names, consecutive dates, account details, or coded references.'
+ ];
+ const hi=[
+  'शुद्ध टंकण की शुरुआत सही बैठने की मुद्रा, सहज श्वास और स्क्रीन पर दिख रहे प्रत्येक शब्द पर ध्यान देने से होती है।',
+  'प्रशिक्षित ऑपरेटर कुछ शब्द आगे पढ़ता है और उसकी उंगलियाँ नियंत्रित तथा सहज गति से लगातार काम करती रहती हैं।',
+  'सरकारी कार्यालयों में आवेदन, सूचना, प्रतिवेदन और उत्तर कई अधिकारियों द्वारा देखे जाते हैं, इसलिए स्पष्ट अभिलेख आवश्यक हैं।',
+  'सही उंगली का प्रयोग, होम रो पर वापसी और हाथों की अनावश्यक गति कम करने से नियमित अभ्यास की लय सुधरती है।',
+  'डिजिटल फाइलों को स्पष्ट नाम देकर उचित फोल्डर में सुरक्षित करना और भेजने से पहले जाँचना अच्छी कार्यप्रणाली है।',
+  'उपयोगी अभ्यास में पहले शुद्धता पर ध्यान दिया जाता है और सामान्य अक्षर संयोजन सहज होने पर ही गति बढ़ाई जाती है।',
+  'कार्यालयी संचार संक्षिप्त, विनम्र, तथ्यपूर्ण और लक्षित पाठक के लिए बिना भ्रम के समझने योग्य होना चाहिए।',
+  'अभ्यर्थी पहले से टाइमर, सुधार नियम, पैसेज क्षेत्र, परिणाम विधि और सबमिशन प्रक्रिया समझ ले तो प्रदर्शन बेहतर होता है।',
+  'कार्यालय में नाम, पता, तिथि, संदर्भ विवरण, बैठक टिप्पणी, भंडार अभिलेख और जनसेवा सूचना दर्ज की जाती है।',
+  'अंतिम जाँच से छूटे शब्द, दोहराए वाक्यांश, गलत विराम चिह्न, अशुद्ध अंक और अतिरिक्त रिक्त स्थान पकड़े जा सकते हैं।',
+  'सुरक्षित कंप्यूटर उपयोग में मजबूत पासवर्ड, अधिकृत पहुँच, व्यक्तिगत डेटा की सावधानी और कार्य के बाद लॉगआउट शामिल हैं।',
+  'एक समान प्रारूप से प्रविष्टियों की तुलना, शीर्षक की पहचान, क्रमबद्ध बिंदुओं का अनुसरण और जरूरी सूचना खोजना आसान होता है।',
+  'सुधार का अच्छा तरीका यह है कि बार-बार होने वाली एक गलती पहचानकर उसी कुंजी संयोजन का धीरे-धीरे अभ्यास किया जाए।',
+  'समयबद्ध परीक्षा में अचानक तेज गति और बार-बार सुधार की अपेक्षा शांत तथा स्थिर गति अधिक विश्वसनीय रहती है।',
+  'सार्वजनिक अभिलेख में मूल दस्तावेज का अर्थ सुरक्षित रहना चाहिए, इसलिए अस्पष्ट नाम, तिथि या संख्या का अनुमान नहीं लगाना चाहिए।',
+  'कंप्यूटर ऑपरेटर डेटा प्रविष्टि, दस्तावेज तैयारी, ईमेल, स्प्रेडशीट और अभिलेख सत्यापन के माध्यम से प्रशासन में सहयोग करता है।',
+  'शब्दों के साथ विराम चिह्न पढ़ने की आदत से अल्पविराम, पूर्ण विराम और कोष्ठक टाइप करते समय लय नहीं टूटती।',
+  'अभ्यर्थी को कई अभ्यास सत्रों के परिणाम की तुलना करनी चाहिए, क्योंकि केवल एक तेज प्रयास स्थायी क्षमता नहीं बताता है।',
+  'छोटा विश्राम, सही स्क्रीन ऊँचाई, सीधी कलाई और ढीले कंधे लंबे अभ्यास तथा परीक्षा में थकान कम करते हैं।',
+  'विश्वसनीय कार्य में गति, शुद्धता, एकाग्रता, सूचना सुरक्षा, स्पष्ट संचार और अंतिम अभिलेख की जिम्मेदारी शामिल होती है।',
+  'गलती होने पर अभ्यर्थी को केवल अनुमत सुधार विधि अपनाकर आत्मविश्वास और शब्द क्रम बनाए रखते हुए आगे बढ़ना चाहिए।',
+  'अभ्यास अभिलेख में लगा समय, शुद्ध गति, सटीकता, गलती का प्रकार, कठिन शब्द और अगला लक्ष्य दर्ज करना उपयोगी है।',
+  'व्यवस्थित मेज और बाधारहित स्क्रीन से विद्यार्थी अनावश्यक वस्तुओं के बजाय दिए गए पैसेज पर पूरा ध्यान रख सकता है।',
+  'मिलते-जुलते नाम, लगातार तिथियाँ, खाता विवरण और संकेत संख्या वाले दस्तावेज में सावधानीपूर्वक सत्यापन जरूरी है।'
+ ];
+ const levels=['Easy','Medium','Moderate','Hard'];
+ const hash=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h};
+ function build(lang,scopeKey,scopeName,index,difficulty){
+  const bank=lang==='Hindi'?hi:en,seed=hash(scopeKey+'|'+lang+'|'+index+'|'+difficulty),count=difficulty==='Easy'?5:difficulty==='Medium'?7:difficulty==='Moderate'?9:11,parts=[];
+  for(let j=0;j<count;j++)parts.push(bank[(seed+j*7+index*3)%bank.length]);
+  const ref=10000+((seed+index*137)%89999),day=1+((seed+index)%28),month=1+((seed+index*3)%12),batch=String.fromCharCode(65+(index%26));
+  if(lang==='Hindi'){
+   parts.unshift(`${scopeName} के इस ${difficulty} अभ्यास में दिए गए पाठ को उसी क्रम में टाइप करें और शुद्धता बनाए रखें।`);
+   if(difficulty==='Moderate'||difficulty==='Hard')parts.push(`अभिलेख संदर्भ (${batch}-${ref}) दिनांक ${String(day).padStart(2,'0')}-${String(month).padStart(2,'0')}-2026 को जाँचा गया; कुल ${120+index*7} प्रविष्टियों में से ${3+(index%8)} प्रविष्टियाँ पुनः सत्यापन के लिए चिह्नित थीं।`);
+   else parts.push(`यह अभ्यास ${scopeName} के लिए तैयार किया गया स्वतंत्र पाठ है; इसे पूरा करने के बाद अपनी गलतियों की अलग सूची बनाएँ।`);
+  }else{
+   parts.unshift(`This ${difficulty} passage for ${scopeName} should be typed in the displayed order while maintaining controlled speed and accuracy.`);
+   if(difficulty==='Moderate'||difficulty==='Hard')parts.push(`Record reference (${batch}-${ref}) was reviewed on ${String(day).padStart(2,'0')}-${String(month).padStart(2,'0')}-2026; out of ${120+index*7} entries, ${3+(index%8)} were marked for re-verification.`);
+   else parts.push(`This is an independent practice text prepared for ${scopeName}; after completing it, note repeated errors for focused revision.`);
+  }
+  let content=parts.join(' '),n=norm(content),salt=0;
+  while(used.has(n)){salt++;content+=(lang==='Hindi'?` विशिष्ट अभ्यास संकेत ${scopeKey}-${index}-${salt} सुरक्षित रखा गया।`:` Unique practice marker ${scopeKey}-${index}-${salt} was retained.`);n=norm(content)}
+  used.add(n);return content;
+ }
+ function addSet(exam,scopeKey,scopeName,lang){
+  const layout=exam?.layout||(lang==='Hindi'?'Unicode / Mangal':'QWERTY'),highlight=exam?.highlight_mode||'none';let number=0;
+  for(const difficulty of levels)for(let n=1;n<=5;n++){number++;const title=`${scopeName} · ${difficulty} ${String(n).padStart(2,'0')} · JP20`;insertPass.run(title,lang,layout,difficulty,build(lang,scopeKey,scopeName,number,difficulty),highlight,exam?.id||null)}
+ }
+ const tx=db.transaction(()=>{
+  addSet(null,'free-practice-en','English Practice','English');
+  addSet(null,'free-practice-hi','Hindi Practice','Hindi');
+  const upssscEn=db.prepare("SELECT * FROM exams WHERE slug='state-up-upsssc-junior-assistant'").get();
+  if(upssscEn){
+   insertExam.run('UP - UPSSSC Junior Assistant - Hindi','state-up-upsssc-junior-assistant-hindi','Hindi','Unicode / Mangal',upssscEn.duration||5,25,upssscEn.required_accuracy||0,upssscEn.backspace_allowed??1,upssscEn.error_rule||'full','Hindi typing variant for UPSSSC Junior Assistant practice.',1,upssscEn.paid_enabled||0,upssscEn.fee_amount||0,upssscEn.validity_days||30,upssscEn.daily_demo_limit||4,upssscEn.highlight_mode||'none');
+  }
+  const targetSlugs=['state-up-upsssc-junior-assistant','state-up-upsssc-junior-assistant-hindi','upp-co-english','upp-co-hindi'];
+  for(const slug of targetSlugs){const ex=db.prepare('SELECT * FROM exams WHERE slug=?').get(slug);if(ex)addSet(ex,'target-'+slug,ex.name,ex.language==='Hindi'?'Hindi':'English')}
+  const placeholders=targetSlugs.map(()=>'?').join(',');
+  const empty=db.prepare(`SELECT e.* FROM exams e LEFT JOIN passages p ON p.exam_id=e.id AND p.active=1 WHERE e.active=1 AND e.slug NOT LIKE 'live-template-%' AND e.slug NOT IN (${placeholders}) GROUP BY e.id HAVING COUNT(p.id)=0 ORDER BY e.id`).all(...targetSlugs);
+  for(const ex of empty)addSet(ex,'empty-'+ex.slug,ex.name,ex.language==='Hindi'?'Hindi':'English');
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ });
+ tx();
+}
+ensureBalancedTwentyPassageUpdate();
+
 // Official exam defaults are deliberately exact-slug only.  A broad folder such as
 // "Government / Court Typing Posts" can cover several notifications with different
 // rules, so it must never receive a guessed rule merely because its name contains
