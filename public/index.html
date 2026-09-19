@@ -5066,60 +5066,85 @@ if(typeof window.jpLearningUpgradeStart==='function')window.startGuidedLessonV3=
 </script>
 
 
-<!-- JP_FREE_TYPING_PROMO_POPUP_VISIBLE_FIX_20260919 -->
-<style id="jp-free-typing-promo-popup-style-20260919-v2">
-#jpFreeTypingPromo{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,14,34,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;visibility:hidden;transition:opacity .34s ease,visibility .34s ease}
-#jpFreeTypingPromo.jp-show{opacity:1;visibility:visible}
-#jpFreeTypingPromo .jp-promo-shell{position:relative;width:min(1010px,96vw);max-width:96vw;max-height:94vh;aspect-ratio:4/3;animation:jpPromoEnter .58s cubic-bezier(.18,.89,.32,1.28) both;filter:drop-shadow(0 30px 70px rgba(2,8,23,.5))}
-#jpFreeTypingPromo.jp-leave{opacity:0;visibility:hidden}
-#jpFreeTypingPromo.jp-leave .jp-promo-shell{animation:jpPromoLeave .28s ease both}
-#jpFreeTypingPromo .jp-promo-img{display:block;width:100%;height:100%;object-fit:contain;border-radius:22px;user-select:none;-webkit-user-drag:none}
-#jpFreeTypingPromo .jp-promo-close{position:absolute;top:2.4%;right:1.8%;width:6.7%;aspect-ratio:1;border:0;border-radius:50%;background:transparent;cursor:pointer;z-index:3}
-#jpFreeTypingPromo .jp-promo-start{position:absolute;left:31.2%;top:76.2%;width:37.8%;height:8.5%;border:0;border-radius:999px;background:transparent;cursor:pointer;z-index:3;animation:jpPromoPulse 1.9s ease-in-out infinite}
-#jpFreeTypingPromo .jp-promo-login{position:absolute;left:39.0%;top:84.8%;width:22.0%;height:5.8%;border:0;border-radius:999px;background:transparent;cursor:pointer;z-index:3}
-#jpFreeTypingPromo .jp-promo-start:focus-visible,#jpFreeTypingPromo .jp-promo-close:focus-visible,#jpFreeTypingPromo .jp-promo-login:focus-visible{outline:3px solid #fff;outline-offset:3px}
-@keyframes jpPromoEnter{0%{opacity:0;transform:translateY(34px) scale(.92)}70%{opacity:1;transform:translateY(-5px) scale(1.012)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes jpPromoLeave{to{opacity:0;transform:translateY(18px) scale(.96)}}
-@keyframes jpPromoPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,255,0)}50%{box-shadow:0 0 0 10px rgba(52,211,255,.10)}}
-@media(max-width:700px){#jpFreeTypingPromo{padding:8px}#jpFreeTypingPromo .jp-promo-shell{width:100vw;max-width:100vw;max-height:96vh}#jpFreeTypingPromo .jp-promo-img{border-radius:14px}}
-@media(prefers-reduced-motion:reduce){#jpFreeTypingPromo .jp-promo-shell,#jpFreeTypingPromo .jp-promo-start{animation:none!important}}
+<style id="jp-guest-typing-popup-style-v20260919">
+.jp-guestpromo-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.jp-guestpromo-overlay.show{opacity:1;pointer-events:auto}
+.jp-guestpromo-overlay .jp-guestpromo-backdrop{position:absolute;inset:0;background:rgba(7,16,29,.66);backdrop-filter:blur(9px)}
+body.jp-guestpromo-open{overflow:hidden}
+.jp-guestpromo-modal{position:relative;width:min(980px,96vw);max-height:min(92vh,980px);overflow:auto;border-radius:28px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 60%,#f7fbff 100%);border:1px solid rgba(52,96,255,.14);box-shadow:0 30px 120px rgba(7,16,29,.35);padding:26px 28px 24px;color:#10213d;animation:jpPromoPop .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes jpPromoPop{from{transform:translateY(18px) scale(.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.jp-guestpromo-close{position:absolute;right:16px;top:16px;width:46px;height:46px;border:none;border-radius:50%;background:#f3f6ff;color:#2447a6;font-size:28px;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(25,65,165,.12)}
+.jp-guestpromo-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding-right:58px}
+.jp-guestpromo-brand{display:flex;align-items:center;gap:14px}.jp-guestpromo-brandmark{width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,#255cf3,#7a3df0);color:#fff;display:grid;place-items:center;font-size:29px;box-shadow:0 12px 30px rgba(73,72,223,.28)}
+.jp-guestpromo-brand strong{display:block;font-size:22px;line-height:1.05;color:#1a3eae}.jp-guestpromo-brand small{display:block;color:#5e6f8f;margin-top:6px;font-weight:700}
+.jp-guestpromo-trust{display:inline-flex;align-items:center;gap:8px;background:#effaf3;border:1px solid #caefd5;color:#18794e;border-radius:999px;padding:11px 14px;font-size:13px;font-weight:800;white-space:nowrap}
+.jp-guestpromo-title{font-size:clamp(32px,4.4vw,60px);line-height:1.08;letter-spacing:-1.4px;margin:22px 0 10px;font-weight:900;color:#162a57}.jp-guestpromo-title .hi{color:#172f75}.jp-guestpromo-title .free{color:#7b2ff7;position:relative;display:inline-block}
+.jp-guestpromo-title .free:after{content:'';position:absolute;left:0;right:0;bottom:-7px;height:5px;border-radius:999px;background:linear-gradient(90deg,#2c8cff,#8d39ff)}
+.jp-guestpromo-sub{display:inline-flex;align-items:center;justify-content:center;background:#eef1ff;color:#2540a7;border-radius:999px;padding:12px 22px;font-size:clamp(16px,2vw,20px);font-weight:900;margin-bottom:24px}
+.jp-guestpromo-grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(280px,.8fr);gap:22px;align-items:center}
+.jp-guestpromo-features{display:grid;gap:14px}.jp-guestpromo-feature{display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,#f9fbff,#f2f7ff);border:1px solid #e3ebfb;border-radius:22px;padding:16px 18px;box-shadow:0 8px 22px rgba(41,76,170,.06)}
+.jp-guestpromo-icon{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,#f0e7ff,#eaf7ff);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.jp-guestpromo-feature b{font-size:18px;color:#16316c}
+.jp-guestpromo-right{position:relative;min-height:330px;border-radius:30px;background:radial-gradient(circle at 24% 16%,rgba(128,78,255,.14),transparent 28%),radial-gradient(circle at 80% 28%,rgba(36,165,255,.16),transparent 25%),linear-gradient(180deg,#fbfdff,#f1f6ff);border:1px solid #e6ecfb;padding:18px;overflow:hidden}
+.jp-guestpromo-badge{position:absolute;display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #e7ebff;border-radius:18px;padding:10px 12px;font-size:14px;font-weight:800;color:#264198;box-shadow:0 12px 25px rgba(37,76,170,.08)}
+.jp-guestpromo-badge.top{right:8px;top:30px}.jp-guestpromo-badge.mid{right:0;top:115px}
+.jp-guestpromo-note{position:absolute;left:24px;top:42px;transform:rotate(-4deg);background:#fff;border:1px solid #edf1ff;border-radius:18px;padding:18px 18px 14px;box-shadow:0 12px 34px rgba(47,65,146,.12);color:#28459a;font-weight:800;line-height:1.6;font-size:15px}
+.jp-guestpromo-note .tiny{display:block;margin-top:10px;color:#355ec5;font-size:14px;font-weight:900}
+.jp-guestpromo-scribble{position:absolute;left:18px;top:180px;color:#6b32ec;font-size:28px;font-weight:900;line-height:1.05;transform:rotate(-8deg)}
+.jp-guestpromo-kb{position:absolute;left:38px;right:36px;bottom:36px;padding:20px 18px 14px;border-radius:30px;background:linear-gradient(135deg,#b66cf9,#53a5ff);box-shadow:0 18px 42px rgba(96,89,237,.28)}
+.jp-guestpromo-kb:before{content:'';position:absolute;inset:8px 10px 10px;background:linear-gradient(180deg,#fdfcff,#ecf2ff);border-radius:24px}
+.jp-guestpromo-keys{position:relative;display:grid;grid-template-columns:repeat(10,1fr);gap:7px}
+.jp-guestpromo-keys span{height:20px;border-radius:8px;background:linear-gradient(180deg,#fff,#dce8ff);box-shadow:0 2px 0 #c8d6f3}
+.jp-guestpromo-keys span.wide{grid-column:span 2}.jp-guestpromo-keys span.space{grid-column:3/span 5}
+.jp-guestpromo-tail{position:absolute;right:18px;bottom:14px;color:#5f2ce0;font-size:24px;font-weight:900;line-height:1.1;text-align:right}
+.jp-guestpromo-info{margin-top:18px;background:#f1f6ff;border:1px solid #e0e9fb;border-radius:18px;padding:14px 18px;font-size:18px;font-weight:700;color:#23419d;text-align:center}
+.jp-guestpromo-actions{display:flex;flex-direction:column;gap:14px;align-items:center;margin-top:18px}
+.jp-guestpromo-btn-primary{min-width:min(100%,480px);border:none;border-radius:22px;padding:20px 28px;background:linear-gradient(90deg,#7d29ff,#0eafff);color:#fff;font-size:clamp(24px,3.2vw,36px);font-weight:900;box-shadow:0 18px 34px rgba(74,54,242,.3);cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.jp-guestpromo-btn-primary:hover{transform:translateY(-2px);box-shadow:0 24px 44px rgba(74,54,242,.38)}
+.jp-guestpromo-btn-secondary{border:2px solid #98aef0;background:#fff;color:#2445a7;border-radius:16px;padding:14px 30px;font-size:18px;font-weight:900;cursor:pointer}
+.jp-guestpromo-foot{margin-top:14px;text-align:center;color:#2445a7;font-weight:900}.jp-guestpromo-foot small{display:block;margin-top:7px;color:#62739a;font-weight:800}
+.jp-guestpromo-spark,.jp-guestpromo-spark2,.jp-guestpromo-spark3{position:absolute;width:11px;height:11px;border-radius:50%;background:#7b2ff7;opacity:.75;animation:jpSpark 2.8s ease-in-out infinite}
+.jp-guestpromo-spark{right:120px;top:90px}.jp-guestpromo-spark2{left:210px;top:212px;background:#ffb327;animation-delay:.8s}.jp-guestpromo-spark3{right:170px;top:220px;background:#1ac8ff;animation-delay:1.4s}
+@keyframes jpSpark{50%{transform:translateY(-8px) scale(1.25);opacity:1}}
+@media (max-width:860px){.jp-guestpromo-modal{padding:22px 16px 18px;border-radius:24px}.jp-guestpromo-top{flex-direction:column;align-items:flex-start;padding-right:54px}.jp-guestpromo-title{font-size:clamp(28px,8vw,44px)}.jp-guestpromo-sub{display:flex;width:100%}.jp-guestpromo-grid{grid-template-columns:1fr}.jp-guestpromo-right{min-height:280px}.jp-guestpromo-btn-primary{font-size:28px;padding:18px 20px}.jp-guestpromo-info{font-size:16px}}
+@media (max-width:560px){.jp-guestpromo-brand strong{font-size:19px}.jp-guestpromo-brandmark{width:52px;height:52px;font-size:26px}.jp-guestpromo-feature{padding:14px}.jp-guestpromo-feature b{font-size:16px}.jp-guestpromo-right{min-height:250px;padding:14px}.jp-guestpromo-note{left:12px;top:28px;padding:12px 14px;font-size:13px}.jp-guestpromo-scribble{font-size:22px;left:12px;top:150px}.jp-guestpromo-badge{font-size:12px;padding:8px 10px}.jp-guestpromo-btn-primary{font-size:24px}.jp-guestpromo-btn-secondary{width:100%}.jp-guestpromo-info{font-size:14px;line-height:1.5}}
 </style>
-<script id="jp-free-typing-promo-popup-script-20260919-v2">
+<script id="jp-guest-typing-popup-v20260919">
 (()=>{
-  const KEY='jp_free_typing_promo_seen_20260919_v2';
-  function isHome(){
-    if(location.pathname==='/owner-portal') return false;
-    const r=(location.hash||'#home').slice(1)||'home';
-    return r==='home';
+  const KEY='jpGuestTypingPromoSeenV3';
+  const AUTO_CLOSE_MS=180000;
+  function isGuestHome(){return document.body.classList.contains('public-landing') && document.querySelector('.public-home');}
+  function closePopup(markSeen=true){const el=document.getElementById('jpGuestTypingPromo');if(!el)return;el.classList.remove('show');document.body.classList.remove('jp-guestpromo-open');setTimeout(()=>{el.remove()},280);if(markSeen)sessionStorage.setItem(KEY,'1');}
+  function openPopup(){
+    if(!isGuestHome())return;
+    if(sessionStorage.getItem(KEY)==='1')return;
+    if(document.getElementById('jpGuestTypingPromo'))return;
+    const wrap=document.createElement('div');
+    wrap.id='jpGuestTypingPromo';
+    wrap.className='jp-guestpromo-overlay';
+    wrap.innerHTML=`<div class="jp-guestpromo-backdrop"></div><div class="jp-guestpromo-modal" role="dialog" aria-modal="true" aria-label="Typing Test Promotion Popup"><button class="jp-guestpromo-close" aria-label="Close popup">×</button><div class="jp-guestpromo-top"><div class="jp-guestpromo-brand"><div class="jp-guestpromo-brandmark">⌨</div><div><strong>jptyping.in</strong><small>Type Today &nbsp;|&nbsp; Build Tomorrow</small></div></div><div class="jp-guestpromo-trust">✅ Trusted by Thousands of Aspirants</div></div><div class="jp-guestpromo-title"><span class="hi">Real Exam Jaisa Typing Test</span> — <span class="free">बिल्कुल Free</span></div><div class="jp-guestpromo-sub">UP Police CO / Junior Assistant Typing Practice</div><div class="jp-guestpromo-grid"><div class="jp-guestpromo-features"><div class="jp-guestpromo-feature"><div class="jp-guestpromo-icon">📄</div><b>Exam-oriented passages</b></div><div class="jp-guestpromo-feature"><div class="jp-guestpromo-icon">⏱️</div><b>Speed + Accuracy + Mistake Analysis</b></div><div class="jp-guestpromo-feature"><div class="jp-guestpromo-icon">⌨️</div><b>Hindi & English Typing Practice</b></div><div class="jp-guestpromo-feature"><div class="jp-guestpromo-icon">✅</div><b>No Payment Required to Start</b></div></div><div class="jp-guestpromo-right"><div class="jp-guestpromo-spark"></div><div class="jp-guestpromo-spark2"></div><div class="jp-guestpromo-spark3"></div><div class="jp-guestpromo-note">Type<br>Practice<br>Progress<br>Success <span class="tiny">You Can Do It! 💙</span></div><div class="jp-guestpromo-scribble">Small<br>Practice<br>Big Results ↗</div><div class="jp-guestpromo-badge top">🏆 Same as Real Exam</div><div class="jp-guestpromo-badge mid">🎯 Faster • Brighter • Stronger</div><div class="jp-guestpromo-kb"><div class="jp-guestpromo-keys"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="wide"></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="wide"></span><span></span><span></span><span class="space"></span><span></span><span></span></div></div><div class="jp-guestpromo-tail">Government<br>Job is Waiting<br>for You!</div></div></div><div class="jp-guestpromo-info">पहले Test दें, Result देखें — फिर चाहें तो Free Account बनाकर अपनी progress save करें।</div><div class="jp-guestpromo-actions"><button class="jp-guestpromo-btn-primary" type="button">▶ Start Free Typing Test →</button><button class="jp-guestpromo-btn-secondary" type="button">👤 Login / Sign Up</button></div><div class="jp-guestpromo-foot">jptyping.in<small>Practice • Improve • Get Selected ❤️</small></div></div>`;
+    document.body.appendChild(wrap);
+    document.body.classList.add('jp-guestpromo-open');
+    requestAnimationFrame(()=>wrap.classList.add('show'));
+    const closeBtn=wrap.querySelector('.jp-guestpromo-close');
+    const backdrop=wrap.querySelector('.jp-guestpromo-backdrop');
+    const primary=wrap.querySelector('.jp-guestpromo-btn-primary');
+    const secondary=wrap.querySelector('.jp-guestpromo-btn-secondary');
+    closeBtn.onclick=()=>closePopup(true);
+    backdrop.onclick=()=>closePopup(true);
+    primary.onclick=()=>{closePopup(true);if(typeof auth==='function')auth('register');};
+    secondary.onclick=()=>{closePopup(true);if(typeof auth==='function')auth('login');};
+    setTimeout(()=>{if(document.getElementById('jpGuestTypingPromo'))closePopup(true)},AUTO_CLOSE_MS);
   }
-  function closePromo(){
-    const o=document.getElementById('jpFreeTypingPromo'); if(!o)return;
-    o.classList.add('jp-leave');
-    setTimeout(()=>o.remove(),300);
+  function schedulePopup(){if(!isGuestHome())return;setTimeout(openPopup,900);}
+  const originalGuestHome=window.guestHome;
+  if(typeof originalGuestHome==='function' && !originalGuestHome.__jpTypingPromoWrapped){
+    const wrapped=function(){const out=originalGuestHome.apply(this,arguments);schedulePopup();return out;};
+    wrapped.__jpTypingPromoWrapped=true;window.guestHome=wrapped;
   }
-  function mount(){
-    if(!isHome() || document.getElementById('jpFreeTypingPromo')) return;
-    try{ if(sessionStorage.getItem(KEY)==='1') return; sessionStorage.setItem(KEY,'1'); }catch(_){ }
-    const o=document.createElement('div');
-    o.id='jpFreeTypingPromo';
-    o.setAttribute('role','dialog');
-    o.setAttribute('aria-modal','true');
-    o.setAttribute('aria-label','Free Typing Test promotion');
-    o.innerHTML=`<div class="jp-promo-shell">
-      <img class="jp-promo-img" src="/promo/free-typing-test-popup.png" alt="Real Exam Jaisa Typing Test — बिल्कुल Free. UP Police CO / Junior Assistant Typing Practice.">
-      <button class="jp-promo-close" type="button" aria-label="Close"></button>
-      <button class="jp-promo-start" type="button" aria-label="Start Free Typing Test"></button>
-      <button class="jp-promo-login" type="button" aria-label="Login or Sign Up"></button>
-    </div>`;
-    document.body.appendChild(o);
-    requestAnimationFrame(()=>requestAnimationFrame(()=>o.classList.add('jp-show')));
-    o.querySelector('.jp-promo-close').addEventListener('click',closePromo);
-    o.querySelector('.jp-promo-start').addEventListener('click',()=>{closePromo();setTimeout(()=>{location.hash='#practice'},110)});
-    o.querySelector('.jp-promo-login').addEventListener('click',()=>{closePromo();setTimeout(()=>{location.hash='#login'},110)});
-    o.addEventListener('click',e=>{if(e.target===o)closePromo()});
-    document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){closePromo();document.removeEventListener('keydown',esc)}});
-  }
-  function schedule(){setTimeout(mount,1000)}
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',schedule,{once:true}); else schedule();
+  window.addEventListener('hashchange',()=>setTimeout(schedulePopup,120));
+  window.addEventListener('load',()=>setTimeout(schedulePopup,1200));
+  setTimeout(schedulePopup,1200);
 })();
 </script>
+
