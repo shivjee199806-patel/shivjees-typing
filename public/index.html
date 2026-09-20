@@ -669,7 +669,7 @@ function layout(){
  const topnav=document.getElementById('topnav');
  if(guest){
   topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showHomeAbout(event)">About</a><a href="#how" onclick="setTimeout(()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'}),30)">How to Learn</a><a href="#motivation" onclick="setTimeout(()=>document.getElementById('motivation')?.scrollIntoView({behavior:'smooth'}),30)">Motivation</a><a id="jpTypingTryNav" class="jp-typing-try-nav" href="javascript:void(0)" onclick="jpOpenQuickTypingTest(event)">⚡ Test Your Typing Here</a><a data-route="gallery" href="#gallery">Gallery</a><a data-route="information" href="#information">Information</a>`;
-  document.getElementById('topActions').innerHTML=`<button class="btn btn-white jp-auth-btn jp-auth-login-btn" onclick="auth('login')">Login</button><button class="btn btn-white jp-auth-btn jp-auth-signup-btn" onclick="auth('register')">Sign Up</button>`;
+  document.getElementById('topActions').innerHTML=`<button class="btn btn-white jp-auth-btn jp-auth-login-btn" onclick="auth('login')"><span class="jp-auth-ico">👤</span><span class="jp-auth-label">Login</span></button><button class="btn btn-white jp-auth-btn jp-auth-signup-btn" onclick="auth('register')"><span class="jp-auth-ico">➕</span><span class="jp-auth-label">Sign Up</span></button>`;
   document.getElementById('adminNav').innerHTML='';
  }else{
   topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a><a data-route="information" href="#information">Information</a><a data-route="pricing" href="#pricing">Pricing</a>${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
@@ -5141,15 +5141,18 @@ body.public-landing .topnav .jp-typing-try-nav:before{content:'NEW';position:abs
 
 
 
+
 <style id="jp-guest-header-final-fix-20260920">
-/* Guest header only: mobile responsive top tabs + standout Login/Sign Up buttons. */
+/* Guest header only: final mobile-responsive layout with glow Login/Sign Up buttons. */
 body.public-landing .top-actions{display:flex!important;flex-wrap:nowrap!important;flex:0 0 auto!important;align-items:center!important;gap:8px!important;white-space:nowrap!important}
 body.public-landing .top-actions .btn{flex:0 0 auto!important;white-space:nowrap!important;margin:0!important}
-body.public-landing .top-actions .jp-auth-btn{border-radius:14px!important;font-weight:900!important;letter-spacing:.2px!important;padding:10px 14px!important;position:relative!important;overflow:hidden!important;border:1px solid rgba(255,255,255,.24)!important;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important}
+body.public-landing .top-actions .jp-auth-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;border-radius:16px!important;font-weight:900!important;letter-spacing:.2px!important;padding:10px 14px!important;position:relative!important;overflow:hidden!important;border:1px solid rgba(255,255,255,.24)!important;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important}
 body.public-landing .top-actions .jp-auth-btn:hover{transform:translateY(-1px)!important;filter:brightness(1.03)!important}
-body.public-landing .top-actions .jp-auth-btn::before{content:'';position:absolute;inset:-30% auto auto -35%;width:62%;height:180%;background:linear-gradient(120deg,rgba(255,255,255,0),rgba(255,255,255,.48),rgba(255,255,255,0));transform:rotate(18deg);pointer-events:none}
-body.public-landing .top-actions .jp-auth-login-btn{background:linear-gradient(135deg,#102648,#1b4d8f)!important;color:#fff!important;border-color:#6ea8ff!important;box-shadow:0 0 0 1px rgba(110,168,255,.22),0 0 14px rgba(37,99,235,.22),0 10px 22px rgba(10,31,68,.28)!important}
-body.public-landing .top-actions .jp-auth-signup-btn{background:linear-gradient(135deg,#ffb347,#ff7a18)!important;color:#fff!important;border-color:#ffd396!important;box-shadow:0 0 0 1px rgba(255,190,92,.24),0 0 16px rgba(255,146,43,.30),0 12px 24px rgba(112,50,0,.24)!important}
+body.public-landing .top-actions .jp-auth-btn::before{content:'';position:absolute;inset:-28% auto auto -35%;width:62%;height:180%;background:linear-gradient(120deg,rgba(255,255,255,0),rgba(255,255,255,.50),rgba(255,255,255,0));transform:rotate(18deg);pointer-events:none}
+body.public-landing .top-actions .jp-auth-btn .jp-auth-ico{position:relative;z-index:1;font-size:13px;line-height:1}
+body.public-landing .top-actions .jp-auth-btn .jp-auth-label{position:relative;z-index:1}
+body.public-landing .top-actions .jp-auth-login-btn{background:linear-gradient(135deg,#0d2450,#1960d4)!important;color:#fff!important;border-color:#76b2ff!important;box-shadow:0 0 0 1px rgba(110,168,255,.22),0 0 14px rgba(37,99,235,.22),0 10px 22px rgba(10,31,68,.28)!important}
+body.public-landing .top-actions .jp-auth-signup-btn{background:linear-gradient(135deg,#ffb347,#ff6b00)!important;color:#fff!important;border-color:#ffd396!important;box-shadow:0 0 0 1px rgba(255,190,92,.24),0 0 16px rgba(255,146,43,.30),0 12px 24px rgba(112,50,0,.24)!important}
 @media (min-width:781px) and (max-width:1400px){
   body.public-landing .topbar{padding-left:14px!important;padding-right:14px!important;gap:10px!important}
   body.public-landing .brand{min-width:195px!important}
@@ -5159,20 +5162,33 @@ body.public-landing .top-actions .jp-auth-signup-btn{background:linear-gradient(
   body.public-landing .top-actions .btn{padding:9px 12px!important;font-size:13px!important}
 }
 @media (max-width:780px){
-  body.public-landing .topbar{height:auto!important;min-height:72px!important;flex-wrap:wrap!important;align-items:center!important;padding:8px 10px!important;gap:8px!important}
-  body.public-landing .brand{min-width:0!important;flex:1 1 auto!important;max-width:calc(100% - 138px)!important;overflow:hidden!important}
-  body.public-landing .topnav{display:flex!important;order:3!important;flex:0 0 100%!important;width:100%!important;gap:6px!important;min-width:0!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;padding:4px 2px 2px!important;margin-top:2px!important;-webkit-overflow-scrolling:touch!important}
-  body.public-landing .topnav::-webkit-scrollbar{display:none!important}
-  body.public-landing .topnav a{flex:0 0 auto!important;white-space:nowrap!important;padding:8px 10px!important;font-size:12px!important;border-radius:12px!important}
-  body.public-landing .top-actions{margin-left:auto!important;gap:5px!important}
-  body.public-landing .top-actions .jp-auth-btn{padding:8px 10px!important;font-size:11.5px!important;border-radius:12px!important}
-}
-@media (max-width:380px){
-  body.public-landing .brand{max-width:calc(100% - 130px)!important}
-  body.public-landing .brand strong{font-size:13px!important}
+  body.public-landing .topbar{display:grid!important;grid-template-columns:42px minmax(0,1fr) auto!important;grid-template-areas:'menu brand actions' 'nav nav nav'!important;align-items:center!important;column-gap:8px!important;row-gap:8px!important;height:auto!important;min-height:74px!important;padding:8px 10px!important;overflow:visible!important}
+  body.public-landing .menuBtn{grid-area:menu!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:42px!important;flex:0 0 42px!important;padding:0!important;margin:0!important}
+  body.public-landing .brand{grid-area:brand!important;min-width:0!important;max-width:none!important;flex:none!important;overflow:hidden!important;gap:8px!important}
   body.public-landing .brand img{width:34px!important;height:34px!important;flex:0 0 34px!important}
-  body.public-landing .top-actions .jp-auth-btn{padding:7px 8px!important;font-size:11px!important}
+  body.public-landing .brand strong{font-size:13px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  body.public-landing .top-actions{grid-area:actions!important;justify-self:end!important;align-self:center!important;gap:5px!important;margin:0!important}
+  body.public-landing .top-actions .jp-auth-btn{padding:8px 10px!important;font-size:11.5px!important;border-radius:13px!important;min-width:auto!important}
+  body.public-landing .top-actions .jp-auth-btn .jp-auth-ico{font-size:12px!important}
+  body.public-landing .topnav{grid-area:nav!important;display:flex!important;flex-wrap:nowrap!important;align-items:center!important;width:100%!important;max-width:100%!important;gap:6px!important;min-width:0!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;padding:2px 1px 3px!important;margin:0!important;scroll-padding-inline:8px!important}
+  body.public-landing .topnav::-webkit-scrollbar{display:none!important}
+  body.public-landing .topnav a{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;white-space:nowrap!important;padding:8px 10px!important;font-size:12px!important;border-radius:12px!important;max-width:none!important}
+}
+@media (max-width:520px){
+  body.public-landing .topbar{grid-template-columns:40px minmax(0,1fr) auto!important;padding:8px 8px!important;column-gap:7px!important}
+  body.public-landing .menuBtn{width:40px!important;height:40px!important;flex:0 0 40px!important}
+  body.public-landing .brand img{width:32px!important;height:32px!important;flex:0 0 32px!important}
+  body.public-landing .brand strong{font-size:12.5px!important}
+  body.public-landing .top-actions .jp-auth-btn{padding:7px 8px!important;font-size:10.8px!important;border-radius:12px!important;gap:4px!important}
+  body.public-landing .top-actions .jp-auth-btn .jp-auth-ico{font-size:11px!important}
   body.public-landing .topnav a{padding:8px 9px!important;font-size:11.5px!important}
 }
+@media (max-width:420px){
+  body.public-landing .brand strong{font-size:12px!important}
+  body.public-landing .top-actions .jp-auth-btn .jp-auth-label{display:none!important}
+  body.public-landing .top-actions .jp-auth-btn{padding:8px 9px!important;min-width:38px!important}
+  body.public-landing .top-actions .jp-auth-btn .jp-auth-ico{font-size:12px!important}
+}
 </style>
+
 
