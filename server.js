@@ -297,80 +297,10 @@ function matterExistsAnywhere(content,excludeQueueId=null){
  const ps=db.prepare('SELECT content FROM passages').all();
  return [...qs,...ps].some(x=>{const m=normalizeMatterForDuplicateCheck(x.content);return m===n||matterSimilarity(m,n)>=0.72});
 }
-function uniqueDailyMatter(language,difficulty,examName,queueDate,n,targetType='exam',examId=0){
- for(let attempt=0;attempt<100;attempt++){
-  const serial=n+(attempt*101)+(Number(examId)||0)*1009;
-  const text=dailyMatter(language,difficulty,examName,queueDate,serial,targetType);
-  if(!matterExistsAnywhere(text))return text;
- }
- throw new Error(`Could not create unique matter for ${examName||targetType}. Please review the matter bank.`);
-}
-function dailyMatter(language,difficulty,examName,queueDate,n,targetType='exam'){
- const name=String(examName||'Typing Exam'),low=name.toLowerCase();
- const nameSeed=[...name].reduce((a,c,i)=>a+c.charCodeAt(0)*(i+3),0);
- const seed=Number(queueDate.replace(/-/g,''))+n*71+nameSeed*19+(difficulty==='Hard'?307:difficulty==='Medium'?151:43)+(targetType==='live'?911:0);
- const pick=(a,k=0)=>a[Math.abs(seed+k)%a.length], ref=`${100+(seed%900)}/${10+(seed%90)}/${1000+(seed%8000)}`;
- let theme='government office';
- if(/railway|rrb|ntpc/.test(low))theme='railway operations'; else if(/police/.test(low))theme='police administration'; else if(/ssc|chsl|selection/.test(low))theme='staff selection office'; else if(/court|legal|judicial/.test(low))theme='court and legal records'; else if(/bank|ibps|sbi/.test(low))theme='banking records'; else if(/upsssc|secretariat|clerk/.test(low))theme='state clerical administration';
- if(String(language).toLowerCase()==='hindi'){
-  const themed={
-   'railway operations':['रेलवे नियंत्रण कक्ष में गाड़ी संख्या, आगमन समय, प्रस्थान समय और प्लेटफॉर्म सूचना का सही रिकॉर्ड रखा जाता है।','यात्री सूचना, आरक्षण विवरण और परिचालन संदेशों में अंक तथा समय को ठीक लिखना आवश्यक है।'],
-   'police administration':['पुलिस कार्यालय में प्रार्थना पत्र, दैनिक विवरण, पत्रावली और संदर्भ संख्या का स्पष्ट डिजिटल अभिलेख रखा जाता है।','थाना और शाखा स्तर के रिकॉर्ड में नाम, दिनांक, स्थान तथा क्रमांक की शुद्ध प्रविष्टि महत्वपूर्ण होती है।'],
-   'staff selection office':['चयन कार्यालय में आवेदन, प्रवेश पत्र, अभ्यर्थी विवरण और परीक्षा संबंधी सूचना का सावधानी से संधारण किया जाता है।','भर्ती अभिलेखों में रोल नंबर, तिथि, श्रेणी और पत्र क्रमांक को मूल स्रोत के अनुसार दर्ज करना आवश्यक है।'],
-   'state clerical administration':['राज्य कार्यालय में पत्राचार, पंजी, आदेश, आवेदन और अनुभागीय अभिलेख नियमित रूप से तैयार किए जाते हैं।','लिपिकीय कार्य में फाइल संख्या, प्राप्ति तिथि, प्रेषण विवरण और विषय पंक्ति की शुद्धता आवश्यक है।'],
-   'government office':['कार्यालयी कार्य में आवेदन, आदेश, सूचना, पंजी और डिजिटल अभिलेखों की सही प्रविष्टि आवश्यक है।','प्रशासनिक पत्राचार में नाम, तिथि, संख्या, विषय और संदर्भ को मूल पाठ के अनुसार लिखना चाहिए।']
-  };
-  const skills={Easy:['इस अभ्यास में छोटे वाक्य, सामान्य कार्यालयी शब्द और स्पष्ट संख्याएँ दी गई हैं। पहले शुद्धता बनाए रखें, फिर धीरे-धीरे गति बढ़ाएँ।','प्रत्येक शब्द के बीच एक सही स्पेस रखें और पूर्णविराम, अल्पविराम तथा अंकों को ध्यान से टाइप करें।'],Medium:['समयबद्ध अभ्यास में स्थिर लय बनाए रखें। कठिन शब्द, मिश्रित अंक और संदर्भ क्रमांक आते समय जल्दबाजी न करें; छूटा हुआ शब्द आगे की पंक्ति को प्रभावित नहीं करना चाहिए।','टंकण के दौरान स्क्रीन और स्रोत पाठ पर ध्यान रखें। अनावश्यक बैकस्पेस से बचें और हर पंक्ति के अंत में शब्द क्रम की मानसिक जाँच करें।'],Hard:['उन्नत अभ्यास में प्रशासनिक शब्दावली, तिथियाँ, प्रतिशत, कोष्ठक, संक्षिप्त रूप और लंबे वाक्य एक साथ दिए जाते हैं। उम्मीदवार को मूल क्रम, विराम चिह्न और संख्या प्रारूप बिना बदले टाइप करना चाहिए।','कठिन स्तर पर गति बढ़ाने के साथ omission, substitution और transposition जैसी त्रुटियों पर नियंत्रण आवश्यक है। लगातार अभ्यास के बाद अपनी त्रुटि सूची देखकर कमजोर key-combinations दोहराएँ।']};
-  const arr=themed[theme]||themed['government office'];
-  const open=pick([`${queueDate} के ${name} अभ्यास में संदर्भ ${ref} दर्ज किया गया।`,`अभ्यास क्रमांक ${n} में ${name} के लिए दिनांक ${queueDate} का नया टंकण पाठ तैयार किया गया।`,`${name} के आज के सेट में रिकॉर्ड ${ref} और दिनांक ${queueDate} को विशेष रूप से जाँचना है।`]);
-  return [open,pick(arr,3),pick(skills[difficulty],7),pick(arr,11),`यह ${difficulty} स्तर का स्वतंत्र अभ्यास सेट है। अंतिम पंक्ति में क्रमांक ${ref}, अभ्यास कोड H${seed%9999} और दिनांक ${queueDate} को ठीक उसी रूप में टाइप करें।`].join(' ');
- }
- const themed={
-  'railway operations':['Railway control records require accurate train numbers, arrival times, departure times and platform information.','Passenger notices, reservation details and operating messages must preserve figures, time formats and punctuation exactly.'],
-  'police administration':['Police office records include applications, daily reports, file references and official correspondence that must be entered clearly.','Names, dates, locations and reference numbers in station and branch records require careful digital entry.'],
-  'staff selection office':['Selection offices handle applications, admit-card records, candidate details and examination notices that require precise typing.','Recruitment records may combine roll numbers, dates, categories and reference codes that must match the source.'],
-  'state clerical administration':['State clerical work includes correspondence, registers, orders, applications and section records prepared on a regular schedule.','File numbers, receipt dates, dispatch details and subject lines should be typed exactly as supplied.'],
-  'government office':['Office work includes applications, orders, notices, registers and digital records that require accurate entry.','Administrative correspondence depends on correct names, dates, figures, subjects and references.']
- };
- const skills={Easy:['This set uses short sentences, common office vocabulary and clear figures. Protect accuracy first and increase speed gradually.','Keep one correct space between words and type commas, full stops and numbers exactly as printed.'],Medium:['Maintain a steady rhythm in timed practice. Slow down briefly for difficult words, mixed figures and reference codes instead of creating avoidable errors.','Keep attention on the source passage and screen. Avoid unnecessary corrections and check word order mentally at the end of each line.'],Hard:['Advanced practice combines administrative vocabulary, dates, percentages, brackets, abbreviations and long sentence structures. Preserve sequence, punctuation and number formats without alteration.','At higher speed, control omissions, substitutions and transpositions. Review repeated error patterns after each attempt and drill weak key combinations separately.']};
- const arr=themed[theme]||themed['government office'];
- const open=pick([`The ${name} practice dated ${queueDate} carries reference ${ref}.`,`Practice set ${n} for ${name} uses a fresh passage prepared on ${queueDate}.`,`Today's ${name} set requires careful entry of record ${ref} and date ${queueDate}.`]);
- return [open,pick(arr,3),pick(skills[difficulty],7),pick(arr,11),`This is an independent ${difficulty} practice set. Type reference ${ref}, practice code E${seed%9999}, and date ${queueDate} exactly as shown.`].join(' ');
-}
-function ensureDailyPassageQueue(forceDate,opts={}){
- const ip=indiaDateParts(),date=forceDate||ip.date;
- const enabled=String(setting('daily_queue_enabled')??'1')!=='0',skipDate=String(setting('daily_queue_skip_date')||'');
- if(!opts.force && (!enabled || skipDate===date)) return {created:0,date,skipped:true,enabled,skip_date:skipDate};
- if(opts.force){db.prepare("DELETE FROM daily_passage_queue WHERE queue_date=? AND manual=0 AND status='pending'").run(date)}
- const existing=Number(db.prepare('SELECT COUNT(*) c FROM daily_passage_queue WHERE queue_date=? AND manual=0').get(date).c||0);
- if(existing>0)return {created:0,date};
- const exams=db.prepare("SELECT * FROM exams WHERE active=1 AND slug NOT LIKE 'live-template-%'").all();
- const ins=db.prepare(`INSERT OR IGNORE INTO daily_passage_queue(queue_date,queue_no,target_type,exam_id,exam_name,language,difficulty,title,content,status) VALUES(?,?,?,?,?,?,?,?,?,'pending')`);
- let created=0;
- const tx=db.transaction(()=>{
-  for(const ex of exams){
-   for(const diff of ['Easy','Medium','Hard'])for(let n=1;n<=2;n++){
-    const qn=(['Easy','Medium','Hard'].indexOf(diff)*2)+n;
-    const title=`${date} • ${ex.name} • ${ex.language} • ${diff} • Daily ${n}`;
-    const r=ins.run(date,qn,'exam',ex.id,ex.name,ex.language,diff,title,uniqueDailyMatter(ex.language,diff,ex.name,date,n,'exam',ex.id));created+=r.changes;
-   }
-  }
-  // Automatic Live drafts are independently Owner-controlled. Default OFF until Owner enables them.
-  const liveDailyEnabled=String(setting('live_daily_enabled')??'0')==='1';
-  if(liveDailyEnabled){
-   for(const lang of ['English','Hindi'])for(const diff of ['Easy','Medium','Hard'])for(let n=1;n<=2;n++){
-    const qn=(lang==='English'?0:6)+(['Easy','Medium','Hard'].indexOf(diff)*2)+n;
-    const title=`${date} • LIVE • ${lang} • ${diff} • ${n}`;
-    const r=ins.run(date,qn,'live',null,'Live Typing',lang,diff,title,uniqueDailyMatter(lang,diff,'Live Typing',date,n,'live',0));created+=r.changes;
-   }
-  }
- });tx();return {created,date};
-}
-function scheduleDailyQueue(){
- let last='';
- const tick=()=>{try{const ip=indiaDateParts();if(ip.hour>=10&&last!==ip.date){ensureDailyPassageQueue(ip.date);last=ip.date}}catch(e){console.warn('Daily passage queue:',e.message)}};
- tick();setInterval(tick,60*1000).unref?.();
-}
+// Daily publishing is installed after schema migrations and exam seeding complete.
+let dailyPassages;
+function ensureDailyPassageQueue(date){return dailyPassages.run(date||indiaDateParts().date)}
+function scheduleDailyQueue(){return dailyPassages.start()}
 
 const passageCols=db.prepare("PRAGMA table_info(passages)").all().map(x=>x.name);
 if(!passageCols.includes('highlight_mode')) db.exec("ALTER TABLE passages ADD COLUMN highlight_mode TEXT NOT NULL DEFAULT 'none'");
@@ -1800,16 +1730,21 @@ app.delete('/api/admin/about-image/:slot',auth,admin,(req,res)=>{const slot=Stri
 app.get('/api/health',(req,res)=>res.json({ok:true,app:'Shivjee\'s Typing',version:'4.0-owner'}));
 
 // Owner review column for daily 10 AM passage drafts.
+dailyPassages=require('./daily-passages').createService(db,{setting,indiaDateParts});
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
- const status=String(req.query.status||'pending');
- const rows=db.prepare(`SELECT q.*,e.layout FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id WHERE (?='all' OR q.status=?) ORDER BY q.queue_date DESC,q.target_type,q.exam_name,q.language,CASE q.difficulty WHEN 'Easy' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,q.queue_no`).all(status,status);
- res.json(rows);
+ const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
+ const q=String(req.query.q||'').trim(),like='%'+q+'%';
+ const rows=db.prepare(`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?) AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,q,like,like,q,q,limit,offset);
+ res.set('Cache-Control','no-store');res.json(rows);
 });
-app.get('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>{const ip=indiaDateParts();res.json({enabled:String(setting('daily_queue_enabled')??'1')!=='0',skip_date:String(setting('daily_queue_skip_date')||''),today:ip.date});});
-app.put('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>{const enabled=!!req.body?.enabled,ip=indiaDateParts();const st=db.prepare(`INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP`);db.transaction(()=>{st.run('daily_queue_enabled',enabled?'1':'0');if(!enabled){st.run('daily_queue_skip_date',ip.date);db.prepare("DELETE FROM daily_passage_queue WHERE queue_date=? AND status='pending' AND manual=0").run(ip.date)}})();audit(req,'UPDATE','daily_queue_control','daily',enabled?'ON':'OFF for '+ip.date);res.json({ok:true,enabled,skip_date:String(setting('daily_queue_skip_date')||''),today:ip.date});});
+app.get('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>res.json(dailyPassages.controls()));
+app.put('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>{
+ const b=req.body||{};if(!['enabled','exam_enabled','practice_enabled'].some(k=>typeof b[k]==='boolean'))return res.status(400).json({error:'Boolean ON/OFF setting required'});
+ const control=dailyPassages.setControls(b);audit(req,'UPDATE','daily_queue_control','daily',JSON.stringify(control));res.json({ok:true,...control});
+});
 app.get('/api/admin/live-daily-control',auth,admin,(req,res)=>res.json({enabled:String(setting('live_daily_enabled')??'0')==='1'}));
 app.put('/api/admin/live-daily-control',auth,admin,(req,res)=>{const enabled=!!req.body?.enabled;const st=db.prepare(`INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP`);let removed=0;db.transaction(()=>{st.run('live_daily_enabled',enabled?'1':'0');if(!enabled){removed=db.prepare("DELETE FROM daily_passage_queue WHERE target_type='live' AND status='pending' AND manual=0").run().changes}})();audit(req,'UPDATE','live_daily_control','live',enabled?'ON':'OFF');res.json({ok:true,enabled,removed});});
-app.post('/api/admin/daily-passage-queue/generate',auth,admin,(req,res)=>res.json(ensureDailyPassageQueue(String(req.body?.date||'').trim()||undefined,{force:true})));
+app.post('/api/admin/daily-passage-queue/generate',auth,admin,(req,res)=>{try{res.json(ensureDailyPassageQueue(indiaDateParts().date))}catch(e){res.status(400).json({error:e.message})}});
 
 app.post('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const b=req.body||{},target_type=b.target_type==='live'?'live':'exam',examId=target_type==='exam'?(Number(b.exam_id)||null):null;
@@ -1822,11 +1757,16 @@ app.post('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
 });
 
 app.put('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{
- const id=Number(req.params.id),cur=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Draft not found'});
- const b=req.body||{},title=String(b.title??cur.title).trim(),content=String(b.content??cur.content).trim(),difficulty=['Easy','Medium','Hard'].includes(b.difficulty)?b.difficulty:cur.difficulty;
- if(!title||!content)return res.status(400).json({error:'Title and matter required'});
- if(matterExistsAnywhere(content,id))return res.status(409).json({error:'Duplicate matter rejected. Only unique exam-oriented matter is allowed.'});
- db.prepare('UPDATE daily_passage_queue SET title=?,content=?,difficulty=? WHERE id=?').run(title,content,difficulty,id);audit(req,'UPDATE','daily_passage_queue',id,title);res.json({ok:true});
+ const id=Number(req.params.id),cur=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Passage not found'});
+ const b=req.body||{},title=String(b.title??cur.title).trim().slice(0,250),content=String(b.content??cur.content).trim(),difficulty=['Easy','Medium','Moderate to Hard','Hard'].includes(b.difficulty)?b.difficulty:cur.difficulty;
+ if(!title||!content||content.length>100000)return res.status(400).json({error:'Title and matter required (maximum 100000 characters)'});
+ const normal=normalizeMatterForDuplicateCheck(content);
+ const duplicate=db.prepare('SELECT content FROM passages WHERE id<>?').all(cur.published_passage_id||0).some(p=>normalizeMatterForDuplicateCheck(p.content)===normal);
+ if(duplicate)return res.status(409).json({error:'This complete passage already exists. Please use fresh matter.'});
+ db.transaction(()=>{
+  db.prepare('UPDATE daily_passage_queue SET title=?,content=?,difficulty=? WHERE id=?').run(title,content,difficulty,id);
+  if(cur.status==='published'&&cur.published_passage_id)db.prepare('UPDATE passages SET title=?,content=?,difficulty=? WHERE id=?').run(title,content,difficulty,cur.published_passage_id);
+ })();audit(req,'UPDATE','daily_passage_queue',id,title);res.json({ok:true});
 });
 app.delete('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM daily_passage_queue WHERE id=? AND status=?').run(id,'pending');audit(req,'DELETE','daily_passage_queue',id,'Draft deleted');res.json({ok:true})});
 app.post('/api/admin/daily-passage-queue/:id/publish',auth,admin,(req,res)=>{
@@ -2002,9 +1942,10 @@ app.post('/api/admin/brother/fetch-source',auth,admin,async(req,res)=>{
 
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});
 
-// Automatic Daily Passage Queue disabled by Owner; do not block server startup.
+// Daily auto-publishing starts after startup; durable slots prevent duplicate batches.
 const server=app.listen(PORT,()=>{
   console.log(`Shivjee\'s Typing running on http://localhost:${PORT}`);
+  setImmediate(scheduleDailyQueue);
   // Remote persistence starts only after the HTTP port is open, and never blocks site startup.
   setImmediate(()=>{initRemoteSqliteMirror().catch(e=>console.error('Remote database mirror startup failed:',e.message))});
 });
