@@ -5279,13 +5279,22 @@ body:not(.public-landing)[data-theme="dark"] .side-label{color:#9fb0c6!important
 /* Profile/dropdown and common fields. */
 body:not(.public-landing)[data-theme="dark"] .user-chip,
 body:not(.public-landing)[data-theme="dark"] .profile-dropdown,
-body:not(.public-landing)[data-theme="dark"] .profile-dropdown button,
+body:not(.public-landing)[data-theme="dark"] .profile-dropdown button:not(.theme-swatch),
 body:not(.public-landing)[data-theme="dark"] .theme-panel{
   background:var(--card)!important;
   color:var(--ink)!important;
   border-color:var(--line)!important;
 }
-body:not(.public-landing)[data-theme="dark"] .profile-dropdown button:hover{background:var(--soft)!important}
+body:not(.public-landing)[data-theme="dark"] .profile-dropdown button:not(.theme-swatch):hover{background:var(--soft)!important}
+body:not(.public-landing)[data-theme="dark"] .profile-dropdown .theme-swatch{
+  background:var(--sw)!important;
+  border:2px solid #dfe8f5!important;
+  box-shadow:0 0 0 1px #3d5572!important;
+}
+body:not(.public-landing)[data-theme="dark"] .profile-dropdown .theme-swatch.active{
+  box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--blue)!important;
+}
+
 
 /* Exam directory: remove white islands in dark mode. */
 body:not(.public-landing)[data-theme="dark"] .jp-exam-tabs-bar{
