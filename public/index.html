@@ -577,6 +577,26 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="jp-activate-collapsed-exam-directory-20260917">
 if(typeof window.jpCollapsedExamDirectory==='function')window.exams=window.jpCollapsedExamDirectory;
 </script>
+
+<style id="jp-member-desktop-header-cleanup-20260920">
+/* Logged-in header only: one Download App link, no wrapped profile row. */
+body:not(.public-landing) .top-actions{flex-wrap:nowrap!important;flex:0 0 auto!important;align-items:center!important;white-space:nowrap!important}
+body:not(.public-landing) .top-actions .profile-menu-wrap{flex:0 0 auto!important}
+body:not(.public-landing) .top-actions .user-chip{white-space:nowrap!important;margin:0!important}
+@media (min-width:901px) and (max-width:1500px){
+  body:not(.public-landing) .topbar{padding-left:12px!important;padding-right:12px!important;gap:9px!important}
+  body:not(.public-landing) .brand{min-width:165px!important;gap:8px!important}
+  body:not(.public-landing) .brand img{width:40px!important;height:40px!important}
+  body:not(.public-landing) .brand strong{font-size:15px!important}
+  body:not(.public-landing) .brand small{font-size:9px!important}
+  body:not(.public-landing) .topnav{display:flex!important;gap:4px!important;min-width:0!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important}
+  body:not(.public-landing) .topnav::-webkit-scrollbar{display:none!important}
+  body:not(.public-landing) .topnav a{flex:0 0 auto!important;white-space:nowrap!important;padding:8px 9px!important;font-size:12px!important}
+  body:not(.public-landing) .top-actions{margin-left:0!important}
+  body:not(.public-landing) .user-chip{padding:5px 8px 5px 5px!important;font-size:12px!important}
+  body:not(.public-landing) .avatar{width:28px!important;height:28px!important}
+}
+</style>
 </head>
 
 <style id="welcome-social-final-style">
@@ -674,7 +694,7 @@ function layout(){
   requestAnimationFrame(()=>{const n=document.getElementById('topnav');if(n)n.scrollLeft=0});
  }else{
   topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a><a data-route="information" href="#information">Information</a><a data-route="pricing" href="#pricing">Pricing</a>${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
-  document.getElementById('topActions').innerHTML=`${S.user.role!=='admin'?'<button type="button" class="btn jp-app-download-btn" onclick="downloadMobileApp()" title="Download Mobile App">📱 <span>Download App</span></button>':''}<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="location.hash='#dashboard';closeProfileMenu()">📊 My Dashboard</button><button onclick="location.hash='#history';closeProfileMenu()">🕘 Test History</button><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
+  document.getElementById('topActions').innerHTML=`<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="location.hash='#dashboard';closeProfileMenu()">📊 My Dashboard</button><button onclick="location.hash='#history';closeProfileMenu()">🕘 Test History</button><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
   document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
  }
  markThemeSwatch();
