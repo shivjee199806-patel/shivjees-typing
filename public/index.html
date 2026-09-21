@@ -5469,3 +5469,65 @@ body:not(.public-landing)[data-theme="dark"] .table td{background:#111b2d!import
   }
 })();
 </script>
+
+
+<!-- FINAL Exam behavior + live highlight feedback fix 2026-09-21
+     Rule: every new attempt starts from that exam's stored default.
+     A student override applies only after the student changes the control in that attempt.
+     Highlight visual contract: current = yellow, correct typed = green, wrong = red. -->
+<style id="jp-final-exam-highlight-feedback-20260921-v2">
+.exam-passage.highlight-none .tc.typed-correct,
+.exam-passage.highlight-none .tc.typed-wrong,
+.exam-passage.highlight-none .tc.current,
+.exam-passage.highlight-none .tc.current-word{background:transparent!important;color:inherit!important;text-decoration:none!important;border-left-color:transparent!important;outline:none!important}
+.exam-passage.highlight-errors .tc.typed-correct,
+.exam-passage.highlight-errors .tc.current,
+.exam-passage.highlight-errors .tc.current-word{background:transparent!important;color:inherit!important;text-decoration:none!important;border-left-color:transparent!important;outline:none!important}
+.exam-passage.highlight-char .tc.typed-correct,
+.exam-passage.highlight-word .tc.typed-correct{background:#dcfce7!important;color:#166534!important;text-decoration:none!important}
+.exam-passage.highlight-char .tc.typed-wrong,
+.exam-passage.highlight-word .tc.typed-wrong,
+.exam-passage.highlight-errors .tc.typed-wrong{background:#fecaca!important;color:#991b1b!important;text-decoration:underline!important;text-decoration-color:#dc2626!important}
+.exam-passage.highlight-char .tc.current{background:#fde047!important;color:#111827!important;border-left:2px solid #ca8a04!important}
+.exam-passage.highlight-word .tc.current-word{background:#fde68a!important;color:#111827!important;border-radius:3px!important}
+</style>
+<script id="jp-final-exam-default-behavior-highlight-20260921-v2">
+(()=>{
+  if(window.__jpFinalExamDefaultBehaviorHighlight20260921V2)return;
+  window.__jpFinalExamDefaultBehaviorHighlight20260921V2=true;
+  const HIGHLIGHT_MODES=['none','current_word','current_char','errors_only'];
+  const BACKSPACE_MODES=['off','unlimited','current_word','limited'];
+  const examKey=()=>String(S?.exam?.id||S?.exam?.slug||'default');
+  function examHighlightDefault(){const mode=String(S?.exam?.highlight_mode||'none');return HIGHLIGHT_MODES.includes(mode)?mode:'none'}
+  function examBackspaceDefault(){const raw=String(S?.exam?.backspace_mode||'');const mode=BACKSPACE_MODES.includes(raw)?raw:(Number(S?.exam?.backspace_allowed)?'unlimited':'off');const limit=mode==='limited'?Math.max(1,Math.floor(Number(S?.exam?.backspace_limit)||1)):0;return{mode,limit}}
+  function highlightLocked(){return Number(S?.exam?.highlight_user_change_allowed??1)!==1}
+  function setAttemptBackspace(rule){const mode=BACKSPACE_MODES.includes(rule?.mode)?rule.mode:'off';const limit=mode==='limited'?Math.max(1,Math.floor(Number(rule?.limit)||1)):0;S.__jpAttemptBackspaceChoice={mode,limit};S.attemptBackspaceStudentMode=mode;S.attemptBackspaceStudentLimit=limit||10;S.attemptBackspaceChoiceKey='st_backspace_mode_exam_'+examKey();S.attemptBackspaceMode=mode;S.attemptBackspaceLimit=limit;S.attemptBackspaceAllowed=mode!=='off'}
+  function setAttemptHighlight(mode){const def=examHighlightDefault();const value=highlightLocked()?def:(HIGHLIGHT_MODES.includes(mode)?mode:def);S.__jpAttemptHighlightChoice=value;S.attemptHighlightMode=value;return value}
+  function resetNewAttemptToExamDefaults(){if(!S?.exam)return;S.__jpHighlightTouchedThisAttempt=false;S.__jpBackspaceTouchedThisAttempt=false;setAttemptHighlight(examHighlightDefault());setAttemptBackspace(examBackspaceDefault())}
+  function restoreFinalAttemptState(){if(!S?.exam)return;setAttemptHighlight(S.__jpAttemptHighlightChoice||examHighlightDefault());setAttemptBackspace(S.__jpAttemptBackspaceChoice||examBackspaceDefault())}
+  function bindPickerToAttemptState(){
+    if(!S?.exam)return;restoreFinalAttemptState();
+    const hs=document.getElementById('pickerHighlightMode');
+    if(hs){hs.value=S.__jpAttemptHighlightChoice||examHighlightDefault();hs.disabled=highlightLocked();hs.title=highlightLocked()?'इस exam का highlight behaviour locked है.':'जब तक आप इसे नहीं बदलते, exam का default behaviour लागू रहेगा.';hs.onchange=()=>{S.__jpHighlightTouchedThisAttempt=true;setAttemptHighlight(hs.value)}}
+    const hc=document.getElementById('pickerHighlight');
+    if(hc){const mode=S.__jpAttemptHighlightChoice||examHighlightDefault();hc.checked=mode!=='none';hc.disabled=highlightLocked();hc.onchange=()=>{S.__jpHighlightTouchedThisAttempt=true;setAttemptHighlight(hc.checked?(examHighlightDefault()==='none'?'current_word':examHighlightDefault()):'none')}}
+    const bs=document.getElementById('pickerBackspaceModeChoice'),bl=document.getElementById('pickerBackspaceLimitChoice'),br=S.__jpAttemptBackspaceChoice||examBackspaceDefault();
+    if(bs){bs.value=br.mode;if(bl){bl.value=br.limit||10;bl.style.display=br.mode==='limited'?'':'none'};bs.onchange=()=>{S.__jpBackspaceTouchedThisAttempt=true;const mode=BACKSPACE_MODES.includes(bs.value)?bs.value:examBackspaceDefault().mode;const limit=mode==='limited'?Math.max(1,Math.floor(Number(bl?.value)||10)):0;setAttemptBackspace({mode,limit});if(bl)bl.style.display=mode==='limited'?'':'none'};if(bl)bl.onchange=()=>{S.__jpBackspaceTouchedThisAttempt=true;const mode=BACKSPACE_MODES.includes(bs.value)?bs.value:examBackspaceDefault().mode;const limit=Math.max(1,Math.floor(Number(bl.value)||10));bl.value=String(limit);setAttemptBackspace({mode,limit})}}
+    const bc=document.getElementById('pickerBackspace');if(bc)bc.checked=br.mode!=='off';
+  }
+  const previousOpen=window.openPassagePicker;
+  if(typeof previousOpen==='function')window.openPassagePicker=async function(...args){const out=await previousOpen.apply(this,args);resetNewAttemptToExamDefaults();bindPickerToAttemptState();queueMicrotask(bindPickerToAttemptState);return out};
+  const previousPickerRender=window.renderPassagePicker;
+  if(typeof previousPickerRender==='function')window.renderPassagePicker=function(...args){const keepH=S?.__jpAttemptHighlightChoice,keepB=S?.__jpAttemptBackspaceChoice?{...S.__jpAttemptBackspaceChoice}:null;const out=previousPickerRender.apply(this,args);if(keepH)S.__jpAttemptHighlightChoice=keepH;if(keepB)S.__jpAttemptBackspaceChoice=keepB;queueMicrotask(bindPickerToAttemptState);return out};
+  const previousPrepare=window.prepareSelectedPassage;
+  if(typeof previousPrepare==='function')window.prepareSelectedPassage=async function(id){const finalH=S?.__jpAttemptHighlightChoice||examHighlightDefault(),finalB=S?.__jpAttemptBackspaceChoice||examBackspaceDefault();const out=await previousPrepare.call(this,id);setAttemptHighlight(finalH);setAttemptBackspace(finalB);if(S.passage)S.passage.highlight_mode=S.attemptHighlightMode;return out};
+  window.updatePassage=function(t){
+    if(!S?.passage)return;const spans=document.querySelectorAll('#passage .tc'),p=String(S.passage.content||''),mode=HIGHLIGHT_MODES.includes(S.passage.highlight_mode)?S.passage.highlight_mode:'none',a=resyncAlign(p,t);let cur=null;
+    spans.forEach(sp=>sp.classList.remove('typed-correct','typed-wrong','current','current-word'));
+    if(mode!=='none')a.ops.forEach(op=>{if(op.oIndex==null||op.oIndex<0||op.oIndex>=spans.length)return;if(op.type==='match'&&(mode==='current_char'||mode==='current_word'))spans[op.oIndex]?.classList.add('typed-correct');else if(op.type==='sub'||op.type==='delete')spans[op.oIndex]?.classList.add('typed-wrong')});
+    const pos=Math.min(a.progressOriginal,Math.max(0,spans.length-1));
+    if(mode==='current_char'&&a.progressOriginal<spans.length){spans[a.progressOriginal]?.classList.add('current');cur=spans[a.progressOriginal]||null}else if(mode==='current_word'&&a.progressOriginal<spans.length){const pu=textUnits(p);let x=a.progressOriginal,b=x;while(x>0&&!/\s/.test(pu[x-1]))x--;while(b<pu.length&&!/\s/.test(pu[b]))b++;for(let k=x;k<b;k++)spans[k]?.classList.add('current-word');cur=spans[a.progressOriginal]||spans[pos]||null}else cur=spans[pos]||null;
+    if(cur&&Number(S.passage?.auto_scroll??1)===1){const box=document.getElementById('passage');if(box){const top=cur.offsetTop-box.offsetTop;if(top<box.scrollTop+35||top>box.scrollTop+box.clientHeight-45)box.scrollTop=Math.max(0,top-box.clientHeight/2)}}
+  };
+})();
+</script>
