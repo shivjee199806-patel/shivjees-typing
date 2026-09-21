@@ -640,9 +640,26 @@ const NORTH_RAILWAY_DIRECTORY_READY=ensureNorthRailwayExamDirectory();
 console.log('North/Railway exam sub-folders ready:',NORTH_RAILWAY_DIRECTORY_READY);
 // One-time compatibility fix: older builds incorrectly forced 90% accuracy on UP Police CO.
 db.prepare("UPDATE exams SET required_accuracy=0 WHERE slug IN ('upp-co-english','upp-co-hindi') AND required_accuracy=90").run();
-// UP Police CO baseline condition: 15 min, English 30 WPM/450 words; Hindi 25 WPM/375 words. Owner can change these later.
-db.prepare("UPDATE exams SET duration=15, required_wpm=30, min_words=450, qualification_method='words_wpm_accuracy' WHERE slug='upp-co-english' AND (min_words IS NULL OR min_words=0)").run();
-db.prepare("UPDATE exams SET duration=15, required_wpm=25, min_words=375, qualification_method='words_wpm_accuracy' WHERE slug='upp-co-hindi' AND (min_words IS NULL OR min_words=0)").run();
+// Verified core qualification profiles. Run once so later Owner edits remain authoritative.
+// UP Police Computer Operator (2026 notice): 15 min, English 30 WPM / Hindi 25 WPM, 85% accuracy.
+// RRB NTPC and SSC CHSL use additional official mistake/error rules, so they are explicitly marked
+// as special instead of pretending a generic WPM-only calculator is an exact official pass/fail result.
+(function applyVerifiedQualificationCoreOnce(){
+  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+  const marker='verified_qualification_core_20260922_v1';
+  if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+  const set=db.prepare(`UPDATE exams SET duration=?,required_wpm=?,required_accuracy=?,min_words=?,min_chars=0,qualification_method=?,qualification_note=? WHERE slug=?`);
+  db.transaction(()=>{
+    set.run(15,30,85,0,'wpm_accuracy','Verified: UP Police Computer Operator English — 30 WPM and 85% accuracy in 15 minutes.','upp-co-english');
+    set.run(15,25,85,0,'wpm_accuracy','Verified: UP Police Computer Operator Hindi — 25 WPM and 85% accuracy in 15 minutes.','upp-co-hindi');
+    set.run(10,30,0,300,'special_rrb_ntpc','Official RRB CBTST uses 300 English words / 250 Hindi words plus full/half-mistake and 5% grace formula; generic WPM alone is not an exact qualification decision.','railway-rrb-ntpc-typing-skill-test');
+    set.run(10,25,0,250,'special_rrb_ntpc','Official RRB CBTST uses 300 English words / 250 Hindi words plus full/half-mistake and 5% grace formula; generic WPM alone is not an exact qualification decision.','railway-rrb-ntpc-typing-skill-test-hindi');
+    set.run(10,35,0,0,'special_ssc_chsl','SSC CHSL typing is qualifying, but the permissible error percentage is category-dependent; do not show a false universal Qualified/Not Qualified decision.','ssc-chsl-ldc-jsa-typing');
+    set.run(10,30,0,0,'special_ssc_chsl','SSC CHSL Hindi typing is 30 WPM, but the permissible error percentage is category-dependent; do not show a false universal Qualified/Not Qualified decision.','ssc-chsl-ldc-jsa-typing-hindi');
+    set.run(10,30,0,0,'wpm','Verified: Delhi Police HCM English minimum qualifying speed 30 WPM in 10 minutes.','delhi-police-hcm-typing');
+    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+  })();
+})();
 if(db.prepare('SELECT COUNT(*) c FROM passages').get().c===0){const p=[
 ['English Exam Passage 1','English','QWERTY','Medium','Government offices are increasingly using digital services to improve transparency and provide faster access to citizens. Regular practice, accurate typing, and careful attention to the passage can improve performance in a timed examination.'],
 ['English Exam Passage 2','English','QWERTY','Hard','Public administration requires accuracy, discipline and responsible use of information. Computer based work has become an essential part of modern offices, where clear communication and timely processing of applications are important.'],
@@ -1122,6 +1139,53 @@ function applyDocumentedExamFieldsOnce(){
 }
 try{applyDocumentedExamFieldsOnce();}catch(error){console.error('Documented exam defaults were not applied:',error.message);}
 
+// Verified real-exam highlight profiles (exact slugs only).
+// Safety rule: never switch highlighting ON just because an exam is computer-based.
+// Unknown/unverified exam folders keep their existing setting (normally 'none').
+// Student controls may still override the exam default for the current attempt.
+function applyVerifiedExamHighlightProfilesOnce(){
+ const marker='verified_exam_highlight_profiles_20260922_v1';
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ const profiles=[
+  // UPSSSC Junior Assistant: word highlighting + right/wrong feedback is used.
+  ['state-up-upsssc-junior-assistant','current_word'],
+  ['state-up-upsssc-junior-assistant-hindi','current_word'],
+
+  // UP Police Computer Operator / Ministerial: blind typing profile; no live highlight.
+  ['upp-co-english','none'],
+  ['upp-co-hindi','none'],
+  ['up-police-ministerial-typing','none'],
+  ['up-police-ministerial-typing-hindi','none'],
+
+  // Railway RRB NTPC CBTST: no word highlight / no live error highlight.
+  ['railway-rrb-ntpc-typing-skill-test','none'],
+  ['railway-rrb-ntpc-typing-skill-test-hindi','none'],
+
+  // SSC CHSL typing: no word highlight in the actual skill-test interface.
+  ['ssc-chsl-ldc-jsa-typing','none'],
+  ['ssc-chsl-ldc-jsa-typing-hindi','none'],
+
+  // DSSSB and Delhi High Court JJA are blind/no-live-highlight profiles.
+  ['state-delhi-dsssb-junior-assistant-ldc','none'],
+  ['state-delhi-dsssb-junior-assistant-ldc-hindi','none'],
+  ['central-dsssb-typing-skill-posts','none'],
+  ['central-dsssb-typing-skill-posts-hindi','none'],
+  ['state-delhi-high-court-junior-judicial-assistant','none'],
+  ['state-delhi-high-court-junior-judicial-assistant-hindi','none']
+ ];
+ const updateExam=db.prepare('UPDATE exams SET highlight_mode=? WHERE slug=?');
+ const updatePassages=db.prepare('UPDATE passages SET highlight_mode=? WHERE exam_id=(SELECT id FROM exams WHERE slug=?)');
+ db.transaction(()=>{
+  for(const [slug,mode] of profiles){
+   updateExam.run(mode,slug);
+   updatePassages.run(mode,slug);
+  }
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+}
+try{applyVerifiedExamHighlightProfilesOnce();}catch(error){console.error('Verified exam highlight profiles were not applied:',error.message);}
+
 // 21-Sep-2026 matter-only scope: remove only obsolete AUTO-GENERATED Exam bank rows.
 // Learning, Practice, Owner/manual matter and every exam setting remain untouched.
 // Rows already used by a result/live test are archived (active=0) rather than deleted.
@@ -1229,26 +1293,30 @@ app.post('/api/results',auth,(req,res)=>{
  const backspaces=Math.round(num(b.backspaces,0,1000000)),attemptId=String(b.attempt_id||'').trim().slice(0,100)||null,attemptStatus=b.attempt_status==='ended'?'ended':'submitted';
  const ruleWpm=e?Number(e.required_wpm||0):Number(passage.required_wpm||0),ruleAcc=e?Number(e.required_accuracy||0):Number(passage.required_accuracy||0),ruleWords=e?Number(e.min_words||0):Number(passage.min_words||0),ruleChars=e?Number(e.min_chars||0):Number(passage.min_chars||0),qualMethod=String(e?.qualification_method||passage.qualification_method||'all');
  const hasQualificationRule=ruleWpm>0||ruleAcc>0||ruleWords>0||ruleChars>0;
- const checks={wpm:net>=ruleWpm,accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
+ const specialQualificationRule=/^special_/i.test(qualMethod);
+ const qualificationConfigured=!!(hasQualificationRule&&!specialQualificationRule);
+ const checks={wpm:(ruleWpm<=0||net>=ruleWpm),accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
  let qualOk=true;
  if(qualMethod==='wpm')qualOk=checks.wpm;
  else if(qualMethod==='accuracy')qualOk=checks.accuracy;
  else if(qualMethod==='wpm_accuracy')qualOk=checks.wpm&&checks.accuracy;
  else if(qualMethod==='words_wpm_accuracy')qualOk=checks.words&&checks.wpm&&checks.accuracy;
  else if(qualMethod==='chars_wpm_accuracy')qualOk=checks.chars&&checks.wpm&&checks.accuracy;
+ else if(specialQualificationRule)qualOk=false;
  else qualOk=checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
- let passed=e?(hasQualificationRule&&qualOk?1:0):1;
- if(attemptId){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=? AND user_id=?').get(attemptId,req.user.id);if(old)return res.json({id:old.id,passed:old.passed,duplicate:true,exam:e?{name:e.name,required_wpm:e.required_wpm,required_accuracy:e.required_accuracy}:null})}
+ let passed=e?(qualificationConfigured&&qualOk?1:0):1;
+ const qualificationStatus=e?(qualificationConfigured?(passed?'qualified':'not_qualified'):(specialQualificationRule?'special_rule_check':'rule_not_configured')):'practice';
+ if(attemptId){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=? AND user_id=?').get(attemptId,req.user.id);if(old)return res.json({id:old.id,passed:old.passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}
  const wt=Array.isArray(b.word_timings)?b.word_timings.slice(0,1000).map(x=>({word:String(x.word||'').slice(0,80),ms:Math.max(0,Math.min(120000,Number(x.ms)||0)),index:Math.max(0,Number(x.index)||0)})):[];
- try{const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,gross,net,accuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);res.json({id,passed,exam:e?{name:e.name,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,metrics:{gross_wpm:gross,net_wpm:net,accuracy,correct_chars:good,wrong_chars:wrong,correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,total_passage_words:passageWords,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,exam:e?{name:e.name,required_wpm:e.required_wpm,required_accuracy:e.required_accuracy}:null})}throw err}
+ try{const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,gross,net,accuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);res.json({id,passed,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,metrics:{gross_wpm:gross,net_wpm:net,accuracy,correct_chars:good,wrong_chars:wrong,correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,total_passage_words:passageWords,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}throw err}
 });
-app.get('/api/results/me',auth,(req,res)=>res.json(db.prepare(`SELECT r.*,e.name exam_name,p.title passage_title FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id WHERE r.user_id=? ORDER BY r.id DESC`).all(req.user.id)));
-app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,e.name exam_name,e.required_wpm,e.required_accuracy,p.title passage_title,u.name user_name,u.email user_email FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(Number(req.params.id));if(!row)return res.status(404).json({error:'Result not found'});if(req.user.role!=='admin'&&row.user_id!==req.user.id)return res.status(403).json({error:'Not allowed'});try{row.word_timings=JSON.parse(row.word_timings||'[]')}catch{row.word_timings=[]}res.json(row)});
+app.get('/api/results/me',auth,(req,res)=>res.json(db.prepare(`SELECT r.*,e.name exam_name,e.qualification_method,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,CASE WHEN e.id IS NULL THEN 1 WHEN e.qualification_method LIKE 'special_%' THEN 0 WHEN COALESCE(e.required_wpm,0)>0 OR COALESCE(e.required_accuracy,0)>0 OR COALESCE(e.min_words,0)>0 OR COALESCE(e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.title passage_title FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id WHERE r.user_id=? ORDER BY r.id DESC`).all(req.user.id)));
+app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,e.name exam_name,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,e.qualification_method,e.qualification_note,CASE WHEN e.id IS NULL THEN 1 WHEN e.qualification_method LIKE 'special_%' THEN 0 WHEN COALESCE(e.required_wpm,0)>0 OR COALESCE(e.required_accuracy,0)>0 OR COALESCE(e.min_words,0)>0 OR COALESCE(e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.title passage_title,u.name user_name,u.email user_email FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(Number(req.params.id));if(!row)return res.status(404).json({error:'Result not found'});if(req.user.role!=='admin'&&row.user_id!==req.user.id)return res.status(403).json({error:'Not allowed'});try{row.word_timings=JSON.parse(row.word_timings||'[]')}catch{row.word_timings=[]}res.json(row)});
 app.get('/api/learning/progress',auth,(req,res)=>{const rows=db.prepare(`SELECT lesson_key,lesson_title,level,COUNT(*) attempts,MAX(score) best_score,MAX(wpm) best_wpm,ROUND(AVG(accuracy),1) avg_accuracy,MAX(created_at) last_practiced FROM learning_attempts WHERE user_id=? GROUP BY lesson_key ORDER BY MAX(id) DESC`).all(req.user.id);const totals=db.prepare(`SELECT COUNT(*) attempts,COUNT(DISTINCT lesson_key) lessons,COALESCE(MAX(wpm),0) best_wpm,COALESCE(ROUND(AVG(accuracy),1),0) avg_accuracy FROM learning_attempts WHERE user_id=?`).get(req.user.id);res.json({rows,totals})});
 app.get('/api/learning/history',auth,(req,res)=>{const limit=Math.min(200,Math.max(1,Number(req.query.limit)||50));res.json(db.prepare(`SELECT id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration,created_at FROM learning_attempts WHERE user_id=? ORDER BY id DESC LIMIT ?`).all(req.user.id,limit))});
 app.post('/api/learning/attempts',auth,(req,res)=>{const b=req.body||{},key=String(b.lesson_key||'').trim().slice(0,80);if(!key)return res.status(400).json({error:'Lesson key required'});const gate=learningAccessState(req.user.id,learningCourseKey(key));if(!gate.allowed)return res.status(402).json({error:'Learning demo finished. Payment required.',code:'LEARNING_PAYMENT_REQUIRED',course_key:learningCourseKey(key),plan:gate.plan});const id=db.prepare(`INSERT INTO learning_attempts(user_id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration) VALUES(?,?,?,?,?,?,?,?,?)`).run(req.user.id,key,String(b.lesson_title||key).slice(0,120),String(b.level||'Basic').slice(0,40),Number(b.score)||0,Number(b.wpm)||0,Math.max(0,Math.min(100,Number(b.accuracy)||0)),Math.max(0,Number(b.errors)||0),Math.max(0,Number(b.duration)||0)).lastInsertRowid;res.json({id})});
 app.get('/api/leaderboard',(req,res)=>{const range=req.query.range||'all';let where='';if(range==='daily')where="AND date(r.created_at)=date('now','localtime')";if(range==='weekly')where="AND date(r.created_at)>=date('now','-6 day','localtime')";res.json(db.prepare(`SELECT u.name,MAX(r.net_wpm) best_wpm,ROUND(AVG(r.accuracy),1) accuracy,COUNT(r.id) tests FROM users u JOIN results r ON r.user_id=u.id WHERE COALESCE(u.role,'student')!='admin' ${where} GROUP BY u.id ORDER BY best_wpm DESC LIMIT 50`).all())});
-app.get('/api/recent-results',(req,res)=>res.json(db.prepare(`SELECT u.name,e.name exam_name,r.net_wpm,r.accuracy,r.passed,r.created_at FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id WHERE COALESCE(u.role,'student')!='admin' ORDER BY r.id DESC LIMIT 20`).all()));
+app.get('/api/recent-results',(req,res)=>res.json(db.prepare(`SELECT u.name,e.name exam_name,r.net_wpm,r.accuracy,r.passed,r.created_at,CASE WHEN e.id IS NULL THEN 1 WHEN e.qualification_method LIKE 'special_%' THEN 0 WHEN COALESCE(e.required_wpm,0)>0 OR COALESCE(e.required_accuracy,0)>0 OR COALESCE(e.min_words,0)>0 OR COALESCE(e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id WHERE COALESCE(u.role,'student')!='admin' ORDER BY r.id DESC LIMIT 20`).all()));
 app.get('/api/admin/stats',auth,admin,(req,res)=>res.json({users:db.prepare("SELECT COUNT(*) c FROM users WHERE role='student'").get().c,exams:db.prepare('SELECT COUNT(*) c FROM exams').get().c,passages:db.prepare('SELECT COUNT(*) c FROM passages').get().c,tests:db.prepare('SELECT COUNT(*) c FROM results').get().c,avg:db.prepare('SELECT ROUND(AVG(net_wpm),1) x FROM results').get().x||0}));
 app.post('/api/owner/admins',auth,ownerOnly,(req,res)=>{let{name,phone,email,password}=req.body||{};name=String(name||'').trim().replace(/\s+/g,' ');phone=normalizePhone(phone);email=String(email||'').trim().toLowerCase();password=String(password||'');if(name.length<2||name.length>80)return res.status(400).json({error:'Enter admin full name'});if(!phone)return res.status(400).json({error:'Enter a valid 10-digit admin mobile number'});if(!emailOk(email)||email.length>160)return res.status(400).json({error:'Enter a valid admin email'});if(password.length<12||password.length>200)return res.status(400).json({error:'Admin password must be at least 12 characters'});if(db.prepare('SELECT 1 FROM users WHERE email=? OR phone=?').get(email,phone))return res.status(400).json({error:'Email or mobile number already registered'});try{const id=db.prepare("INSERT INTO users(name,phone,email,password,role,active,plan,phone_verified,is_owner,target_exam) VALUES(?,?,?,?, 'admin',1,'Admin',1,0,'Administration')").run(name,phone,email,bcrypt.hashSync(password,12)).lastInsertRowid;audit(req,'CREATE_ADMIN','user',id,email);res.json({created:true,id,message:'Admin account created successfully'});}catch(e){res.status(400).json({error:'Could not create admin account'})}});
 app.get('/api/owner/admins',auth,ownerOnly,(req,res)=>res.json(db.prepare("SELECT id,name,email,phone,active,last_login,created_at FROM users WHERE role='admin' AND COALESCE(is_owner,0)=0 ORDER BY id DESC").all()));
