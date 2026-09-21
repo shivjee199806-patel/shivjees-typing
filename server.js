@@ -1118,64 +1118,42 @@ function applyDocumentedExamFieldsOnce(){
 }
 try{applyDocumentedExamFieldsOnce();}catch(error){console.error('Documented exam defaults were not applied:',error.message);}
 
-// Extend the old exam bank once, preserving its exact prefix and every setting.
-function extendOldExamMatterOnce(){
- const marker='old_exam_matter_30_minutes_20260918_v2';
+// 21-Sep-2026 matter-only scope: remove only obsolete AUTO-GENERATED Exam bank rows.
+// Learning, Practice, Owner/manual matter and every exam setting remain untouched.
+// Rows already used by a result/live test are archived (active=0) rather than deleted.
+function cleanupObsoleteGeneratedExamMatterOnce(){
+ const marker='exam_generated_matter_cleanup_20260921_v1';
  db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
  if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
- const count=text=>(String(text||'').match(/\S+/g)||[]).length;
- const sentences=text=>String(text||'').match(/[^.!?।]+(?:[.!?।]+|$)/gu)||[];
- const key=text=>text.trim().replace(/\s+/g,' ').toLowerCase();
- const exams=db.prepare("SELECT * FROM exams WHERE slug NOT LIKE 'live-template-%'").all();
- const changes=[],short=[];
- const continuations=require('./migration/old-exam-matter-continuations.json');
- for(const exam of exams){
-  const target=Math.max(examMatterWordLimit(exam,30),examMatterWordLimit(exam,exam.duration));
-  if(!Number.isFinite(target)||target<1||target>10000)continue;
-  // Exam passages are identified by exam_id. Practice matter uses exam_id IS NULL and
-  // owner_practice_folder_passages; there is no practice_subfolder_id column on passages.
-  const rows=db.prepare('SELECT id,content,language,difficulty FROM passages WHERE exam_id=? ORDER BY id').all(exam.id);
-  const pools=new Map();
-  for(const row of rows){
-   const language=String(row.language||exam.language);
-   if(!pools.has(language))pools.set(language,[]);
-   pools.get(language).push(row);
-  }
-  for(const row of rows){
-   const original=String(row.content||'');let length=count(original);
-   if(!length||length>=target)continue;
-   const continuation=continuations[crypto.createHash('sha256').update(original).digest('hex')];
-   if(continuation&&count(original+' '+continuation)>=target){
-    changes.push({id:row.id,original,content:original+' '+continuation});continue;
-   }
-   const seen=new Set(sentences(original).map(key)),added=[];
-   const pool=pools.get(String(row.language||exam.language))||[];
-   // Use only this exam/language, preferring the original difficulty.
-   const ordered=[...pool.filter(p=>p.difficulty===row.difficulty),...pool.filter(p=>p.difficulty!==row.difficulty)];
-   for(const source of ordered){
-    if(length>=target)break;
-    for(const sentence of sentences(source.content)){
-     if(length>=target)break;
-     const normalized=key(sentence);if(!normalized||seen.has(normalized))continue;
-     seen.add(normalized);const text=sentence.trim();added.push(text);length+=count(text);
-    }
-   }
-   if(length<target){short.push(row.id);continue;}
-   changes.push({id:row.id,original,content:original+'\n\n'+added.join(' ')});
-  }
+ const generatedWhere=`exam_id IS NOT NULL AND (
+   title GLOB 'Easy English Passage *' OR title GLOB 'Medium English Passage *' OR title GLOB 'Hard English Passage *' OR
+   title GLOB 'Easy Hindi Passage *' OR title GLOB 'Medium Hindi Passage *' OR title GLOB 'Hard Hindi Passage *'
+ )`;
+ const rows=db.prepare(`SELECT id FROM passages WHERE ${generatedWhere}`).all();
+ const usedResult=db.prepare('SELECT 1 FROM results WHERE passage_id=? LIMIT 1');
+ const usedLive=db.prepare('SELECT 1 FROM live_tests WHERE passage_id=? LIMIT 1');
+ const archive=db.prepare('UPDATE passages SET active=0 WHERE id=?');
+ const remove=db.prepare('DELETE FROM passages WHERE id=?');
+ let deleted=0,archived=0;
+ // Small commits + WAL checkpoints prevent the small Railway volume from filling again.
+ try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(_){ }
+ const BATCH=40;
+ for(let i=0;i<rows.length;i+=BATCH){
+   const batch=rows.slice(i,i+BATCH);
+   db.transaction(()=>{for(const row of batch){
+     if(usedResult.get(row.id)||usedLive.get(row.id)){archive.run(row.id);archived++;}
+     else {remove.run(row.id);deleted++;}
+   }})();
+   try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(_){ }
  }
- db.exec(`CREATE TABLE IF NOT EXISTS exam_matter_extension_backup(
-  passage_id INTEGER PRIMARY KEY,original_content TEXT NOT NULL,
-  extended_content TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
- db.transaction(()=>{
-  const save=db.prepare('INSERT OR IGNORE INTO exam_matter_extension_backup(passage_id,original_content,extended_content) VALUES(?,?,?)');
-  const update=db.prepare('UPDATE passages SET content=? WHERE id=? AND content=?');
-  for(const row of changes){save.run(row.id,row.original,row.content);update.run(row.content,row.id,row.original);}
-  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({updated:changes.length,insufficient:short}));
- })();
- if(short.length)console.warn('Old exam matter: insufficient same-exam source for passage IDs',short.join(','));
+ // This table belonged to the failed large in-database extension attempt. It is not used by the new
+ // matter-only migration. Dropping it only removes today's failed duplicate-storage helper.
+ try{db.exec('DROP TABLE IF EXISTS exam_matter_extension_backup')}catch(_){ }
+ db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({deleted,archived}));
+ try{db.pragma('wal_checkpoint(TRUNCATE)')}catch(_){ }
+ console.log('Exam generated matter cleanup:',{deleted,archived});
 }
-try{extendOldExamMatterOnce();}catch(error){console.error('Old exam matter update was not applied:',error.message);}
+try{cleanupObsoleteGeneratedExamMatterOnce();}catch(error){console.error('Exam generated matter cleanup was not applied:',error.message);}
 
 app.get('/api/exams',(req,res)=>{ensureNorthRailwayExamDirectory();let q="SELECT e.*,(SELECT COUNT(*) FROM passages p WHERE p.exam_id=e.id AND p.active=1) passage_count FROM exams e WHERE e.active=1";const a=[];if(req.query.candidate==='1'){q+=" AND e.slug NOT IN ('hindi-unicode','hindi-remington','krutidev-hindi','up-govt','custom-english')"}if(req.query.language){q+=' AND e.language=?';a.push(req.query.language)}let rows=db.prepare(q+' ORDER BY e.id').all(...a);if(!paymentSystemEnabled())rows=rows.map(x=>({...x,paid_enabled:0,fee_amount:0,payment_system_free:true}));res.set('Cache-Control','no-store');res.json(rows)});
 app.get('/api/exams/:id',auth,(req,res)=>{const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});const cfg=examFolderConfig(e),state=examAccessState(req.user,cfg);if(state.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:state.block_reason});if(cfg.paid_enabled&&!state.can_start)return res.status(402).json({error:'Payment required for this exam sub-folder',code:'EXAM_PAYMENT_REQUIRED'});const p=db.prepare("SELECT * FROM passages WHERE active=1 AND exam_id=? ORDER BY id DESC LIMIT 100").all(e.id);res.json({...e,fee_amount:cfg.fee_amount,validity_days:cfg.validity_days,daily_demo_limit:cfg.daily_demo_limit,paid_enabled:cfg.paid_enabled,passages:p})});
@@ -1734,17 +1712,40 @@ app.get('/api/health',(req,res)=>res.json({ok:true,app:'Shivjee\'s Typing',versi
 
 // Owner review column for daily 10 AM passage drafts.
 dailyPassages=require('./daily-passages').createService(db,{setting,indiaDateParts,onChange:scheduleRemoteSqliteMirror});
-// One-time content refresh for auto-generated matters that were already added on 21 Sep 2026
-// before the all-exam human-style composer was installed. Manual/owner-edited matters are preserved.
+// One-time 21-Sep refresh is deliberately EXAM-ONLY.
+// Learning and Practice remain exactly as they were; exam settings are never changed here.
 try{
- const marker='daily_auto_matter_refresh_20260921_human_v4';
+ const marker='daily_auto_exam_matter_refresh_20260921_human_v5';
  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-  const refreshed=dailyPassages.refreshDate('2026-09-21');
+  const refreshed=dailyPassages.refreshDate('2026-09-21',['exam']);
   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
   scheduleRemoteSqliteMirror();
-  console.log('Daily passage refresh 2026-09-21:',refreshed);
+  console.log('Exam-only daily matter refresh 2026-09-21:',refreshed);
  }
-}catch(e){console.warn('Daily passage refresh 2026-09-21 skipped:',e.message)}
+}catch(e){console.warn('Exam-only daily matter refresh 2026-09-21 skipped:',e.message)}
+// One-time refresh of ALL existing auto-generated Exam matter through today to the final 21-Sep rules.
+// This is Exam-matter-only: Learning/Practice/Live and exam settings are not changed.
+try{
+ const marker='daily_auto_all_exam_history_refresh_20260921_v1';
+ if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+  const refreshed=dailyPassages.refreshHistoricalExamMatter(indiaDateParts().date);
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+  if(refreshed.updated||refreshed.replaced_for_history||refreshed.extras_archived)scheduleRemoteSqliteMirror();
+  console.log('Historical auto Exam matter refreshed to final 21-Sep rules:',refreshed);
+ }
+}catch(e){console.warn('Historical auto Exam matter refresh skipped:',e.message)}
+
+// Restore only today's automatically generated Practice/Live rows to the exact pre-update generator.
+// This undoes the accidental 21-Sep matter experiment in those modes; Owner edits are preserved.
+try{
+ const marker='daily_auto_non_exam_restore_20260921_legacy_v1';
+ if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+  const restored=dailyPassages.refreshDate('2026-09-21',['practice','live']);
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(restored));
+  if(restored.updated) scheduleRemoteSqliteMirror();
+  console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
+ }
+}catch(e){console.warn('Practice/Live auto-matter restore skipped:',e.message)}
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
  const q=String(req.query.q||'').trim(),like='%'+q+'%';
