@@ -681,7 +681,7 @@ function createService(db,{setting,indiaDateParts,onChange}){
  // One-time historical Exam cleanup/refresh for the 21-Sep-2026 matter rules.
  // Scope is deliberately narrow: only auto-generated Exam rows are touched.
  // Practice, Live, Learning, manual/Owner-edited matter and every exam setting remain unchanged.
- function refreshHistoricalExamMatter(maxDate=indiaDateParts().date){
+ async function refreshHistoricalExamMatter(maxDate=indiaDateParts().date){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(maxDate)||new Date(maxDate+'T00:00:00Z').toISOString().slice(0,10)!==maxDate)throw Error('Invalid date');
   const rows=db.prepare(`SELECT s.slot,s.queue_id,s.passage_id,s.content_hash,q.* FROM daily_auto_slots s JOIN daily_passage_queue q ON q.id=s.queue_id WHERE q.target_type='exam' AND q.queue_date<=? AND COALESCE(q.manual,0)=0 ORDER BY q.queue_date,q.exam_id,q.language,q.difficulty,q.id`).all(maxDate);
   if(!rows.length)return {max_date:maxDate,updated:0,replaced_for_history:0,extras_archived:0,owner_edited:0,skipped:0};
@@ -702,7 +702,12 @@ function createService(db,{setting,indiaDateParts,onChange}){
   for(const r of db.prepare('SELECT content FROM daily_passage_queue WHERE content IS NOT NULL').all())knownHashes.add(hash(r.content));
   for(const r of db.prepare('SELECT content_hash FROM daily_auto_slots WHERE content_hash IS NOT NULL').all())knownHashes.add(String(r.content_hash));
   let updated=0,replacedForHistory=0,extrasArchived=0,ownerEdited=0,skipped=0;
-  const tx=db.transaction(()=>{for(const row of rows){
+  // Keep transactions deliberately small so Railway stays responsive and SQLite WAL cannot
+  // grow to fill the persistent volume during a large historical refresh.
+  const BATCH_SIZE=4;
+  for(let start=0;start<rows.length;start+=BATCH_SIZE){
+   const batch=rows.slice(start,start+BATCH_SIZE);
+   const tx=db.transaction(()=>{for(const row of batch){
     const parts=String(row.slot||'').split('|');
     if(parts.length<6){skipped++;continue}
     const language=['English','Hindi'].includes(row.language)?row.language:parts[3];
@@ -741,7 +746,12 @@ function createService(db,{setting,indiaDateParts,onChange}){
       updateSlot.run(row.published_passage_id||row.passage_id||null,contentHash,row.slot);updated++;
     }
     knownHashes.add(contentHash);
-  }});tx();
+   }});
+   tx();
+   // Reclaim WAL space between batches when possible, then yield to HTTP/healthcheck traffic.
+   try{db.pragma('wal_checkpoint(PASSIVE)')}catch(e){}
+   await new Promise(resolve=>setTimeout(resolve,25));
+  }
   if(updated||replacedForHistory||extrasArchived)changed();
   return {max_date:maxDate,updated,replaced_for_history:replacedForHistory,extras_archived:extrasArchived,owner_edited:ownerEdited,skipped};
  }

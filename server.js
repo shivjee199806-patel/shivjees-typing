@@ -1712,40 +1712,30 @@ app.get('/api/health',(req,res)=>res.json({ok:true,app:'Shivjee\'s Typing',versi
 
 // Owner review column for daily 10 AM passage drafts.
 dailyPassages=require('./daily-passages').createService(db,{setting,indiaDateParts,onChange:scheduleRemoteSqliteMirror});
-// One-time 21-Sep refresh is deliberately EXAM-ONLY.
-// Learning and Practice remain exactly as they were; exam settings are never changed here.
-try{
- const marker='daily_auto_exam_matter_refresh_20260921_human_v5';
- if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-  const refreshed=dailyPassages.refreshDate('2026-09-21',['exam']);
-  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
-  scheduleRemoteSqliteMirror();
-  console.log('Exam-only daily matter refresh 2026-09-21:',refreshed);
- }
-}catch(e){console.warn('Exam-only daily matter refresh 2026-09-21 skipped:',e.message)}
-// One-time refresh of ALL existing auto-generated Exam matter through today to the final 21-Sep rules.
-// This is Exam-matter-only: Learning/Practice/Live and exam settings are not changed.
-try{
- const marker='daily_auto_all_exam_history_refresh_20260921_v1';
- if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-  const refreshed=dailyPassages.refreshHistoricalExamMatter(indiaDateParts().date);
-  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
-  if(refreshed.updated||refreshed.replaced_for_history||refreshed.extras_archived)scheduleRemoteSqliteMirror();
-  console.log('Historical auto Exam matter refreshed to final 21-Sep rules:',refreshed);
- }
-}catch(e){console.warn('Historical auto Exam matter refresh skipped:',e.message)}
-
-// Restore only today's automatically generated Practice/Live rows to the exact pre-update generator.
-// This undoes the accidental 21-Sep matter experiment in those modes; Owner edits are preserved.
-try{
- const marker='daily_auto_non_exam_restore_20260921_legacy_v1';
- if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-  const restored=dailyPassages.refreshDate('2026-09-21',['practice','live']);
-  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(restored));
-  if(restored.updated) scheduleRemoteSqliteMirror();
-  console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
- }
-}catch(e){console.warn('Practice/Live auto-matter restore skipped:',e.message)}
+// One-time matter maintenance is deliberately deferred until AFTER the HTTP server is listening.
+// This keeps Railway healthchecks responsive while older auto-generated Exam matter is refreshed.
+// Scope remains unchanged: Learning and exam settings are untouched; Practice/Live only get the
+// one-time legacy restoration that undoes the earlier accidental experiment.
+async function runDeferredMatterMaintenance(){
+ try{
+  const marker='daily_auto_all_exam_history_refresh_20260921_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const refreshed=await dailyPassages.refreshHistoricalExamMatter(indiaDateParts().date);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+   if(refreshed.updated||refreshed.replaced_for_history||refreshed.extras_archived)scheduleRemoteSqliteMirror();
+   console.log('Historical auto Exam matter refreshed to final 21-Sep rules:',refreshed);
+  }
+ }catch(e){console.warn('Historical auto Exam matter refresh skipped:',e.message)}
+ try{
+  const marker='daily_auto_non_exam_restore_20260921_legacy_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const restored=dailyPassages.refreshDate('2026-09-21',['practice','live']);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(restored));
+   if(restored.updated)scheduleRemoteSqliteMirror();
+   console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
+  }
+ }catch(e){console.warn('Practice/Live auto-matter restore skipped:',e.message)}
+}
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
  const q=String(req.query.q||'').trim(),like='%'+q+'%';
@@ -2011,6 +2001,9 @@ const server=app.listen(PORT,()=>{
   setImmediate(scheduleDailyQueue);
   // Remote persistence starts only after the HTTP port is open, and never blocks site startup.
   setImmediate(()=>{initRemoteSqliteMirror().catch(e=>console.error('Remote database mirror startup failed:',e.message))});
+  // Heavy one-time Exam-matter maintenance runs in small yielding batches only after healthchecks can pass.
+  const maintenanceTimer=setTimeout(()=>{runDeferredMatterMaintenance().catch(e=>console.warn('Deferred matter maintenance failed:',e.message))},15000);
+  maintenanceTimer.unref?.();
 });
 async function shutdown(signal){
   console.log(`${signal} received; flushing persistent database...`);
