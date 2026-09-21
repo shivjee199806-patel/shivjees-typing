@@ -1220,12 +1220,15 @@ app.post('/api/results',auth,(req,res)=>{
  const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),speedMinutes=(e&&e.speed_based_time_taken)?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
  const standardCount=String(passage.result_count_mode||e?.default_result_count_mode||'word')==='character';
  const typedChars=Array.from(typed).length,standardTypedWords=typedChars/5,correctStandardWords=Math.max(0,good/5);
+ const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
  const correctWpm=standardCount?(correctStandardWords/speedMinutes):(wordMetrics.correct/speedMinutes);
  const gross=standardCount?(standardTypedWords/speedMinutes):correctWpm,net=correctWpm;
- const accuracy=standardCount?((good+wrong)?good/(good+wrong)*100:0):(passageWords?(wordMetrics.correct/passageWords*100):0);
+ // Normal-word mode means accuracy is based on the words the candidate actually typed.
+ // Omissions remain a separate metric and do not silently turn the denominator into the full passage.
+ const accuracy=standardCount?((good+wrong)?good/(good+wrong)*100:0):(typedWords?(wordMetrics.correct/typedWords*100):0);
  const backspaces=Math.round(num(b.backspaces,0,1000000)),attemptId=String(b.attempt_id||'').trim().slice(0,100)||null,attemptStatus=b.attempt_status==='ended'?'ended':'submitted';
  const ruleWpm=e?Number(e.required_wpm||0):Number(passage.required_wpm||0),ruleAcc=e?Number(e.required_accuracy||0):Number(passage.required_accuracy||0),ruleWords=e?Number(e.min_words||0):Number(passage.min_words||0),ruleChars=e?Number(e.min_chars||0):Number(passage.min_chars||0),qualMethod=String(e?.qualification_method||passage.qualification_method||'all');
- const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
+ const hasQualificationRule=ruleWpm>0||ruleAcc>0||ruleWords>0||ruleChars>0;
  const checks={wpm:net>=ruleWpm,accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
  let qualOk=true;
  if(qualMethod==='wpm')qualOk=checks.wpm;
@@ -1234,7 +1237,7 @@ app.post('/api/results',auth,(req,res)=>{
  else if(qualMethod==='words_wpm_accuracy')qualOk=checks.words&&checks.wpm&&checks.accuracy;
  else if(qualMethod==='chars_wpm_accuracy')qualOk=checks.chars&&checks.wpm&&checks.accuracy;
  else qualOk=checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
- let passed=e?(qualOk?1:0):1;
+ let passed=e?(hasQualificationRule&&qualOk?1:0):1;
  if(attemptId){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=? AND user_id=?').get(attemptId,req.user.id);if(old)return res.json({id:old.id,passed:old.passed,duplicate:true,exam:e?{name:e.name,required_wpm:e.required_wpm,required_accuracy:e.required_accuracy}:null})}
  const wt=Array.isArray(b.word_timings)?b.word_timings.slice(0,1000).map(x=>({word:String(x.word||'').slice(0,80),ms:Math.max(0,Math.min(120000,Number(x.ms)||0)),index:Math.max(0,Number(x.index)||0)})):[];
  try{const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,gross,net,accuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);res.json({id,passed,exam:e?{name:e.name,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,metrics:{gross_wpm:gross,net_wpm:net,accuracy,correct_chars:good,wrong_chars:wrong,correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,total_passage_words:passageWords,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,exam:e?{name:e.name,required_wpm:e.required_wpm,required_accuracy:e.required_accuracy}:null})}throw err}

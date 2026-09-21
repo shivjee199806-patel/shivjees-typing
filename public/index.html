@@ -925,7 +925,7 @@ async function shareTypingResult(){
 }
 async function shareResultNative(){const text=shareResultText();try{if(navigator.share){await navigator.share({title:'Shivjee’s Typing Result',text});return}await navigator.clipboard.writeText(text);showToast('Result copied — share it anywhere')}catch(e){if(e?.name!=='AbortError')showToast('Share cancelled or unavailable')}}
 
-function showResult(r,m){leaveTypingFullscreen();document.body.classList.add('exam-mode');activeNav('dashboard');const passed=!!r.passed,ws=detailedWordStats(S.lastOriginal,S.lastTyped);const isExamLike=S.mode==='exam'||S.mode==='live';const status=isExamLike?(passed?'Qualified':'Not Qualified'):'Practice Complete';const celebration=isExamLike?resultCelebration(passed):'';const cmp=resultComparisonPanels(S.lastOriginal||'',S.lastTyped||'');window.__lastShareResult={exam:S.exam?.name||'Free Practice',passage:S.passage?.title||'',wpm:((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2),accuracy:m.acc.toFixed(2),status};setApp(`${celebration}<div class="result-dashboard"><h1 class="result-heading">Performance Dashboard</h1><div class="result-meta"><div><b>Exam Title:</b> ${esc(S.exam?.name||'Free Practice')}</div><div><b>Total Words Given:</b> ${ws.given}</div><div><b>Typing Date:</b> ${new Date().toLocaleDateString()}</div><div><b>Passage Title:</b> ${esc(S.passage?.title||'')}</div><div><b>Time Duration:</b> ${fmt(S.total)}</div><div><b>Time Taken:</b> ${fmt(m.elapsed)}</div></div><div class="result-grid"><div class="result-box"><small>Total Words Typed</small><b>${ws.typed}</b></div><div class="result-box"><small>Full Mistake</small><b>${ws.full}</b></div><div class="result-box"><small>Half Mistake</small><b>${ws.half}</b></div><div class="result-box"><small>Net Wrong Words</small><b>${ws.full+ws.half}</b></div><div class="result-box"><small>Omissions</small><b>${ws.omissions}</b></div><div class="result-box"><small>Extra Spaces</small><b>${ws.extraSpaces}</b></div><div class="result-box"><small>Backspace Count</small><b>${S.backspaces||0}</b></div><div class="result-box"><small>Correct Words</small><b>${ws.correct}</b></div><div class="result-box" id="grossSpeedBox" data-mode="taken"><small>Gross Speed (WPM)</small><b id="grossSpeedValue">${((ws.typed)/(Math.max(1,m.elapsed)/60)).toFixed(2)}</b><button type="button" class="btn btn-soft" id="grossSpeedToggle" style="margin-top:8px;padding:5px 9px;font-size:11px" onclick="const box=document.getElementById('grossSpeedBox'),toFull=box.dataset.mode==='taken';box.dataset.mode=toFull?'full':'taken';document.getElementById('grossSpeedValue').textContent=toFull?'${((ws.typed)/(Math.max(1,S.total)/60)).toFixed(2)}':'${((ws.typed)/(Math.max(1,m.elapsed)/60)).toFixed(2)}';document.getElementById('netSpeedValue').textContent=toFull?'${((ws.correct)/(Math.max(1,S.total)/60)).toFixed(2)}':'${((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2)}';this.textContent=toFull?'OFF • Full Time Given':'ON • Time Used'">ON • Time Used</button></div><div class="result-box"><small>Net Speed (WPM)</small><b id="netSpeedValue">${((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2)}</b></div><div class="result-box"><small>Accuracy %</small><b>${m.acc.toFixed(2)}</b></div><div class="result-box ${isExamLike?(passed?'status-box-pass':'status-box-fail'):''}"><small>Status</small><b>${status}</b></div></div>${isExamLike?`<div class="result-note">💡 ${r.exam.min_words>0?`Minimum ${r.exam.min_words} words are required to qualify. `:''}Calculation of Accuracy % = ( ${ws.correct} / ${ws.given} ) × 100.${r.exam.required_wpm>0?` Required Speed: ${r.exam.required_wpm} WPM.`:''}${r.exam.required_accuracy>0?` Required Accuracy: ${r.exam.required_accuracy}%.`:''} <b>${passed?'QUALIFIED':'NOT QUALIFIED'}</b></div>`:''}<div class="result-match-comparison"><div><h3>Given Passage</h3><div class="result-passage-text">${cmp.left}</div></div><div><h3>Typed Passage</h3><div class="result-passage-text">${cmp.right}</div></div></div><div class="result-legend">Typed Passage में केवल candidate का वास्तव में typed data दिखेगा। गलत typed words हल्के हरे रंग से highlight होंगे; सही words normal रहेंगे। Omissions केवल count होंगे, Typed Passage में skipped text नहीं जोड़ा जाएगा।</div><div style="display:flex;justify-content:center;gap:10px;margin:20px 0"><button class="btn btn-primary" onclick="document.body.classList.remove('exam-mode');restoreSidebarAfterExam();location.hash='#dashboard'">View Dashboard</button><button class="btn btn-soft" onclick="openResultAnalysis(${r.id})">Save/View Analysis</button><button class="btn btn-primary" onclick="shareTypingResult()">📤 Share Result</button><button class="btn btn-white" onclick="openPassagePicker()">Choose Another Passage</button></div></div>`)}
+function showResult(r,m){leaveTypingFullscreen();document.body.classList.add('exam-mode');activeNav('dashboard');const passed=!!r.passed,ws=detailedWordStats(S.lastOriginal,S.lastTyped);const isExamLike=S.mode==='exam'||S.mode==='live';const status=isExamLike?(passed?'Qualified':'Not Qualified'):'Practice Complete';const celebration=isExamLike?resultCelebration(passed):'';const cmp=resultComparisonPanels(S.lastOriginal||'',S.lastTyped||'');window.__lastShareResult={exam:S.exam?.name||'Free Practice',passage:S.passage?.title||'',wpm:((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2),accuracy:m.acc.toFixed(2),status};setApp(`${celebration}<div class="result-dashboard"><h1 class="result-heading">Performance Dashboard</h1><div class="result-meta"><div><b>Exam Title:</b> ${esc(S.exam?.name||'Free Practice')}</div><div><b>Total Words Given:</b> ${ws.given}</div><div><b>Typing Date:</b> ${new Date().toLocaleDateString()}</div><div><b>Passage Title:</b> ${esc(S.passage?.title||'')}</div><div><b>Time Duration:</b> ${fmt(S.total)}</div><div><b>Time Taken:</b> ${fmt(m.elapsed)}</div></div><div class="result-grid"><div class="result-box"><small>Total Words Typed</small><b>${ws.typed}</b></div><div class="result-box"><small>Full Mistake</small><b>${ws.full}</b></div><div class="result-box"><small>Half Mistake</small><b>${ws.half}</b></div><div class="result-box"><small>Net Wrong Words</small><b>${ws.full+ws.half}</b></div><div class="result-box"><small>Omissions</small><b>${ws.omissions}</b></div><div class="result-box"><small>Extra Spaces</small><b>${ws.extraSpaces}</b></div><div class="result-box"><small>Backspace Count</small><b>${S.backspaces||0}</b></div><div class="result-box"><small>Correct Words</small><b>${ws.correct}</b></div><div class="result-box" id="grossSpeedBox" data-mode="taken"><small>Gross Speed (WPM)</small><b id="grossSpeedValue">${((ws.typed)/(Math.max(1,m.elapsed)/60)).toFixed(2)}</b><button type="button" class="btn btn-soft" id="grossSpeedToggle" style="margin-top:8px;padding:5px 9px;font-size:11px" onclick="const box=document.getElementById('grossSpeedBox'),toFull=box.dataset.mode==='taken';box.dataset.mode=toFull?'full':'taken';document.getElementById('grossSpeedValue').textContent=toFull?'${((ws.typed)/(Math.max(1,S.total)/60)).toFixed(2)}':'${((ws.typed)/(Math.max(1,m.elapsed)/60)).toFixed(2)}';document.getElementById('netSpeedValue').textContent=toFull?'${((ws.correct)/(Math.max(1,S.total)/60)).toFixed(2)}':'${((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2)}';this.textContent=toFull?'OFF • Full Time Given':'ON • Time Used'">ON • Time Used</button></div><div class="result-box"><small>Net Speed (WPM)</small><b id="netSpeedValue">${((ws.correct)/(Math.max(1,m.elapsed)/60)).toFixed(2)}</b></div><div class="result-box"><small>Accuracy %</small><b>${m.acc.toFixed(2)}</b></div><div class="result-box ${isExamLike?(passed?'status-box-pass':'status-box-fail'):''}"><small>Status</small><b>${status}</b></div></div>${isExamLike?`<div class="result-note">💡 ${r.exam.min_words>0?`Minimum ${r.exam.min_words} words are required to qualify. `:''}<span id="jpAccuracyFormula">Calculation of Accuracy % = ( ${ws.correct} / ${Math.max(1,ws.typed)} ) × 100.</span>${r.exam.required_wpm>0?` Required Speed: ${r.exam.required_wpm} WPM.`:''}${r.exam.required_accuracy>0?` Required Accuracy: ${r.exam.required_accuracy}%.`:''} <b>${passed?'QUALIFIED':'NOT QUALIFIED'}</b></div>`:''}<div class="result-match-comparison"><div><h3>Given Passage</h3><div class="result-passage-text">${cmp.left}</div></div><div><h3>Typed Passage</h3><div class="result-passage-text">${cmp.right}</div></div></div><div class="result-legend">Typed Passage में केवल candidate का वास्तव में typed data दिखेगा। गलत typed words हल्के हरे रंग से highlight होंगे; सही words normal रहेंगे। Omissions केवल count होंगे, Typed Passage में skipped text नहीं जोड़ा जाएगा।</div><div style="display:flex;justify-content:center;gap:10px;margin:20px 0"><button class="btn btn-primary" onclick="document.body.classList.remove('exam-mode');restoreSidebarAfterExam();location.hash='#dashboard'">View Dashboard</button><button class="btn btn-soft" onclick="openResultAnalysis(${r.id})">Save/View Analysis</button><button class="btn btn-primary" onclick="shareTypingResult()">📤 Share Result</button><button class="btn btn-white" onclick="openPassagePicker()">Choose Another Passage</button></div></div>`)}
 function cancelTypingFlow(target){if(S.timer)clearInterval(S.timer);S.done=true;S.started=false;S.submitting=false;leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();const t=target||(S.mode==='live'?'live':(S.mode==='exam'?'exams':'practice'));const h='#'+t;if(location.hash!==h)location.hash=h;else{if(t==='live')liveTests();else if(t==='exams')exams();else practice()}}function exitTest(){if(S.mode==='practice'){cancelTypingFlow('practice');return}if(S.timer)clearInterval(S.timer);S.started=false;S.done=false;S.submitting=false;leaveTypingFullscreen();renderInstructions()}
 async function pricing(){
   activeNav('pricing');
@@ -4935,11 +4935,15 @@ body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!importa
   grid.parentNode.insertBefore(control,grid);
   let standard=String(state?.passage?.result_count_mode||'word')==='character',timeMode=grossBox.dataset.mode==='full'?'full':'taken';
   const timeButton=document.getElementById('grossSpeedToggle');
-  function qualification(correctCount,typedCount){
+  function qualification(correctCount,typedCount,accuracy){
    if(!(state?.mode==='exam'||state?.mode==='live'))return null;
    const rule=state?.exam||{},qualMinutes=Number(rule.speed_based_time_taken)?usedMinutes:givenMinutes;
-   const speed=correctCount/Math.max(1/60,qualMinutes),accuracy=Number(accuracyBox?.querySelector('b')?.textContent)||0;
-   const checks={wpm:Number(rule.required_wpm||0)<=0||speed>=Number(rule.required_wpm||0),accuracy:Number(rule.required_accuracy||0)<=0||accuracy>=Number(rule.required_accuracy||0),words:Number(rule.min_words||0)<=0||typedCount>=Number(rule.min_words||0),chars:Number(rule.min_chars||0)<=0||Array.from(typed).length>=Number(rule.min_chars||0)};
+   const speed=correctCount/Math.max(1/60,qualMinutes);
+   const reqWpm=Number(rule.required_wpm||0),reqAcc=Number(rule.required_accuracy||0),reqWords=Number(rule.min_words||0),reqChars=Number(rule.min_chars||0);
+   // Never auto-qualify an exam whose qualification thresholds are not configured.
+   const hasRule=reqWpm>0||reqAcc>0||reqWords>0||reqChars>0;
+   if(!hasRule)return false;
+   const checks={wpm:reqWpm<=0||speed>=reqWpm,accuracy:reqAcc<=0||accuracy>=reqAcc,words:reqWords<=0||typedCount>=reqWords,chars:reqChars<=0||Array.from(typed).length>=reqChars};
    const method=String(rule.qualification_method||'all');
    if(method==='wpm')return checks.wpm;if(method==='accuracy')return checks.accuracy;if(method==='wpm_accuracy')return checks.wpm&&checks.accuracy;
    if(method==='words_wpm_accuracy')return checks.words&&checks.wpm&&checks.accuracy;if(method==='chars_wpm_accuracy')return checks.chars&&checks.wpm&&checks.accuracy;
@@ -4947,24 +4951,28 @@ body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!importa
   }
   function render(){
    const typedCount=standard?standardTyped:normalTyped,correctCount=standard?standardCorrect:normalCorrect,mins=timeMode==='full'?givenMinutes:usedMinutes;
+   const accuracy=standard?(charStats.n?Number(charStats.good||0)/Number(charStats.n)*100:0):(normalTyped?normalCorrect/normalTyped*100:0);
    typedBox.querySelector('small').textContent=standard?'Standard Words Typed (5 chars = 1 word)':'Total Words Typed';
    typedBox.querySelector('b').textContent=numberText(typedCount,standard);
    correctBox.querySelector('small').textContent=standard?'Correct Standard Words':'Correct Words';
    correctBox.querySelector('b').textContent=numberText(correctCount,standard);
    grossValue.textContent=(typedCount/Math.max(1/60,mins)).toFixed(2);
    netValue.textContent=(correctCount/Math.max(1/60,mins)).toFixed(2);
+   if(accuracyBox?.querySelector('b'))accuracyBox.querySelector('b').textContent=accuracy.toFixed(2);
+   const formula=document.getElementById('jpAccuracyFormula');
+   if(formula)formula.textContent=standard?`Calculation of Accuracy % = ( ${Number(charStats.good||0)} / ${Math.max(1,Number(charStats.n||0))} typed characters ) × 100.`:`Calculation of Accuracy % = ( ${normalCorrect} / ${Math.max(1,normalTyped)} typed words ) × 100.`;
    const modeButton=document.getElementById('jpWordCountMode'),help=document.getElementById('jpWordCountHelp');
    modeButton.textContent=standard?'OFF • 5 Characters = 1 Word':'ON • Normal Typed Words';
    modeButton.className='btn '+(standard?'btn-white':'btn-primary');modeButton.setAttribute('aria-checked',String(!standard));
    help.textContent=standard?'OFF: हर 5 typed characters = 1 standard word; qualification इसी mode से।':'ON: actual typed words के आधार पर result और qualification।';
    grossBox.dataset.mode=timeMode;
    if(timeButton)timeButton.textContent=timeMode==='full'?'OFF • Full Time Given':'ON • Time Used';
-   const passed=qualification(correctCount,typedCount);
+   const passed=qualification(correctCount,typedCount,accuracy);
    if(passed!==null&&statusBox){
     statusBox.querySelector('b').textContent=passed?'Qualified':'Not Qualified';statusBox.classList.toggle('status-box-pass',passed);statusBox.classList.toggle('status-box-fail',!passed);
     const note=document.querySelector('.result-note b:last-child');if(note)note.textContent=passed?'QUALIFIED':'NOT QUALIFIED';
     const celebration=document.querySelector('.result-celebration');if(celebration){celebration.classList.toggle('pass',passed);celebration.classList.toggle('fail',!passed);const emoji=celebration.querySelector('.bigemoji'),heading=celebration.querySelector('h2'),strong=celebration.querySelector(':scope > b'),message=celebration.querySelector(':scope > div:last-child');if(emoji)emoji.textContent=passed?'🎉🏆':'😔';if(heading)heading.textContent=passed?'Congratulations!':'Not Qualified';if(strong)strong.textContent=passed?'You are Qualified':'Keep Practicing';if(message)message.textContent=passed?'Excellent work — keep improving your speed and accuracy.':'Review the result below and try again.'}
-    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
+    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.accuracy=accuracy.toFixed(2);window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
    }
   }
   document.getElementById('jpWordCountMode').addEventListener('click',()=>{standard=!standard;render()});
@@ -5346,3 +5354,118 @@ body:not(.public-landing)[data-theme="dark"] .table td{background:#111b2d!import
   }
 }
 </style>
+
+<!-- Exam default behavior until the student changes a setting. No exam is hard-coded. -->
+<script id="jp-exam-default-until-student-touch-20260921">
+(()=>{
+  const HIGHLIGHT_MODES=['none','current_word','current_char','errors_only'];
+  const BACKSPACE_MODES=['off','unlimited','current_word','limited'];
+  const examIdKey=()=>String(S?.exam?.id||S?.exam?.slug||'default');
+  const highlightKey=()=>`st_highlight_mode_exam_${examIdKey()}`;
+  const backspaceModeKey=()=>`st_backspace_mode_exam_${examIdKey()}`;
+  const backspaceLimitKey=()=>`st_backspace_limit_exam_${examIdKey()}`;
+
+  function examHighlightDefault(){
+    const mode=String(S?.exam?.highlight_mode||'none');
+    return HIGHLIGHT_MODES.includes(mode)?mode:'none';
+  }
+  function highlightCanChange(){
+    return Number(S?.exam?.highlight_user_change_allowed??1)===1;
+  }
+  function restoreHighlightChoice(){
+    const examDefault=examHighlightDefault();
+    if(!highlightCanChange()){
+      S.attemptHighlightMode=examDefault;
+      return examDefault;
+    }
+    const saved=localStorage.getItem(highlightKey());
+    const mode=HIGHLIGHT_MODES.includes(saved)?saved:examDefault;
+    S.attemptHighlightMode=mode;
+    return mode;
+  }
+  function saveHighlightChoice(mode){
+    const examDefault=examHighlightDefault();
+    if(!highlightCanChange()){
+      S.attemptHighlightMode=examDefault;
+      return examDefault;
+    }
+    const value=HIGHLIGHT_MODES.includes(mode)?mode:examDefault;
+    localStorage.setItem(highlightKey(),value);
+    S.attemptHighlightMode=value;
+    return value;
+  }
+
+  function examBackspaceDefault(){
+    const raw=String(S?.exam?.backspace_mode||'');
+    const mode=BACKSPACE_MODES.includes(raw)?raw:(Number(S?.exam?.backspace_allowed)?'unlimited':'off');
+    const limit=mode==='limited'?Math.max(1,Math.floor(Number(S?.exam?.backspace_limit)||1)):0;
+    return {mode,limit};
+  }
+  function restoreBackspaceChoice(){
+    const owner=examBackspaceDefault();
+    const savedMode=localStorage.getItem(backspaceModeKey());
+    const mode=BACKSPACE_MODES.includes(savedMode)?savedMode:owner.mode;
+    const savedLimit=Math.floor(Number(localStorage.getItem(backspaceLimitKey()))||0);
+    const limit=mode==='limited'?Math.max(1,savedLimit||owner.limit||10):0;
+    // Keep the existing backspace-rule runtime from replacing this restored student choice.
+    S.attemptBackspaceStudentMode=mode;
+    S.attemptBackspaceStudentLimit=limit||10;
+    S.attemptBackspaceChoiceKey=backspaceModeKey();
+    S.attemptBackspaceMode=mode;
+    S.attemptBackspaceLimit=limit;
+    S.attemptBackspaceAllowed=mode!=='off';
+    return {mode,limit};
+  }
+
+  function applyPickerDefaults(){
+    if(!S?.exam)return;
+    const h=restoreHighlightChoice();
+    restoreBackspaceChoice();
+    const sel=document.getElementById('pickerHighlightMode');
+    if(sel){
+      sel.value=h;
+      sel.disabled=!highlightCanChange();
+      sel.title=highlightCanChange()
+        ?'Exam default रहता है; student बदलने पर उसकी choice इस exam के लिए लागू होगी.'
+        :'इस exam में Owner/real-exam default locked है.';
+      sel.onchange=()=>{
+        const chosen=saveHighlightChoice(sel.value);
+        if(sel.value!==chosen)sel.value=chosen;
+      };
+    }
+  }
+
+  const baseOpen=window.openPassagePicker;
+  if(typeof baseOpen==='function'){
+    window.openPassagePicker=async function(...args){
+      await baseOpen.apply(this,args);
+      // The existing picker initializes from exam defaults first. Restore a student
+      // override only when that student has actually changed this exam before.
+      applyPickerDefaults();
+      if(typeof window.renderPassagePicker==='function')window.renderPassagePicker();
+    };
+  }
+
+  const baseRender=window.renderPassagePicker;
+  if(typeof baseRender==='function'){
+    window.renderPassagePicker=function(...args){
+      const out=baseRender.apply(this,args);
+      // renderPassagePicker rebuilds the controls, so re-bind the correct default/override.
+      queueMicrotask(applyPickerDefaults);
+      return out;
+    };
+  }
+
+  const basePrepare=window.prepareSelectedPassage;
+  if(typeof basePrepare==='function'){
+    window.prepareSelectedPassage=async function(id){
+      // If the control is untouched, it still contains the exam default. If it was
+      // changed, the per-exam student choice has already been stored above.
+      const sel=document.getElementById('pickerHighlightMode');
+      if(sel&&HIGHLIGHT_MODES.includes(sel.value))S.attemptHighlightMode=sel.value;
+      restoreBackspaceChoice();
+      return basePrepare.call(this,id);
+    };
+  }
+})();
+</script>
