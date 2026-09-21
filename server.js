@@ -36,10 +36,26 @@ const aboutUpload=multer({storage:aboutStorage,limits:uploadLimits(20*1024*1024)
 app.use('/about-media',express.static(ABOUT_UPLOAD_DIR,{maxAge:'1d',dotfiles:'deny',index:false}));
 const DB_FILE=path.join(data,'shivjees.db');
 const RAW_REMOTE_DB_URL=String(process.env.DATABASE_URL||'').trim();
-// Render values are sometimes pasted from a provider's "Copy all" panel with labels/newlines.
-// Extract only the actual PostgreSQL URI so pg never treats a stray word (for example "base") as the host.
-const REMOTE_DB_URL=(RAW_REMOTE_DB_URL.match(/postgres(?:ql)?:\/\/[^\s'"<>]+/i)||[])[0]||RAW_REMOTE_DB_URL;
+// Hosting dashboards sometimes paste labels/newlines around DATABASE_URL. Extract only the URI.
+const EXTRACTED_REMOTE_DB_URL=(RAW_REMOTE_DB_URL.match(/postgres(?:ql)?:\/\/[^\s'"<>]+/i)||[])[0]||RAW_REMOTE_DB_URL;
+// node-postgres replaces an explicit `ssl` object when sslmode/sslrootcert/sslcert/sslkey
+// are present in the connection string. Strip only those TLS query options here so our
+// verified TLS configuration below is always applied consistently.
+function cleanRemoteDbUrl(raw){
+ try{const u=new URL(raw);for(const k of ['sslmode','sslrootcert','sslcert','sslkey'])u.searchParams.delete(k);return u.toString()}catch(_){return raw}
+}
+const REMOTE_DB_URL=cleanRemoteDbUrl(EXTRACTED_REMOTE_DB_URL);
 if(RAW_REMOTE_DB_URL && !/^postgres(?:ql)?:\/\//i.test(REMOTE_DB_URL)) console.warn('DATABASE_URL does not contain a PostgreSQL URI');
+function databaseTlsConfig(){
+ const reject=String(process.env.DATABASE_TLS_REJECT_UNAUTHORIZED||'1')!=='0';
+ let ca=String(process.env.DATABASE_CA_CERT||'').trim();
+ const ca64=String(process.env.DATABASE_CA_CERT_BASE64||'').trim();
+ if(!ca&&ca64){try{ca=Buffer.from(ca64,'base64').toString('utf8')}catch(_){}}
+ let isSupabase=false;try{isSupabase=/\.supabase\.com$/i.test(new URL(REMOTE_DB_URL).hostname)}catch(_){}
+ const caFile=path.join(__dirname,'certs','supabase-root-2021.crt');
+ if(!ca&&isSupabase&&fs.existsSync(caFile)){try{ca=fs.readFileSync(caFile,'utf8')}catch(_){}}
+ return ca?{rejectUnauthorized:reject,ca}:{rejectUnauthorized:reject};
+}
 // SAFE REMOTE RESTORE v1: on a fresh Render filesystem only, restore the newest SQLite snapshot before opening SQLite.
 // Existing local DB is NEVER overwritten here.
 if(!fs.existsSync(DB_FILE) && REMOTE_DB_URL){
@@ -47,9 +63,10 @@ if(!fs.existsSync(DB_FILE) && REMOTE_DB_URL){
     const {execFileSync}=require('child_process');
     const restoreCode=`
       const {Pool}=require('pg'),fs=require('fs');
-      (async()=>{const p=new Pool({connectionString:process.env.SJT_REMOTE_URL,ssl:{rejectUnauthorized:String(process.env.DATABASE_TLS_REJECT_UNAUTHORIZED||'1')!=='0'},max:1,connectionTimeoutMillis:15000});
+      (async()=>{let ca=String(process.env.SJT_DB_CA||'').trim();const p=new Pool({connectionString:process.env.SJT_REMOTE_URL,ssl:ca?{rejectUnauthorized:String(process.env.DATABASE_TLS_REJECT_UNAUTHORIZED||'1')!=='0',ca}:{rejectUnauthorized:String(process.env.DATABASE_TLS_REJECT_UNAUTHORIZED||'1')!=='0'},max:1,connectionTimeoutMillis:15000});
       try{const r=await p.query('SELECT db_bytes FROM shivjee_sqlite_backups ORDER BY id DESC LIMIT 1');if(r.rows[0]?.db_bytes){let b=r.rows[0].db_bytes;if(b&&b.length>2&&b[0]===0x1f&&b[1]===0x8b)b=require('zlib').gunzipSync(b);fs.writeFileSync(process.env.SJT_DB_FILE,b);console.log('Remote database mirror: restored latest backup')}}finally{await p.end()}})().catch(e=>{console.error('Remote database mirror restore skipped:',e.message);process.exit(2)});`;
-    execFileSync(process.execPath,['-e',restoreCode],{stdio:'inherit',env:{...process.env,SJT_REMOTE_URL:REMOTE_DB_URL,SJT_DB_FILE:DB_FILE},timeout:30000});
+    const restoreTls=databaseTlsConfig();
+    execFileSync(process.execPath,['-e',restoreCode],{stdio:'inherit',env:{...process.env,SJT_REMOTE_URL:REMOTE_DB_URL,SJT_DB_FILE:DB_FILE,SJT_DB_CA:String(restoreTls.ca||'')},timeout:30000});
   }catch(e){console.warn('Remote database mirror restore unavailable; continuing with normal startup:',e.message)}
 }
 // First run only: automatically import the newest nearby database from an older Shivjee/Typing build.
@@ -85,13 +102,17 @@ const REMOTE_BACKUP_INTERVAL_MS=Math.max(1000,Number(process.env.REMOTE_BACKUP_I
 async function initRemoteSqliteMirror(){
   if(!REMOTE_DB_URL)return;
   try{
-    remotePool=new Pool({connectionString:REMOTE_DB_URL,ssl:{rejectUnauthorized:String(process.env.DATABASE_TLS_REJECT_UNAUTHORIZED||'1')!=='0'},max:2,connectionTimeoutMillis:15000});
+    remotePool=new Pool({connectionString:REMOTE_DB_URL,ssl:databaseTlsConfig(),max:2,connectionTimeoutMillis:15000});
     await remotePool.query(`CREATE TABLE IF NOT EXISTS shivjee_sqlite_backups(
       id BIGSERIAL PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       sha256 TEXT NOT NULL,
       db_bytes BYTEA NOT NULL
     )`);
+    // The backup table contains the whole SQLite database. Keep it inaccessible to
+    // Supabase anon/authenticated API roles; the direct postgres connection still works.
+    await remotePool.query('ALTER TABLE shivjee_sqlite_backups ENABLE ROW LEVEL SECURITY');
+    try{await remotePool.query('REVOKE ALL ON TABLE shivjee_sqlite_backups FROM anon, authenticated')}catch(_){}
     remoteReady=true;
     console.log('Remote database mirror: connected');
     // Immediately seed/refresh the remote snapshot. If a write happened while the
@@ -104,11 +125,12 @@ async function uploadSqliteMirror(force=false){
   if(!remoteReady)return false;
   if(remoteSyncBusy){remoteDirty=true;return false}
   remoteSyncBusy=true;
-  const tmp=DB_FILE+'.remote-backup';
+  const tmp=path.join(os.tmpdir(),`shivjees-remote-${process.pid}.db`);
   try{
-    // VACUUM INTO creates a consistent single-file SQLite snapshot even while WAL is enabled.
+    // Keep the temporary snapshot off the small persistent Railway volume. better-sqlite3
+    // backup() creates a transaction-consistent SQLite copy while WAL remains enabled.
     try{if(fs.existsSync(tmp))fs.unlinkSync(tmp)}catch(e){}
-    db.exec(`VACUUM INTO '${tmp.replace(/'/g,"''")}'`);
+    await db.backup(tmp);
     const buf=fs.readFileSync(tmp),sha=crypto.createHash('sha256').update(buf).digest('hex');
     const last=await remotePool.query('SELECT sha256 FROM shivjee_sqlite_backups ORDER BY id DESC LIMIT 1');
     if(last.rows[0]?.sha256!==sha){
@@ -1110,7 +1132,9 @@ function extendOldExamMatterOnce(){
  for(const exam of exams){
   const target=Math.max(examMatterWordLimit(exam,30),examMatterWordLimit(exam,exam.duration));
   if(!Number.isFinite(target)||target<1||target>10000)continue;
-  const rows=db.prepare('SELECT id,content,language,difficulty FROM passages WHERE exam_id=? AND practice_subfolder_id IS NULL ORDER BY id').all(exam.id);
+  // Exam passages are identified by exam_id. Practice matter uses exam_id IS NULL and
+  // owner_practice_folder_passages; there is no practice_subfolder_id column on passages.
+  const rows=db.prepare('SELECT id,content,language,difficulty FROM passages WHERE exam_id=? ORDER BY id').all(exam.id);
   const pools=new Map();
   for(const row of rows){
    const language=String(row.language||exam.language);
@@ -1709,7 +1733,7 @@ app.delete('/api/admin/about-image/:slot',auth,admin,(req,res)=>{const slot=Stri
 app.get('/api/health',(req,res)=>res.json({ok:true,app:'Shivjee\'s Typing',version:'4.0-owner'}));
 
 // Owner review column for daily 10 AM passage drafts.
-dailyPassages=require('./daily-passages').createService(db,{setting,indiaDateParts});
+dailyPassages=require('./daily-passages').createService(db,{setting,indiaDateParts,onChange:scheduleRemoteSqliteMirror});
 // One-time content refresh for auto-generated matters that were already added on 21 Sep 2026
 // before the all-exam human-style composer was installed. Manual/owner-edited matters are preserved.
 try{
@@ -1860,7 +1884,11 @@ function runOneTimeLegacyMerge(){
  });
  try{tx();console.log(`Legacy localhost merge: complete (${userMap.size} user mappings)`)}finally{old.close();if(tempLegacy){try{fs.unlinkSync(legacyFile)}catch(e){}}}
 }
-try{runOneTimeLegacyMerge()}catch(e){console.error('Legacy localhost merge FAILED; Live DB left transaction-safe:',e.message)}
+if(String(process.env.ALLOW_LEGACY_LOCALHOST_MERGE||'')==='1'){
+ try{runOneTimeLegacyMerge()}catch(e){console.error('Legacy localhost merge FAILED; Live DB left transaction-safe:',e.message)}
+}else{
+ console.log('Legacy localhost merge: disabled (set ALLOW_LEGACY_LOCALHOST_MERGE=1 only for an intentional one-time recovery)');
+}
 
 // OWNER CHHOTA BHAI — generate an Owner-requested draft from topic/about matter.
 // Requires OPENAI_API_KEY on the server. The key is never sent to the browser.

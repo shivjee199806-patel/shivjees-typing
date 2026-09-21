@@ -590,13 +590,14 @@ function compose({language,difficulty,date,targetType,exam={},serial=1,attempt=0
 }
 
 module.exports={compose,LEVELS,EXAM_COUNTS,PRACTICE_COUNTS,PRACTICE_30_MIN_WORDS,matterWordsForExam,createService};
-function createService(db,{setting,indiaDateParts}){
+function createService(db,{setting,indiaDateParts,onChange}){
+ const changed=typeof onChange==='function'?onChange:()=>{};
  db.exec(`CREATE TABLE IF NOT EXISTS daily_auto_slots(slot TEXT PRIMARY KEY,queue_id INTEGER,passage_id INTEGER,content_hash TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
  const hash=s=>crypto.createHash('sha256').update(String(s).replace(/\s+/g,' ').trim()).digest('hex');
  const upsert=db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP");
  if(setting('daily_auto_v2_installed')!=='1')db.transaction(()=>{upsert.run('daily_queue_enabled','1');upsert.run('daily_queue_skip_date','');upsert.run('daily_auto_practice_enabled','1');upsert.run('daily_auto_exam_enabled','1');upsert.run('daily_auto_v2_installed','1')})();
  function controls(){return {enabled:setting('daily_queue_enabled')!=='0',exam_enabled:setting('daily_auto_exam_enabled')!=='0',practice_enabled:setting('daily_auto_practice_enabled')!=='0',today:indiaDateParts().date,skip_date:'',time:'10:00 Asia/Kolkata'}}
- function setControls(b){db.transaction(()=>{for(const [key,field] of [['daily_queue_enabled','enabled'],['daily_auto_exam_enabled','exam_enabled'],['daily_auto_practice_enabled','practice_enabled']])if(typeof b[field]==='boolean')upsert.run(key,b[field]?'1':'0');upsert.run('daily_queue_skip_date','')})();return controls()}
+ function setControls(b){db.transaction(()=>{for(const [key,field] of [['daily_queue_enabled','enabled'],['daily_auto_exam_enabled','exam_enabled'],['daily_auto_practice_enabled','practice_enabled']])if(typeof b[field]==='boolean')upsert.run(key,b[field]?'1':'0');upsert.run('daily_queue_skip_date','')})();changed();return controls()}
  function run(date=indiaDateParts().date){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('Invalid date');
   const c=controls();if(!c.enabled)return {created:0,date,skipped:true};
@@ -620,7 +621,7 @@ function createService(db,{setting,indiaDateParts}){
    const pid=t.type==='live'?null:passage.run(title,t.language,t.exam.layout,difficulty,content,t.type==='exam'?(t.exam.highlight_mode||'none'):'current_char',t.type==='exam'?t.exam.id:null,t.type==='exam'?0:1,t.exam.default_result_count_mode||'word').lastInsertRowid;
    const qid=queue.run(date,qn,t.type,t.type==='exam'?t.exam.id:null,t.exam.name,t.language,difficulty,title,content,t.type==='live'?'pending':'published').lastInsertRowid;
    if(pid)db.prepare('UPDATE daily_passage_queue SET published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?').run(pid,qid);slotInsert.run(slot,qid,pid,contentHash);knownHashes.add(contentHash);created++;if(pid)published++;
-  }}});tx();return {created,published,date};
+  }}});tx();if(created)changed();return {created,published,date};
  }
  function refreshDate(date){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('Invalid date');
@@ -663,7 +664,7 @@ function createService(db,{setting,indiaDateParts}){
     updateQueue.run(title,content,difficulty,row.id);
     if(row.published_passage_id)updatePassage.run(title,content,difficulty,row.published_passage_id);
     updateSlot.run(contentHash,row.slot);updated++;
-  }});tx();return {date,updated,skipped,owner_edited:ownerEdited};
+  }});tx();if(updated)changed();return {date,updated,skipped,owner_edited:ownerEdited};
  }
  let lastKey='';function tick(now=new Date()){const ip=indiaDateParts(now),c=controls(),key=[ip.date,c.enabled,c.exam_enabled,c.practice_enabled,setting('live_daily_enabled')].join('|');if(ip.hour<10||!c.enabled||key===lastKey)return {created:0};const result=run(ip.date);lastKey=key;return result}
  function start(){const safe=()=>{try{tick()}catch(e){console.warn('Daily passages:',e.message)}};safe();const timer=setInterval(safe,60000);timer.unref?.();return timer}

@@ -1,0 +1,42 @@
+JPTYPING.IN — FINAL DATA SAFETY / REMAINING FIXES — 2026-09-21
+
+Purpose: keep the existing UI/payment/OTP behavior unchanged while fixing the remaining data-safety issues found after Railway recovery.
+
+Changes in this package
+1. Supabase mirror TLS:
+   - Keeps certificate verification ON.
+   - Bundles the Supabase Root 2021 CA for *.supabase.com.
+   - Supports DATABASE_CA_CERT / DATABASE_CA_CERT_BASE64 override.
+   - Removes sslmode/sslrootcert/sslcert/sslkey URL parameters before applying the explicit node-postgres TLS config, so the TLS object is not silently replaced.
+2. Remote SQLite snapshots:
+   - Temporary backup file now goes to OS /tmp, NOT the small Railway /data volume.
+   - Uses better-sqlite3 backup() for a consistent online snapshot.
+   - This prevents remote-backup work from filling the persistent volume.
+3. Supabase backup table protection:
+   - Enables Row Level Security on shivjee_sqlite_backups.
+   - Revokes table access from anon/authenticated roles where those roles exist.
+4. Daily/old exam matter migration:
+   - Removes invalid practice_subfolder_id reference. Practice folders use owner_practice_folder_passages; exam passages are selected by exam_id.
+   - Daily automatic matter changes now trigger the remote mirror callback as well.
+5. Legacy bundled DB:
+   - Automatic legacy localhost database merge is disabled by default.
+   - It runs only if ALLOW_LEGACY_LOCALHOST_MERGE=1 is explicitly set for a deliberate recovery.
+   - This prevents a stale bundled DB from silently reintroducing old user data on future startups.
+
+What was NOT changed
+- public UI/design files
+- candidate login flow
+- owner UI
+- Razorpay UI/normal payment flow
+- OTP UI/normal delivery flow
+- current Railway /data database contents
+
+Deployment notes
+- Keep the existing Railway volume mounted at /data.
+- Keep Custom Start Command: node server.js
+- Keep Healthcheck Path: /
+- Do not change DATABASE_URL, Razorpay, OTP, ADMIN_EMAIL or candidate data during deployment.
+- JWT_SECRET must remain a strong >=32-character Railway variable.
+- DATABASE_TLS_REJECT_UNAUTHORIZED should stay 1 (or unset, which defaults to verification ON).
+- After deploy, logs should show: "Remote database mirror: connected" and then "Remote database mirror: backup saved" when the current DB differs from the newest remote snapshot.
+- The old GitHub-tracked /migration/legacy-shivjees.db.gz should still be deleted from the repository/history separately; this package does not contain it and runtime merge is disabled.
