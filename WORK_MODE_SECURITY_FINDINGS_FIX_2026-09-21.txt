@@ -1,0 +1,29 @@
+Shivjee's Typing - Work-mode security findings cross-check / fix
+Date: 2026-09-21
+Base: shivjees-typing-main-20-FINAL-SECURITY-ALL-EXAMS-TODAY-MATTER-UPDATED.zip
+
+Goal: security-only hardening. No visual redesign, typing UI redesign, payment-flow redesign, or daily-passage rule change in this patch.
+
+Cross-check of reported findings:
+1) Public admin registration: already blocked server-side. New admins are Owner-only.
+2) Normal admin resetting Master Owner/admin password: already blocked; Master Owner cannot be reset from Admin User Management and only Master Owner can reset another admin.
+3) Admin password step bypass through general OTP login: FIXED in this patch. General candidate OTP request/verify now rejects Owner/Admin accounts.
+4) Owner OTP fallback/replay: already hardened. Production delivery failure does not return OTP; used OTP rows are atomically consumed. This patch additionally binds Owner/Admin OTP challenges to the exact OTP row.
+5) Signup OTP accepted with a different signup challenge: FIXED in this patch. Signup challenge now contains the exact otp_id and verification only accepts that row.
+6) Session invalidation: already hardened with active-account check, auth_version, per-session jti revocation, logout and logout-all.
+7) Default JWT secret: already hardened. Production startup fails unless JWT_SECRET is unique and at least 32 characters.
+8) Stored password hash accepted as password: already hardened. Candidate login accepts only bcrypt hashes and bcrypt verification.
+9) Old ADMIN_PASSWORD fallback resync: already removed for existing Owner. ADMIN_PASSWORD is only used to create the first Master Owner when no Owner exists.
+10) Gallery stored XSS through title/media in inline JS: FIXED in this patch. Dynamic gallery values are no longer inserted into JavaScript string literals; click/keyboard handlers read safe data attributes.
+11) File upload validation: already hardened with extension allowlists, MIME allowlists, magic-byte/content checks, upload limits and authenticated upload routes.
+12) Source-fetch SSRF via redirects: already hardened. Redirects are manual, every hop is revalidated, private/reserved destinations are blocked, body is streamed with size cap and timeout.
+13) Old Multer dependency: already updated to multer 2.4.0 in package.json.
+
+Additional hardening in this patch:
+- Admin 2FA, Master Owner OTP and password reset challenges are bound to the exact OTP database row (otp_id), preventing a later OTP for the same phone/purpose from being paired with an older signed challenge.
+
+Deployment notes:
+- Keep current Railway environment variables. Do not replace working Razorpay/OTP credentials.
+- Production requires JWT_SECRET >= 32 characters.
+- DEV_OTP_MODE must not be 1 in public production.
+- Use npm install so the declared dependency versions are installed.

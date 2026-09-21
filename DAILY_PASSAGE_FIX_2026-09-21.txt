@@ -1,0 +1,42 @@
+JP Typing — Daily Passage Fix (2026-09-21)
+
+यह update site design/UI को redesign नहीं करता। मुख्य बदलाव daily passage generation और selected-time matter selection में हैं।
+
+1) Daily passages अब exam-oriented public-interest topics से बनते हैं, जैसे:
+   - High Court / court records
+   - village water and rural problems
+   - rural roads and monsoon
+   - history and historical places (Sarnath, Fatehpur Sikri, Nalanda)
+   - biographies (A. P. J. Abdul Kalam, Sardar Vallabhbhai Patel, Savitribai Phule, Rani Lakshmibai)
+   - public library, disaster administration, irrigation, postal service, railways, digital public services, archives
+
+2) Easy और Medium:
+   - 0-9 digits नहीं
+   - (), -, /, %, ₹, : जैसे mixed exam symbols नहीं
+   - normal readable passage style
+
+3) Moderate to Hard और Hard:
+   - random numbers
+   - (), hyphen, slash और official reference style
+   - Hard में date / percentage / amount जैसी mixed notation भी हो सकती है
+
+4) Daily Practice के लिए stored source matter 30-minute reservoir है:
+   English: 1020 words
+   Hindi: 816 words
+
+5) Practice time selection के बाद exact visible matter:
+   English: 5=170, 10=340, 15=510, 20=680, 25=850, 30=1020 words
+   Hindi:   5=136, 10=272, 15=408, 20=544, 25=680, 30=816 words
+
+6) Exam folder में daily source 30-minute reservoir बनता है, लेकिन candidate को selected time के हिसाब से existing exam rule/duration_word_map से केवल required matter दिखता है। UP Police Computer Operator के लिए existing special mapping preserved है.
+
+7) Exact full passage duplicate daily_auto_slots content hash से block रहता है। New generator topic rotation और contextual wording से sentence repetition भी काफी कम करता है.
+
+8) Daily Practice count अब प्रति भाषा 7 है:
+   2 Easy + 2 Medium + 2 Moderate to Hard + 1 Hard
+
+9) Existing payment, OTP, database content, owner data और site layout को इस passage update के लिए नहीं बदला गया है। Base package वही SECURITY-ONLY build है।
+
+IMPORTANT:
+- ये passages original exam-style practice material हैं; इन्हें official/PYQ passage claim नहीं करना चाहिए।
+- जिन exams में official matter rule owner settings में configured नहीं है, system saved exam duration/min_words/WPM rule का fallback use करता है। गलत official rule invent नहीं किया गया है।

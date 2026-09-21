@@ -1,0 +1,34 @@
+JP Typing — Daily Passage All-Exam Update
+Date: 21-09-2026
+
+User requirement implemented:
+1. Daily passage logic applies to ALL active typing exams, not only UP Police Computer Operator.
+2. Every exam uses its own saved typing rule (duration_word_map, min_words/duration, or required WPM) to decide how much matter is shown for the selected time. UP Police CO keeps its explicit 15-minute 510 English / 408 Hindi rule.
+3. Difficulty now changes the actual writing style:
+   - Easy: short, direct, familiar sentences; no added numeric/symbol challenge.
+   - Medium: ordinary exam-style descriptive language; no added numeric/symbol challenge.
+   - Moderate to Hard: denser administrative wording + occasional 0-9 / () / - style record notation.
+   - Hard: longer connected clauses, record references, dates, percentages and more frequent mixed notation.
+4. Exam-oriented topics include High Court/court records, village problems, rural roads, irrigation, history, historical places, important personalities, public libraries, postal service, railways, archives, disaster management and digital public services.
+5. Daily Exam/Live topic bank and Daily Practice topic bank are separated. Both still contain realistic history/biography/public-life subjects, but the concrete daily topic pools do not overlap.
+6. A Daily Exam passage always belongs to its exam (exam_id); a Daily Practice passage remains outside exam folders (exam_id NULL).
+7. Generator refuses to insert an exact passage text already stored anywhere in passages. Manual Owner add/edit paths also reject an exact cross-mode duplicate between Exam and Practice.
+8. A one-time safe cleanup deactivates an old Practice copy only when its text is exactly the same as an active Exam passage. It does not delete it.
+9. Exact full-passage duplicate protection remains active through content hashing.
+10. English and Hindi are both supported. Legacy font layouts continue to use their legacy-compatible encoded matter path.
+11. Practice creates 2 Easy + 2 Medium + 2 Moderate to Hard + 1 Hard passage per language per day.
+12. No visual/UI/design file was changed by this update. Changes are limited to daily-passages.js, server.js cross-mode separation logic, and this note.
+
+Validation performed before packaging:
+- node --check daily-passages.js: PASS.
+- node --check server.js: PASS.
+- Tested all 183 active exams from the bundled legacy database.
+- Generated all four difficulty levels for every active exam: 732/732 passed exact 30-minute source word targets.
+- Generated 8 Practice validation passages (English/Hindi x four levels): all passed exact targets.
+- Easy/Medium validation found no added numeric/special challenge in non-legacy layouts.
+- Moderate-to-Hard/Hard validation included mixed record notation as intended.
+- Sample Exam-vs-Practice generation produced different full passages and separate topic banks.
+- Bundled legacy database scan found 1 exact old Exam/Practice duplicate; the new one-time cleanup will deactivate only the Practice copy if the deployed database contains the same condition.
+
+Important:
+These are exam-oriented original practice passages, not claimed to be official/PYQ passages unless the Owner separately adds verified official matter.

@@ -1,0 +1,15 @@
+Shivjee's Typing — 21 Sep 2026 Auto Matter Refresh
+
+Purpose:
+- Update ONLY the auto-generated daily matters that were already created on 2026-09-21 before the newer all-exam, exam-oriented composer was installed.
+- Applies to all supported exams, Practice, and Live auto-generated rows that have daily_auto_slots entries.
+- Uses the same current Easy / Medium / Moderate to Hard / Hard grading rules.
+- Uses the current exam-oriented bilingual topic system.
+- Keeps Exam and Practice matter separate.
+
+Safety:
+- Manual passages are NOT changed.
+- If an owner manually edited an auto-generated passage after creation, that passage is detected by hash mismatch and preserved.
+- The refresh is one-time only through app_meta marker: daily_auto_matter_refresh_20260921_human_v4.
+- No UI/design file was changed for this refresh.
+- The database is not bundled or replaced; the refresh runs against the existing Railway database on first startup after deployment.
