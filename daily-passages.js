@@ -1,11 +1,12 @@
 'use strict';
-// Daily passage composer v4: all-exam, exam-oriented, bilingual, difficulty-graded long-source passages.
+// JP_DYNAMIC_MATTER_UNIVERSE_V5_20260922
+// Daily passage composer v5: dynamic broad-topic, bilingual, difficulty-graded long-source passages.
 // Design goals:
 // 1) stored source matter is long enough for a 30-minute selection,
 // 2) exam UI can trim that source to the selected exam/time rule,
 // 3) Easy/Medium stay clean; numbers and mixed official notation start only after Medium,
-// 4) passages use rotating human-style public-life/history topics instead of office filler,
-// 5) exact full passages never repeat (enforced by daily_auto_slots.content_hash).
+// 4) Exam + Practice draw from a broad procedural topic universe instead of a short fixed list,
+// 5) exact full passages and exact topic-angle signatures never repeat; recent base subjects also cool down.
 const crypto=require('crypto');
 const legacyDaily=require('./daily-passages-legacy');
 const LEVELS=['Easy','Medium','Moderate to Hard','Hard'];
@@ -423,6 +424,217 @@ const HARD_HI=[
  'अभिलेख की वास्तविक उपयोगिता तब परखी जाती है जब मूल कार्य से अपरिचित व्यक्ति बिना मौखिक अनुमान के पूरे निर्णय क्रम को समझ सके।'
 ];
 
+
+// Dynamic topic universe v5.
+// The user-supplied examples (biography, historical places, village stories, court, railway, etc.)
+// are categories, not a fixed daily topic list. A topic signature is built from several rotating
+// dimensions so the same topic/angle combination is not reused once it has been published.
+const BIO_PEOPLE=[
+ ['apj-kalam','A. P. J. Abdul Kalam','ए. पी. जे. अब्दुल कलाम','science, engineering and public service','विज्ञान, अभियांत्रिकी और जन सेवा'],
+ ['sardar-patel','Sardar Vallabhbhai Patel','सरदार वल्लभभाई पटेल','public leadership and national integration','जन नेतृत्व और राष्ट्रीय एकीकरण'],
+ ['savitribai-phule','Savitribai Phule','सावित्रीबाई फुले','education and social reform','शिक्षा और सामाजिक सुधार'],
+ ['br-ambedkar','B. R. Ambedkar','डॉ. भीमराव आंबेडकर','law, scholarship and constitutional work','विधि, अध्ययन और संवैधानिक कार्य'],
+ ['cv-raman','C. V. Raman','सी. वी. रमन','scientific research and physics','वैज्ञानिक अनुसंधान और भौतिकी'],
+ ['homi-bhabha','Homi J. Bhabha','होमी जे. भाभा','scientific institution building','वैज्ञानिक संस्थान निर्माण'],
+ ['vikram-sarabhai','Vikram Sarabhai','विक्रम साराभाई','space science and institution building','अंतरिक्ष विज्ञान और संस्थान निर्माण'],
+ ['verghese-kurien','Verghese Kurien','वर्गीज कुरियन','dairy development and cooperative management','दुग्ध विकास और सहकारी प्रबंधन'],
+ ['ms-swaminathan','M. S. Swaminathan','एम. एस. स्वामीनाथन','agricultural science and food security','कृषि विज्ञान और खाद्य सुरक्षा'],
+ ['rani-lakshmibai','Rani Lakshmibai','रानी लक्ष्मीबाई','the uprising of 1857 and regional resistance','1857 के विद्रोह और क्षेत्रीय प्रतिरोध'],
+ ['kalpana-chawla','Kalpana Chawla','कल्पना चावला','space exploration and scientific aspiration','अंतरिक्ष अन्वेषण और वैज्ञानिक प्रेरणा'],
+ ['dhyan-chand','Major Dhyan Chand','मेजर ध्यानचंद','Indian hockey and sporting discipline','भारतीय हॉकी और खेल अनुशासन']
+];
+const HERITAGE_PLACES=[
+ ['sarnath','Sarnath','सारनाथ','Buddhist heritage, archaeology and museum records','बौद्ध विरासत, पुरातत्व और संग्रहालय अभिलेख'],
+ ['nalanda','Nalanda','नालंदा','ancient learning, archaeology and conservation','प्राचीन शिक्षा, पुरातत्व और संरक्षण'],
+ ['fatehpur-sikri','Fatehpur Sikri','फतेहपुर सीकरी','Mughal-era architecture and urban planning','मुगलकालीन स्थापत्य और नगर योजना'],
+ ['sanchi','Sanchi','सांची','Buddhist monuments and conservation','बौद्ध स्मारक और संरक्षण'],
+ ['hampi','Hampi','हम्पी','Vijayanagara heritage and landscape archaeology','विजयनगर विरासत और पुरातात्विक परिदृश्य'],
+ ['konark','Konark Sun Temple','कोणार्क सूर्य मंदिर','temple architecture, stone craft and conservation','मंदिर स्थापत्य, पत्थर शिल्प और संरक्षण'],
+ ['ajanta','Ajanta Caves','अजंता की गुफाएँ','rock-cut heritage, painting and preservation','शैलकृत विरासत, चित्रकला और संरक्षण'],
+ ['ellora','Ellora Caves','एलोरा की गुफाएँ','rock-cut architecture and multi-period heritage','शैलकृत स्थापत्य और बहु-कालीन विरासत'],
+ ['dholavira','Dholavira','धोलावीरा','Harappan archaeology, water systems and settlement planning','हड़प्पा पुरातत्व, जल व्यवस्था और बसावट योजना'],
+ ['red-fort','Red Fort','लाल किला','Mughal architecture, public memory and conservation','मुगल स्थापत्य, जन स्मृति और संरक्षण'],
+ ['agra-fort','Agra Fort','आगरा किला','fort architecture, imperial history and preservation','किला स्थापत्य, शाही इतिहास और संरक्षण'],
+ ['jaipur-city','Historic Jaipur','ऐतिहासिक जयपुर','planned urban form, crafts and heritage management','योजनाबद्ध नगर रूप, शिल्प और विरासत प्रबंधन']
+];
+const SYSTEM_SUBJECTS=[
+ ['high-court','High Court registry','उच्च न्यायालय रजिस्ट्री'],['district-office','district administration office','जिला प्रशासन कार्यालय'],
+ ['railway','railway station operations','रेलवे स्टेशन संचालन'],['post-office','postal service','डाक सेवा'],
+ ['hospital','district hospital','जिला अस्पताल'],['library','public library','सार्वजनिक पुस्तकालय'],
+ ['archive','record archive','अभिलेखागार'],['water-supply','municipal water supply','नगर जलापूर्ति'],
+ ['irrigation','irrigation department','सिंचाई विभाग'],['agri-market','agricultural market','कृषि मंडी'],
+ ['weather-centre','weather observation centre','मौसम प्रेक्षण केंद्र'],['forest-office','forest field office','वन क्षेत्र कार्यालय'],
+ ['bus-depot','public transport depot','सार्वजनिक परिवहन डिपो'],['school-office','school administration office','विद्यालय प्रशासन कार्यालय'],
+ ['digital-centre','digital public service centre','डिजिटल जन सेवा केंद्र'],['disaster-room','district disaster control room','जिला आपदा नियंत्रण कक्ष']
+];
+const SCIENCE_SUBJECTS=[
+ ['soil','soil health and field observation','मिट्टी की सेहत और खेत निरीक्षण'],['monsoon','monsoon observation and local planning','मानसून प्रेक्षण और स्थानीय योजना'],
+ ['solar','solar energy in public facilities','सार्वजनिक संस्थानों में सौर ऊर्जा'],['cyber','everyday cyber safety','दैनिक साइबर सुरक्षा'],
+ ['satellite','satellite mapping for public planning','सार्वजनिक योजना में उपग्रह मानचित्रण'],['waste','waste segregation and recycling','कचरा पृथक्करण और पुनर्चक्रण'],
+ ['biodiversity','local biodiversity records','स्थानीय जैव विविधता अभिलेख'],['river','river monitoring and water quality','नदी निगरानी और जल गुणवत्ता'],
+ ['health-data','public health data and reporting','जन स्वास्थ्य डेटा और रिपोर्टिंग'],['digital-record','digital records and backups','डिजिटल अभिलेख और बैकअप'],
+ ['air-quality','air quality observation','वायु गुणवत्ता प्रेक्षण'],['rainwater','rainwater harvesting','वर्षा जल संचयन']
+];
+const HISTORY_SUBJECTS=[
+ ['trade-routes','historic trade routes and market towns','ऐतिहासिक व्यापार मार्ग और बाजार नगर'],['inscriptions','inscriptions as historical evidence','शिलालेख ऐतिहासिक साक्ष्य के रूप में'],
+ ['postal-history','the changing history of postal communication','डाक संचार का बदलता इतिहास'],['railway-history','the growth of railways and connected towns','रेलवे विकास और जुड़े नगर'],
+ ['irrigation-history','historic irrigation works and local farming','ऐतिहासिक सिंचाई व्यवस्था और स्थानीय खेती'],['craft-history','traditional crafts and changing markets','पारंपरिक शिल्प और बदलते बाजार'],
+ ['archives-history','archives and the reconstruction of local history','अभिलेखागार और स्थानीय इतिहास का पुनर्निर्माण'],['education-history','the growth of public education institutions','सार्वजनिक शिक्षा संस्थानों का विकास'],
+ ['maps-history','old maps as sources of local history','पुराने मानचित्र स्थानीय इतिहास के स्रोत के रूप में'],['museum-history','museums, objects and public memory','संग्रहालय, वस्तुएँ और जन स्मृति']
+];
+const CURRENT_LITERACY=[
+ ['verify-report','How a Current Affairs Report Is Verified','वर्तमान घटनाओं की रिपोर्ट का सत्यापन कैसे होता है'],
+ ['official-update','Reading an Official Update Before Sharing It','साझा करने से पहले आधिकारिक सूचना पढ़ना'],
+ ['weather-alert','Understanding a Weather Alert Without Rumours','अफवाह के बिना मौसम चेतावनी को समझना'],
+ ['news-correction','How a News Error Is Corrected','समाचार की त्रुटि कैसे सुधारी जाती है'],
+ ['public-notice','Checking Dates and Conditions in a Public Notice','सार्वजनिक सूचना में तिथि और शर्तों की जाँच'],
+ ['source-check','Distinguishing a Source, a Claim and an Opinion','स्रोत, दावा और राय में अंतर समझना'],
+ ['data-headline','Reading Numbers Behind a Headline','समाचार शीर्षक के पीछे के आँकड़े पढ़ना'],
+ ['photo-context','Checking the Context of a Photo or Video','चित्र या वीडियो का संदर्भ जाँचना']
+];
+const STORY_SETTINGS=[
+ ['dry-village','a village facing a long dry spell','लंबे सूखे से जूझता एक गाँव'],['pond-village','a village restoring an old pond','पुराने तालाब को सुधारता एक गाँव'],
+ ['hill-road','a hill settlement after a blocked road','बंद सड़क के बाद का पहाड़ी गाँव'],['school-garden','a school garden during a hot summer','गर्मियों में विद्यालय का बगीचा'],
+ ['river-bank','a settlement near a rising river','बढ़ती नदी के पास की बस्ती'],['weekly-market','a busy weekly village market','व्यस्त साप्ताहिक ग्रामीण बाजार'],
+ ['forest-edge','a small settlement near a forest','जंगल के किनारे की छोटी बस्ती'],['post-route','a village on a difficult postal route','कठिन डाक मार्ग वाला गाँव']
+];
+const STORY_CHARACTERS=[
+ ['student','a school student','एक विद्यार्थी'],['farmer','a small farmer','एक छोटा किसान'],['postman','a village postman','एक ग्रामीण डाकिया'],
+ ['teacher','a school teacher','एक शिक्षक'],['potter','a local potter','एक स्थानीय कुम्हार'],['shopkeeper','a small shopkeeper','एक दुकानदार'],
+ ['health-worker','a community health worker','एक सामुदायिक स्वास्थ्य कार्यकर्ता'],['forest-guard','a forest guard','एक वन रक्षक']
+];
+const STORY_CHALLENGES=[
+ ['crow-water','a thirsty crow finding water near the courtyard','आँगन के पास पानी खोजता प्यासा कौआ'],['drought','a shortage of drinking water after weak rainfall','कम वर्षा के बाद पेयजल की कमी'],
+ ['lost-letter','an important letter delivered to the wrong lane','गलत गली में पहुँचा महत्वपूर्ण पत्र'],['broken-bridge','a damaged small bridge affecting daily travel','आवागमन रोकता क्षतिग्रस्त छोटा पुल'],
+ ['power-cut','a long power cut during a busy day','व्यस्त दिन में लंबी बिजली कटौती'],['storm','a sudden storm damaging trees and signs','अचानक आँधी से पेड़ और संकेतक क्षतिग्रस्त होना'],
+ ['missing-register','a missing register that everyone needs','सबको आवश्यक एक रजिस्टर का गायब होना'],['injured-bird','an injured bird found near the school','विद्यालय के पास घायल पक्षी मिलना']
+];
+const ANGLES=[
+ ['daily-life','daily life and practical decisions','दैनिक जीवन और व्यावहारिक निर्णय'],['records','records, dates and verification','अभिलेख, तिथियाँ और सत्यापन'],
+ ['people','people, responsibility and coordination','लोग, जिम्मेदारी और समन्वय'],['change','change over time and its effects','समय के साथ बदलाव और उसका प्रभाव'],
+ ['problem-solving','a problem, its cause and a workable response','समस्या, उसका कारण और व्यावहारिक समाधान'],['learning','what can be learned from the subject','विषय से मिलने वाली सीख'],
+ ['public-service','public service and citizen experience','जन सेवा और नागरिक अनुभव'],['evidence','evidence, sources and careful interpretation','साक्ष्य, स्रोत और सावधान व्याख्या'],
+ ['maintenance','maintenance, prevention and follow-up','रखरखाव, रोकथाम और अनुवर्ती कार्य'],['community','community participation and local knowledge','सामुदायिक भागीदारी और स्थानीय अनुभव']
+];
+
+const LENSES=[
+ ['accuracy','accuracy and careful checking','शुद्धता और सावधान जाँच'],['access','access and ease of use','पहुँच और उपयोग की सरलता'],
+ ['maintenance','maintenance and prevention','रखरखाव और रोकथाम'],['training','training and working habits','प्रशिक्षण और कार्य आदतें'],
+ ['records','records and traceability','अभिलेख और खोजयोग्यता'],['community','community experience','सामुदायिक अनुभव'],
+ ['technology','technology with human verification','मानवीय सत्यापन के साथ तकनीक'],['safety','safety and preparedness','सुरक्षा और तैयारी'],
+ ['resources','limited resources and priorities','सीमित संसाधन और प्राथमिकताएँ'],['communication','clear communication','स्पष्ट संचार'],
+ ['comparison','comparison across two situations','दो परिस्थितियों की तुलना'],['followup','follow-up after the first action','पहली कार्रवाई के बाद अनुवर्ती कार्य']
+];
+const STAGES=[
+ ['start','at the beginning of a new working cycle','नए कार्य चक्र की शुरुआत में'],['busy','during a busy period','व्यस्त अवधि के दौरान'],
+ ['review','during a routine review','नियमित समीक्षा के दौरान'],['handover','when work passes from one person to another','जब काम एक व्यक्ति से दूसरे को सौंपा जाता है'],
+ ['season','before a seasonal change','मौसमी बदलाव से पहले'],['problem','after a repeated problem is noticed','बार-बार समस्या दिखने के बाद'],
+ ['upgrade','after a small system improvement','छोटे व्यवस्था सुधार के बाद'],['field','while field information is being collected','जब क्षेत्रीय जानकारी एकत्र की जा रही हो'],
+ ['public','when public use suddenly increases','जब सार्वजनिक उपयोग अचानक बढ़ जाए'],['audit','while an old record is being checked','जब पुराने अभिलेख की जाँच हो रही हो'],
+ ['training','during staff training','कर्मचारी प्रशिक्षण के दौरान'],['recovery','while normal work is being restored after disruption','बाधा के बाद सामान्य काम बहाल करते समय']
+];
+
+
+function makeFactsForSystem(subjectEn,subjectHi,angleEn,angleHi){return [
+ [`A useful account of ${subjectEn} begins with the people who use the service and the staff who keep it working every day.`,`${subjectHi} का उपयोगी विवरण उन लोगों से शुरू होता है जो सेवा लेते हैं और उन कर्मचारियों से जो इसे रोज चलाते हैं।`],
+ [`The subject becomes clearer when ${angleEn} are considered together instead of as separate details.`,`${subjectHi} को समझते समय ${angleHi} को अलग-अलग नहीं बल्कि एक साथ देखना अधिक उपयोगी होता है।`],
+ [`A clear register can record dates, complaints, pending work and the person responsible for the next action.`,`स्पष्ट पंजी में तिथि, शिकायत, लंबित कार्य और अगले कदम के जिम्मेदार व्यक्ति को दर्ज किया जा सकता है।`],
+ [`Small delays often grow when the same information must be checked repeatedly because the first entry was incomplete.`,`पहली प्रविष्टि अधूरी हो तो वही जानकारी बार-बार जाँचनी पड़ती है और छोटी देरी बड़ी समस्या बन सकती है।`],
+ [`People usually judge ${subjectEn} by the final service, although much of the important work happens earlier in checking and coordination.`,`लोग ${subjectHi} को अंतिम सेवा से आँकते हैं, जबकि महत्वपूर्ण काम अक्सर पहले ही जाँच और समन्वय में हो चुका होता है।`],
+ [`Simple instructions reduce confusion when several counters, rooms or field teams are involved in one process.`,`एक ही प्रक्रिया में कई काउंटर, कक्ष या क्षेत्रीय दल जुड़े हों तो सरल निर्देश भ्रम कम करते हैं।`],
+ [`A practical review should separate a verified fact from a complaint, an estimate and an action that is still pending.`,`व्यावहारिक समीक्षा में सत्यापित तथ्य, शिकायत, अनुमान और लंबित कार्रवाई को अलग-अलग दर्ज करना चाहिए।`],
+ [`Maintenance is easier when repeated faults are recorded before they become emergency repairs.`,`बार-बार होने वाली खराबी पहले से दर्ज हो तो आपात मरम्मत की स्थिति आने से पहले रखरखाव आसान हो जाता है।`],
+ [`Digital tools can make search faster, but they do not remove the need to enter names, dates and references accurately.`,`डिजिटल साधन खोज तेज कर सकते हैं, पर नाम, तिथि और संदर्भ सही दर्ज करने की आवश्यकता समाप्त नहीं होती।`],
+ [`Public confidence improves when a person can understand what has happened, what remains pending and when the next update is expected.`,`जब व्यक्ति समझ सके कि क्या हुआ, क्या बाकी है और अगली जानकारी कब मिलेगी तो जन विश्वास बढ़ता है।`],
+ [`The best improvement is often a small change in routine that prevents the same error from returning.`,`सबसे उपयोगी सुधार अक्सर प्रक्रिया का छोटा बदलाव होता है जो एक ही गलती को दोबारा होने से रोकता है।`],
+ [`A final check of ${subjectEn} should leave enough information for another worker to continue the task without guessing.`,`${subjectHi} की अंतिम जाँच में इतना स्पष्ट विवरण होना चाहिए कि दूसरा कर्मचारी बिना अनुमान लगाए काम आगे बढ़ा सके।`]
+]}
+function makeFactsForBio(nameEn,nameHi,fieldEn,fieldHi,angleEn,angleHi){return [
+ [`A balanced biography of ${nameEn} should connect the person with ${fieldEn} while keeping dates, institutions and achievements in their proper context.`,`${nameHi} की संतुलित जीवनी में ${fieldHi} से उनके संबंध को तिथि, संस्था और उपलब्धि के सही संदर्भ के साथ समझना चाहिए।`],
+ [`The most useful account separates well documented events from later stories that may have grown around a famous public figure.`,`उपयोगी विवरण प्रमाणित घटनाओं को बाद में प्रचलित हुई कथाओं से अलग रखता है।`],
+ [`Early education, working habits and the institutions around ${nameEn} help explain how a public career developed over time.`,`${nameHi} की शिक्षा, कार्य आदतें और उनसे जुड़ी संस्थाएँ यह समझने में मदद करती हैं कि सार्वजनिक जीवन समय के साथ कैसे विकसित हुआ।`],
+ [`A single quotation cannot represent an entire life, so a biography should compare several reliable records.`,`एक उद्धरण पूरे जीवन का प्रतिनिधित्व नहीं कर सकता, इसलिए जीवनी में कई भरोसेमंद अभिलेखों की तुलना उपयोगी होती है।`],
+ [`The angle of ${angleEn} can reveal parts of the story that are missed when only famous achievements are listed.`,`${angleHi} का दृष्टिकोण उन पहलुओं को सामने ला सकता है जो केवल प्रसिद्ध उपलब्धियाँ गिनाने से छूट जाते हैं।`],
+ [`Institutions, colleagues and historical circumstances also shape the work for which ${nameEn} later becomes remembered.`,`संस्थाएँ, सहयोगी और ऐतिहासिक परिस्थितियाँ भी उस कार्य को आकार देती हैं जिसके लिए ${nameHi} को बाद में याद किया जाता है।`],
+ [`A careful note should preserve the difference between a confirmed date, an approximate period and an uncertain claim.`,`सावधान टिप्पणी में निश्चित तिथि, अनुमानित अवधि और अनिश्चित दावे के बीच अंतर बनाए रखना चाहिए।`],
+ [`Public memory often simplifies a complicated career, while archives and biographies can restore missing detail.`,`जन स्मृति जटिल जीवन को सरल बना देती है, जबकि अभिलेख और जीवनी छूटे हुए विवरण वापस ला सकते हैं।`],
+ [`The influence of ${nameEn} can be studied through institutions, policies, research, teaching, public work or later generations, depending on the field.`,`${nameHi} के प्रभाव का अध्ययन क्षेत्र के अनुसार संस्था, नीति, अनुसंधान, शिक्षण, जन कार्य या बाद की पीढ़ियों के माध्यम से किया जा सकता है।`],
+ [`Good biographical writing avoids turning respect into exaggeration because factual precision makes an achievement easier to understand.`,`अच्छी जीवनी सम्मान को अतिशयोक्ति में नहीं बदलती क्योंकि तथ्यात्मक शुद्धता उपलब्धि को अधिक स्पष्ट बनाती है।`],
+ [`Readers benefit when a biography explains both the result of an achievement and the years of work that made it possible.`,`जीवनी में उपलब्धि के परिणाम के साथ उसे संभव बनाने वाले वर्षों के काम का वर्णन भी उपयोगी होता है।`],
+ [`The lasting lesson is to study ${nameEn} through evidence, context and contribution rather than through slogans alone.`,`स्थायी सीख यह है कि ${nameHi} को केवल नारों से नहीं बल्कि साक्ष्य, संदर्भ और योगदान के आधार पर समझा जाए।`]
+]}
+function makeFactsForPlace(nameEn,nameHi,descEn,descHi,angleEn,angleHi){return [
+ [`${nameEn} can be studied through ${descEn}, but the site is also shaped by the landscape, later repairs and the way visitors use it today.`,`${nameHi} का अध्ययन ${descHi} के माध्यम से किया जा सकता है, लेकिन स्थल के वर्तमान रूप पर भू-दृश्य, बाद की मरम्मत और आगंतुकों का उपयोग भी प्रभाव डालता है।`],
+ [`A historical place becomes easier to understand when a visitor distinguishes the original structure from later additions and conservation work.`,`ऐतिहासिक स्थल को समझना आसान होता है जब मूल संरचना, बाद के निर्माण और संरक्षण कार्य में अंतर किया जाए।`],
+ [`Maps, inscriptions, excavation reports, photographs and museum records can provide different kinds of evidence about the same place.`,`मानचित्र, शिलालेख, उत्खनन रिपोर्ट, चित्र और संग्रहालय अभिलेख एक ही स्थान के बारे में अलग प्रकार के साक्ष्य देते हैं।`],
+ [`The angle of ${angleEn} helps connect the monument with the people who built, used, studied and protected it.`,`${angleHi} का दृष्टिकोण स्मारक को बनाने, उपयोग करने, अध्ययन करने और सुरक्षित रखने वाले लोगों से जोड़ता है।`],
+ [`Crowd movement, weather, moisture and careless touching can slowly damage a site even when no single incident appears serious.`,`भीड़, मौसम, नमी और लापरवाह स्पर्श से स्थल धीरे-धीरे क्षतिग्रस्त हो सकता है, भले ही कोई एक घटना बड़ी न लगे।`],
+ [`Conservation work needs records because later teams should know what material was repaired, when it was done and why.`,`संरक्षण कार्य में अभिलेख जरूरी हैं ताकि बाद की टीम जान सके कि किस भाग की मरम्मत कब और क्यों हुई।`],
+ [`Local communities may remember a place through stories and customs that are different from the questions asked by archaeologists.`,`स्थानीय समुदाय किसी स्थल को ऐसी कथाओं और परंपराओं से याद कर सकते हैं जो पुरातत्वविदों के प्रश्नों से अलग हों।`],
+ [`A responsible description should not fill every historical gap with certainty when the surviving evidence is incomplete.`,`जब उपलब्ध साक्ष्य अधूरे हों तो जिम्मेदार विवरण हर ऐतिहासिक खाली स्थान को निश्चित दावे से नहीं भरता।`],
+ [`Visitor facilities, signs and pathways can protect heritage when they guide people without hiding the character of the site.`,`आगंतुक सुविधा, संकेतक और मार्ग विरासत की रक्षा कर सकते हैं यदि वे स्थल के स्वरूप को छिपाए बिना लोगों को सही दिशा दें।`],
+ [`Digital models and photographs help documentation, but they do not replace the need to protect the original material.`,`डिजिटल मॉडल और चित्र दस्तावेजीकरण में सहायक हैं, पर वे मूल सामग्री की सुरक्षा की आवश्यकता को समाप्त नहीं करते।`],
+ [`The value of ${nameEn} lies not only in a famous image but also in the evidence preserved across structures, objects and records.`,`${nameHi} का महत्व केवल प्रसिद्ध दृश्य में नहीं बल्कि संरचनाओं, वस्तुओं और अभिलेखों में सुरक्षित साक्ष्य में भी है।`],
+ [`A careful study of ${nameEn} connects history with conservation, public access and the responsibility to preserve evidence for future readers.`,`${nameHi} का सावधान अध्ययन इतिहास को संरक्षण, सार्वजनिक पहुँच और भविष्य के लिए साक्ष्य बचाने की जिम्मेदारी से जोड़ता है।`]
+]}
+function makeFactsForStory(settingEn,settingHi,charEn,charHi,challengeEn,challengeHi,angleEn,angleHi){return [
+ [`This is a fictional practice story set in ${settingEn}, where ${charEn} notices ${challengeEn}.`,`यह अभ्यास के लिए काल्पनिक कहानी है जो ${settingHi} में घटती है, जहाँ ${charHi} ${challengeHi} को देखता है।`],
+ [`At first the problem looks small, but it begins to affect ordinary work, travel, study or access to water.`,`पहले समस्या छोटी लगती है, पर धीरे-धीरे वह काम, यात्रा, पढ़ाई या पानी की उपलब्धता को प्रभावित करने लगती है।`],
+ [`Instead of guessing, the people nearby check what has actually happened and note the details that can be verified.`,`अनुमान लगाने के बजाय आसपास के लोग वास्तविक स्थिति देखते हैं और सत्यापित होने वाले विवरण दर्ज करते हैं।`],
+ [`The story follows ${angleEn}, so each step shows why a simple decision can matter in daily life.`,`कहानी ${angleHi} पर केंद्रित है, इसलिए हर चरण दिखाता है कि दैनिक जीवन में छोटा निर्णय भी क्यों महत्वपूर्ण हो सकता है।`],
+ [`One person suggests an immediate shortcut, while another asks whether the same problem will return the next day.`,`एक व्यक्ति तुरंत आसान उपाय सुझाता है, जबकि दूसरा पूछता है कि क्या वही समस्या अगले दिन फिर लौटेगी।`],
+ [`The group chooses a solution that can be checked, explained and repeated if the situation occurs again.`,`समूह ऐसा समाधान चुनता है जिसे जाँचा, समझाया और स्थिति दोबारा आने पर फिर अपनाया जा सके।`],
+ [`The fictional incident also shows how a child, worker, farmer or animal can be affected by conditions that adults sometimes overlook.`,`काल्पनिक घटना यह भी दिखाती है कि जिन परिस्थितियों को बड़े लोग नजरअंदाज कर देते हैं उनका असर बच्चे, कर्मचारी, किसान या पशु-पक्षी पर पड़ सकता है।`],
+ [`A short written note prevents different people from remembering the same event in completely different ways.`,`छोटी लिखित टिप्पणी एक ही घटना को अलग-अलग लोगों द्वारा बिल्कुल अलग तरह से याद करने की समस्या कम करती है।`],
+ [`By evening, the immediate difficulty is reduced, but the characters still discuss what should be repaired or prepared for the future.`,`शाम तक तत्काल कठिनाई कम हो जाती है, पर पात्र भविष्य के लिए आवश्यक मरम्मत या तैयारी पर भी चर्चा करते हैं।`],
+ [`The story does not depend on a miracle; it moves through observation, cooperation and a few practical choices.`,`कहानी किसी चमत्कार पर निर्भर नहीं है; वह निरीक्षण, सहयोग और कुछ व्यावहारिक निर्णयों से आगे बढ़ती है।`],
+ [`The experience leaves the community with a clearer routine for handling a similar problem later.`,`इस अनुभव से समुदाय के पास भविष्य में ऐसी समस्या सँभालने की अधिक स्पष्ट प्रक्रिया बन जाती है।`],
+ [`The final lesson is simple: patience, accurate information and timely action often solve more than panic or rumour.`,`अंतिम सीख सरल है: धैर्य, सही जानकारी और समय पर कार्रवाई अक्सर घबराहट या अफवाह से अधिक उपयोगी होती है।`]
+]}
+function makeFactsForCurrent(titleEn,titleHi,angleEn,angleHi){return [
+ [`This passage is about the process of reading current information, not about inventing a news event that has not been verified.`,`यह अनुच्छेद वर्तमान सूचना पढ़ने की प्रक्रिया पर है, किसी अपुष्ट समाचार घटना को गढ़ने पर नहीं।`],
+ [`A headline is only a starting point; the date, source, location and original statement should be checked before a claim is repeated.`,`समाचार शीर्षक केवल शुरुआत है; किसी दावे को दोहराने से पहले तिथि, स्रोत, स्थान और मूल वक्तव्य जाँचना चाहिए।`],
+ [`The subject of ${angleEn} becomes important when a fast message reaches people before the full context is available.`,`${angleHi} तब महत्वपूर्ण हो जाता है जब पूरी पृष्ठभूमि आने से पहले तेज संदेश लोगों तक पहुँच जाए।`],
+ [`Official notices, primary documents and direct data are often more useful than a screenshot without a source.`,`बिना स्रोत वाले स्क्रीनशॉट की तुलना में आधिकारिक सूचना, मूल दस्तावेज और प्रत्यक्ष आँकड़े अधिक उपयोगी होते हैं।`],
+ [`A number can be technically correct and still be misleading if the time period, base value or population is omitted.`,`समय अवधि, आधार मान या संबंधित समूह न बताया जाए तो सही संख्या भी भ्रामक हो सकती है।`],
+ [`Photographs and videos also need context because old material can be shared again as if it were new.`,`चित्र और वीडियो को भी संदर्भ चाहिए क्योंकि पुरानी सामग्री को नया बताकर फिर साझा किया जा सकता है।`],
+ [`A correction should be visible enough that readers who saw the first error can understand what changed.`,`सुधार इतना स्पष्ट होना चाहिए कि पहले गलत सूचना देखने वाला पाठक समझ सके कि क्या बदला है।`],
+ [`Responsible reporting distinguishes what is confirmed, what is alleged and what remains unknown.`,`जिम्मेदार रिपोर्टिंग में पुष्टि हुई बात, आरोप और अभी अज्ञात तथ्य को अलग-अलग रखा जाता है।`],
+ [`Readers should be cautious when an urgent message demands immediate sharing but gives no verifiable source.`,`ऐसे तात्कालिक संदेश से सावधान रहना चाहिए जो तुरंत साझा करने को कहे पर सत्यापित स्रोत न दे।`],
+ [`A useful current-affairs note explains why the information matters without turning uncertainty into certainty.`,`उपयोगी समसामयिक टिप्पणी सूचना का महत्व बताती है पर अनिश्चितता को निश्चित तथ्य में नहीं बदलती।`],
+ [`Comparing two reliable sources can reveal whether a difference is factual, numerical or simply a matter of emphasis.`,`दो भरोसेमंद स्रोतों की तुलना से पता चल सकता है कि अंतर तथ्य, संख्या या केवल जोर देने के तरीके का है।`],
+ [`The safest habit is to verify first, note the date and source, and only then treat a claim as suitable for wider use.`,`सबसे सुरक्षित आदत है पहले सत्यापन करना, तिथि और स्रोत दर्ज करना और उसके बाद ही दावे को आगे उपयोग योग्य मानना।`]
+]}
+function makeFactsForScience(subjectEn,subjectHi,angleEn,angleHi){return makeFactsForSystem(subjectEn,subjectHi,angleEn,angleHi).map((p,i)=>i===0?[`A practical study of ${subjectEn} starts with observation, measurement and a record that can be checked later.`,`${subjectHi} का व्यावहारिक अध्ययन निरीक्षण, माप और बाद में जाँचे जा सकने वाले अभिलेख से शुरू होता है।`]:p)}
+function makeFactsForHistory(subjectEn,subjectHi,angleEn,angleHi){return makeFactsForSystem(subjectEn,subjectHi,angleEn,angleHi).map((p,i)=>i===0?[`A careful historical account of ${subjectEn} compares evidence from more than one kind of source.`,`${subjectHi} का सावधान ऐतिहासिक विवरण एक से अधिक प्रकार के स्रोतों की तुलना करता है।`]:p)}
+
+function dynamicTopicCard({date,targetType,exam={},language,difficulty,serial=1,attempt=0}){
+ const random=rng([date,targetType,exam.id||0,exam.name||'',language,difficulty,serial,attempt,'dynamic-universe-v5'].join('|'));
+ // Exam is weighted toward factual/public-service material; Practice gets more narrative variety.
+ const familyPool=targetType==='practice'
+  ? ['story','story','biography','heritage','science','system','history','current']
+  : ['system','system','biography','heritage','science','history','current','story'];
+ const family=pick(familyPool,random),angle=pick(ANGLES,random),lens=pick(LENSES,random),stage=pick(STAGES,random);let key,en,hi,facts,baseSubject;
+ if(family==='biography'){
+  const x=pick(BIO_PEOPLE,random);baseSubject=`bio:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForBio(x[1],x[2],x[3],x[4],angle[1],angle[2]);
+ }else if(family==='heritage'){
+  const x=pick(HERITAGE_PLACES,random);baseSubject=`place:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForPlace(x[1],x[2],x[3],x[4],angle[1],angle[2]);
+ }else if(family==='story'){
+  const st=pick(STORY_SETTINGS,random),ch=pick(STORY_CHARACTERS,random),pr=pick(STORY_CHALLENGES,random);baseSubject=`story:${st[0]}:${pr[0]}`;key=`${baseSubject}:${ch[0]}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`A Short Fictional Story: ${st[1]}, ${pr[1]}`;hi=`एक छोटी काल्पनिक कहानी: ${st[2]}, ${pr[2]}`;facts=makeFactsForStory(st[1],st[2],ch[1],ch[2],pr[1],pr[2],angle[1],angle[2]);
+ }else if(family==='current'){
+  const x=pick(CURRENT_LITERACY,random);baseSubject=`current:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=x[1];hi=x[2];facts=makeFactsForCurrent(en,hi,angle[1],angle[2]);
+ }else if(family==='science'){
+  const x=pick(SCIENCE_SUBJECTS,random);baseSubject=`science:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForScience(x[1],x[2],angle[1],angle[2]);
+ }else if(family==='history'){
+  const x=pick(HISTORY_SUBJECTS,random);baseSubject=`history:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForHistory(x[1],x[2],angle[1],angle[2]);
+ }else{
+  const x=pick(SYSTEM_SUBJECTS,random);baseSubject=`system:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForSystem(x[1],x[2],angle[1],angle[2]);
+ }
+ facts=[[`This version looks at the subject through ${lens[1]} ${stage[1]}, giving the passage a different practical focus.`,`इस रूप में विषय को ${lens[2]} के दृष्टिकोण से ${stage[2]} देखा गया है, जिससे अनुच्छेद का व्यावहारिक केंद्र अलग रहता है।`],...facts.slice(0,11)];
+ en=`${en} with a focus on ${lens[1]}`;hi=`${hi}, विशेष ध्यान ${lens[2]}`;
+ return {key,en,hi,facts,family,baseSubject,signature:crypto.createHash('sha256').update(key).digest('hex')};
+}
+
 const EXAM_TOPIC_KEYS=new Set(['high-court','sarnath','nalanda','kalam','patel','railway','archives','disaster']);
 const PRACTICE_TOPIC_KEYS=new Set(['village-water','rural-roads','fatehpur','savitribai','lakshmibai','public-library','irrigation','postal-service','digital-service']);
 function preferredTopicPool(targetType,exam={}){
@@ -576,30 +788,35 @@ function legacyCompose({difficulty,date,targetType,exam,serial,attempt},target){
  const arr=[];for(let round=0;round<20;round++)for(const s of shuffle(subjects,random))arr.push(`${s} ${pick(actions,random)}A`);
  return fitExactly(arr,target,'English',targetType);
 }
-function composeExamV4({language,difficulty,date,targetType,exam={},serial=1,attempt=0}){
+function composeDynamicDetailed({language,difficulty,date,targetType,exam={},serial=1,attempt=0}){
  const target=sourceTargetWords(language,targetType,exam),legacy=language==='Hindi'&&/kruti|devlys|chanakya/i.test(exam.layout||'');
- if(legacy)return legacyCompose({difficulty,date,targetType,exam,serial,attempt},target);
- const random=rng([date,targetType,exam.id||0,exam.name||'',language,difficulty,serial,attempt,'human-v4'].join('|'));
- const topicPool=preferredTopicPool(targetType,exam),topic=topicPool[Math.floor(random()*topicPool.length)],hi=language==='Hindi';
- const parts=[];
+ if(legacy){
+  const content=legacyCompose({difficulty,date,targetType,exam,serial,attempt},target);
+  return {content,topicTitle:`${language} Typing Matter`,topicSignature:null,topicFamily:'legacy',baseSubject:'legacy'};
+ }
+ const random=rng([date,targetType,exam.id||0,exam.name||'',language,difficulty,serial,attempt,'human-v5'].join('|'));
+ const topic=dynamicTopicCard({language,difficulty,date,targetType,exam,serial,attempt}),hi=language==='Hindi',parts=[];
  parts.push(`${hi?topic.hi:topic.en}. ${scopeLine(pick(hi?OPEN_HI:OPEN_EN,random),targetType,language,0)}`);
- const facts=shuffle(topic.facts,random),shift=Math.floor(random()*12),focus=hi?topic.hi.split(/\s+/).slice(0,3).join(' '):topic.key.replace(/-/g,' ');
+ const facts=shuffle(topic.facts,random),shift=Math.floor(random()*12),focus=hi?topic.hi.split(/\s+/).slice(0,4).join(' '):topic.en.split(/\s+/).slice(0,5).join(' ');
  for(let i=0;i<facts.length;i++)parts.push(paragraphForFact(facts[i],language,difficulty,random,i,shift,focus,targetType));
  parts.push(scopeLine(pick(hi?CLOSE_HI:CLOSE_EN,random),targetType,language,99));
- if(['Easy','Medium'].includes(difficulty)){for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/:%₹-]+/g,' ').replace(/\s+/g,' ').trim()}
- return fitExactly(parts,target,language,targetType);
+ if(['Easy','Medium'].includes(difficulty)){for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹-]+/g,' ').replace(/\s+/g,' ').trim()}
+ return {content:fitExactly(parts,target,language,targetType),topicTitle:hi?topic.hi:topic.en,topicSignature:topic.signature,topicFamily:topic.family,baseSubject:topic.baseSubject};
 }
 
-// Scope guard requested 21-Sep-2026: only Exam matter uses the new composer.
-// Practice and Live keep their previous generator unchanged; Learning is not handled in this file.
-function compose(args){
- if(String(args?.targetType||'')==='exam')return composeExamV4(args);
- return legacyDaily.compose(args);
+// Exam + Practice use the broad dynamic topic universe. Live keeps its existing generator.
+// Learning is not handled in this file and remains untouched.
+function composeDetailed(args){
+ const type=String(args?.targetType||'');
+ if(type==='exam'||type==='practice')return composeDynamicDetailed(args);
+ return {content:legacyDaily.compose(args),topicTitle:null,topicSignature:null,topicFamily:'live',baseSubject:'live'};
 }
-module.exports={compose,LEVELS,EXAM_COUNTS,PRACTICE_COUNTS,PRACTICE_30_MIN_WORDS,matterWordsForExam,createService};
+function compose(args){return composeDetailed(args).content}
+module.exports={compose,composeDetailed,LEVELS,EXAM_COUNTS,PRACTICE_COUNTS,PRACTICE_30_MIN_WORDS,matterWordsForExam,createService};
 function createService(db,{setting,indiaDateParts,onChange}){
  const changed=typeof onChange==='function'?onChange:()=>{};
  db.exec(`CREATE TABLE IF NOT EXISTS daily_auto_slots(slot TEXT PRIMARY KEY,queue_id INTEGER,passage_id INTEGER,content_hash TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
+ db.exec(`CREATE TABLE IF NOT EXISTS daily_topic_history(id INTEGER PRIMARY KEY AUTOINCREMENT,signature TEXT NOT NULL UNIQUE,family TEXT,base_subject TEXT,title TEXT,target_type TEXT,exam_id INTEGER,language TEXT,difficulty TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
  const hash=s=>crypto.createHash('sha256').update(String(s).replace(/\s+/g,' ').trim()).digest('hex');
  const upsert=db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP");
  if(setting('daily_auto_v2_installed')!=='1')db.transaction(()=>{upsert.run('daily_queue_enabled','1');upsert.run('daily_queue_skip_date','');upsert.run('daily_auto_practice_enabled','1');upsert.run('daily_auto_exam_enabled','1');upsert.run('daily_auto_v2_installed','1')})();
@@ -613,23 +830,23 @@ function createService(db,{setting,indiaDateParts,onChange}){
   if(setting('live_daily_enabled')==='1')for(const language of ['English','Hindi'])targets.push({type:'live',exam:{id:0,name:'Live Typing',layout:language==='Hindi'?'Unicode / Mangal':'QWERTY'},language,counts:[2,2,0,2]});
   if(c.practice_enabled)for(const language of ['English','Hindi'])targets.push({type:'practice',exam:{id:0,name:'Typing Practice',layout:language==='Hindi'?'Unicode / Mangal':'QWERTY'},language,counts:PRACTICE_COUNTS});
   const findSlot=db.prepare('SELECT 1 FROM daily_auto_slots WHERE slot=?'),existsHash=db.prepare('SELECT 1 FROM daily_auto_slots WHERE content_hash=?');
+  const existsTopic=db.prepare('SELECT 1 FROM daily_topic_history WHERE signature=?');
+  const recentBase=db.prepare('SELECT 1 FROM (SELECT base_subject FROM daily_topic_history WHERE base_subject IS NOT NULL ORDER BY id DESC LIMIT 36) WHERE base_subject=? LIMIT 1');
+  const insertTopic=db.prepare('INSERT INTO daily_topic_history(signature,family,base_subject,title,target_type,exam_id,language,difficulty) VALUES(?,?,?,?,?,?,?,?)');
   // Global content uniqueness: an exact passage already stored in Exam, Practice, Live or manual matter
   // is never inserted again into another mode. Exam rows carry exam_id; Practice rows always keep exam_id NULL.
   const knownHashes=new Set(db.prepare('SELECT content FROM passages WHERE content IS NOT NULL').all().map(r=>hash(r.content)));
+  for(const r of db.prepare('SELECT content FROM daily_passage_queue WHERE content IS NOT NULL').all())knownHashes.add(hash(r.content));
   const queue=db.prepare("INSERT INTO daily_passage_queue(queue_date,queue_no,target_type,exam_id,exam_name,language,difficulty,title,content,status,manual) VALUES(?,?,?,?,?,?,?,?,?,?,0)");
   const passage=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,1,?,?,?,?)');
   const slotInsert=db.prepare('INSERT INTO daily_auto_slots(slot,queue_id,passage_id,content_hash) VALUES(?,?,?,?)');
   let created=0,published=0;const tx=db.transaction(()=>{for(const t of targets){let qn=100;for(let l=0;l<LEVELS.length;l++)for(let n=1;n<=t.counts[l];n++){
    qn++;const difficulty=LEVELS[l],slot=[date,t.type,t.exam.id,t.language,difficulty,n].join('|');if(findSlot.get(slot))continue;
-   let content,contentHash;const attempts=t.type==='exam'?80:30;for(let attempt=0;attempt<attempts;attempt++){content=compose({language:t.language,difficulty,date,targetType:t.type,exam:t.exam,serial:n,attempt});contentHash=hash(content);const duplicateSlot=existsHash.get(contentHash),duplicateExam=t.type==='exam'&&knownHashes.has(contentHash);if(!duplicateSlot&&!duplicateExam)break;content=null}if(!content)throw Error('Fresh passage unavailable');
-   let title;
-   if(t.type==='exam'){
-    const titlePool=preferredTopicPool(t.type,t.exam),sampleTopic=titlePool[Math.floor(rng([date,t.type,t.exam.id,t.language,difficulty,n,0,'human-v4'].join('|'))()*titlePool.length)];
-    const topicTitle=t.language==='Hindi'?sampleTopic.hi:sampleTopic.en;title=`${date} • ${topicTitle} • ${difficulty} • ${n}`;
-   }else title=`${date} • ${t.exam.name} • ${t.language} • ${difficulty} • ${n}`;
+   let content,contentHash,meta=null;const attempts=t.type==='live'?40:240;for(let attempt=0;attempt<attempts;attempt++){const out=composeDetailed({language:t.language,difficulty,date,targetType:t.type,exam:t.exam,serial:n,attempt});content=out.content;contentHash=hash(content);const duplicateSlot=existsHash.get(contentHash),duplicateStored=knownHashes.has(contentHash),duplicateTopic=out.topicSignature&&existsTopic.get(out.topicSignature),recentSubject=out.baseSubject&&out.baseSubject!=='legacy'&&out.baseSubject!=='live'&&recentBase.get(out.baseSubject);if(!duplicateSlot&&!duplicateStored&&!duplicateTopic&&!recentSubject){meta=out;break}content=null;meta=null}if(!content)throw Error('Fresh passage unavailable');
+   const title=meta?.topicTitle?`${date} • ${meta.topicTitle} • ${difficulty} • ${n}`:`${date} • ${t.exam.name} • ${t.language} • ${difficulty} • ${n}`;
    const pid=t.type==='live'?null:passage.run(title,t.language,t.exam.layout,difficulty,content,t.type==='exam'?(t.exam.highlight_mode||'none'):'current_char',t.type==='exam'?t.exam.id:null,t.type==='exam'?0:1,t.exam.default_result_count_mode||'word').lastInsertRowid;
    const qid=queue.run(date,qn,t.type,t.type==='exam'?t.exam.id:null,t.exam.name,t.language,difficulty,title,content,t.type==='live'?'pending':'published').lastInsertRowid;
-   if(pid)db.prepare('UPDATE daily_passage_queue SET published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?').run(pid,qid);slotInsert.run(slot,qid,pid,contentHash);knownHashes.add(contentHash);created++;if(pid)published++;
+   if(pid)db.prepare('UPDATE daily_passage_queue SET published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?').run(pid,qid);slotInsert.run(slot,qid,pid,contentHash);if(meta?.topicSignature)insertTopic.run(meta.topicSignature,meta.topicFamily,meta.baseSubject,meta.topicTitle,t.type,t.type==='exam'?t.exam.id:null,t.language,difficulty);knownHashes.add(contentHash);created++;if(pid)published++;
   }}});tx();if(created)changed();return {created,published,date};
  }
  function refreshDate(date,targetTypes=null){
@@ -642,6 +859,9 @@ function createService(db,{setting,indiaDateParts,onChange}){
   const otherSlot=db.prepare('SELECT 1 FROM daily_auto_slots WHERE content_hash=? AND slot<>?');
   const queueContents=db.prepare('SELECT id,content FROM daily_passage_queue WHERE id<>?');
   const passageContents=db.prepare('SELECT id,content FROM passages WHERE id<>?');
+  const existsTopicRefresh=db.prepare('SELECT 1 FROM daily_topic_history WHERE signature=?');
+  const recentBaseRefresh=db.prepare('SELECT 1 FROM (SELECT base_subject FROM daily_topic_history WHERE base_subject IS NOT NULL ORDER BY id DESC LIMIT 36) WHERE base_subject=? LIMIT 1');
+  const insertTopicRefresh=db.prepare('INSERT OR IGNORE INTO daily_topic_history(signature,family,base_subject,title,target_type,exam_id,language,difficulty) VALUES(?,?,?,?,?,?,?,?)');
   const updateQueue=db.prepare('UPDATE daily_passage_queue SET title=?,content=?,difficulty=? WHERE id=?');
   const updatePassage=db.prepare('UPDATE passages SET title=?,content=?,difficulty=? WHERE id=?');
   const updateSlot=db.prepare('UPDATE daily_auto_slots SET content_hash=? WHERE slot=?');
@@ -659,23 +879,19 @@ function createService(db,{setting,indiaDateParts,onChange}){
     if(targetType==='exam')exam=getExam.get(Number(row.exam_id)||Number(parts[2])||0);
     else exam={id:0,name:targetType==='live'?'Live Typing':'Typing Practice',layout:language==='Hindi'?'Unicode / Mangal':'QWERTY'};
     if(!exam||!['English','Hindi'].includes(language)||!LEVELS.includes(difficulty)){skipped++;continue}
-    let content=null,contentHash='';
-    for(let attempt=0;attempt<80;attempt++){
-      const candidate=compose({language,difficulty,date,targetType,exam,serial,attempt});
-      const h=hash(candidate);if(otherSlot.get(h,row.slot))continue;
+    let content=null,contentHash='',meta=null;
+    for(let attempt=0;attempt<240;attempt++){
+      const out=composeDetailed({language,difficulty,date,targetType,exam,serial,attempt}),candidate=out.content,h=hash(candidate);if(otherSlot.get(h,row.slot))continue;
       const duplicateQueue=queueContents.all(row.id).some(x=>hash(x.content)===h);
       const duplicatePassage=passageContents.all(row.published_passage_id||0).some(x=>hash(x.content)===h);
-      if(duplicateQueue||duplicatePassage)continue;content=candidate;contentHash=h;break;
+      const duplicateTopic=out.topicSignature&&existsTopicRefresh.get(out.topicSignature),recentSubject=out.baseSubject&&out.baseSubject!=='legacy'&&out.baseSubject!=='live'&&recentBaseRefresh.get(out.baseSubject);
+      if(duplicateQueue||duplicatePassage||duplicateTopic||recentSubject)continue;content=candidate;contentHash=h;meta=out;break;
     }
     if(!content){skipped++;continue}
-    let title;
-    if(targetType==='exam'){
-      const titlePool=preferredTopicPool(targetType,exam),sampleTopic=titlePool[Math.floor(rng([date,targetType,exam.id||0,language,difficulty,serial,0,'human-v4'].join('|'))()*titlePool.length)];
-      const topicTitle=language==='Hindi'?sampleTopic.hi:sampleTopic.en;title=`${date} • ${topicTitle} • ${difficulty} • ${serial}`;
-    }else title=`${date} • ${exam.name} • ${language} • ${difficulty} • ${serial}`;
+    const title=meta?.topicTitle?`${date} • ${meta.topicTitle} • ${difficulty} • ${serial}`:`${date} • ${exam.name} • ${language} • ${difficulty} • ${serial}`;
     updateQueue.run(title,content,difficulty,row.id);
     if(row.published_passage_id)updatePassage.run(title,content,difficulty,row.published_passage_id);
-    updateSlot.run(contentHash,row.slot);updated++;
+    updateSlot.run(contentHash,row.slot);if(meta?.topicSignature)insertTopicRefresh.run(meta.topicSignature,meta.topicFamily,meta.baseSubject,meta.topicTitle,targetType,targetType==='exam'?exam.id:null,language,difficulty);updated++;
   }});tx();if(updated)changed();return {date,updated,skipped,owner_edited:ownerEdited};
  }
  // One-time historical Exam cleanup/refresh for the 21-Sep-2026 matter rules.
@@ -726,14 +942,12 @@ function createService(db,{setting,indiaDateParts,onChange}){
       if(row.published_passage_id)archivePassage.run(row.published_passage_id);
       archiveQueue.run(row.id);deleteSlot.run(row.slot);extrasArchived++;continue;
     }
-    let content=null,contentHash='';
-    for(let attempt=0;attempt<120;attempt++){
-      const candidate=compose({language,difficulty,date:row.queue_date,targetType:'exam',exam,serial,attempt});
-      const h=hash(candidate);if(knownHashes.has(h))continue;content=candidate;contentHash=h;break;
+    let content=null,contentHash='',meta=null;
+    for(let attempt=0;attempt<240;attempt++){
+      const out=composeDetailed({language,difficulty,date:row.queue_date,targetType:'exam',exam,serial,attempt}),candidate=out.content,h=hash(candidate);if(knownHashes.has(h))continue;content=candidate;contentHash=h;meta=out;break;
     }
     if(!content){skipped++;continue}
-    const titlePool=preferredTopicPool('exam',exam),sampleTopic=titlePool[Math.floor(rng([row.queue_date,'exam',exam.id||0,language,difficulty,serial,0,'human-v4'].join('|'))()*titlePool.length)];
-    const topicTitle=language==='Hindi'?sampleTopic.hi:sampleTopic.en;const title=`${row.queue_date} • ${topicTitle} • ${difficulty} • ${serial}`;
+    const title=meta?.topicTitle?`${row.queue_date} • ${meta.topicTitle} • ${difficulty} • ${serial}`:`${row.queue_date} • ${exam.name} • ${language} • ${difficulty} • ${serial}`;
     const hasHistory=row.published_passage_id&&Number(resultCount.get(row.published_passage_id)?.c||0)>0;
     if(hasHistory){
       // Keep the exact old passage for historical results, but remove it from candidate lists.
