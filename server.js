@@ -380,6 +380,10 @@ if(!passageColsFinal.includes('instructions')) db.exec("ALTER TABLE passages ADD
 if(!passageColsFinal.includes('qualification_method')) db.exec("ALTER TABLE passages ADD COLUMN qualification_method TEXT NOT NULL DEFAULT 'all'");
 if(!passageColsFinal.includes('auto_scroll')) db.exec("ALTER TABLE passages ADD COLUMN auto_scroll INTEGER NOT NULL DEFAULT 1");
 if(!passageColsFinal.includes('result_count_mode')) db.exec("ALTER TABLE passages ADD COLUMN result_count_mode TEXT NOT NULL DEFAULT 'word'");
+if(!passageColsFinal.includes('practice_paid_enabled')) db.exec("ALTER TABLE passages ADD COLUMN practice_paid_enabled INTEGER NOT NULL DEFAULT 0");
+if(!passageColsFinal.includes('practice_fee_amount')) db.exec("ALTER TABLE passages ADD COLUMN practice_fee_amount REAL NOT NULL DEFAULT 0");
+if(!passageColsFinal.includes('practice_daily_demo_limit')) db.exec("ALTER TABLE passages ADD COLUMN practice_daily_demo_limit INTEGER NOT NULL DEFAULT 0");
+if(!passageColsFinal.includes('practice_validity_days')) db.exec("ALTER TABLE passages ADD COLUMN practice_validity_days INTEGER NOT NULL DEFAULT 30");
 
 // User rule: Exam matter and Practice matter must stay separate.
 // One-time cleanup only deactivates exact Practice copies when the same active text already exists in an Exam.
