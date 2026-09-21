@@ -1186,6 +1186,20 @@ function applyVerifiedExamHighlightProfilesOnce(){
 }
 try{applyVerifiedExamHighlightProfilesOnce();}catch(error){console.error('Verified exam highlight profiles were not applied:',error.message);}
 
+// UPSSSC Junior Assistant: keep the real/default typing duration at 5 minutes for both languages.
+// One-time migration only, so a later Owner edit is not overwritten on every restart.
+(function applyUpSSSCJADurationFiveMinutesOnce(){
+ const marker='upsssc_ja_duration_5min_20260922_v1';
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ db.transaction(()=>{
+  const set=db.prepare('UPDATE exams SET duration=5 WHERE slug=?');
+  set.run('state-up-upsssc-junior-assistant');
+  set.run('state-up-upsssc-junior-assistant-hindi');
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
 // 21-Sep-2026 matter-only scope: remove only obsolete AUTO-GENERATED Exam bank rows.
 // Learning, Practice, Owner/manual matter and every exam setting remain untouched.
 // Rows already used by a result/live test are archived (active=0) rather than deleted.
