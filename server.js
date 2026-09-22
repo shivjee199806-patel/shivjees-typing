@@ -2258,6 +2258,105 @@ app.get('/api/admin/passages-page',auth,admin,(req,res)=>{
   res.json({rows,total,page,pages:Math.max(1,Math.ceil(total/limit)),limit});
 });
 
+
+// JP NOTIFICATIONS + PRIVATE DOUBT SESSION 2026-09-22
+// Separate from Information Centre. Broadcasts go to candidates who had already joined when the notification was sent.
+// Doubts are private: candidates only see their own; Master Owner sees all.
+db.exec(`CREATE TABLE IF NOT EXISTS site_notifications(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ title TEXT NOT NULL,
+ message TEXT NOT NULL,
+ priority TEXT NOT NULL DEFAULT 'normal',
+ active INTEGER NOT NULL DEFAULT 1,
+ pinned INTEGER NOT NULL DEFAULT 0,
+ created_by INTEGER,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ last_emailed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_site_notifications_active ON site_notifications(active,pinned,id);
+CREATE TABLE IF NOT EXISTS notification_reads(
+ user_id INTEGER NOT NULL,
+ notification_id INTEGER NOT NULL,
+ read_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(user_id,notification_id)
+);
+CREATE INDEX IF NOT EXISTS idx_notification_reads_user ON notification_reads(user_id,notification_id);
+CREATE TABLE IF NOT EXISTS doubt_sessions(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ subject TEXT NOT NULL DEFAULT '',
+ message TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'open',
+ owner_reply TEXT NOT NULL DEFAULT '',
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ replied_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_doubt_sessions_user ON doubt_sessions(user_id,id);
+CREATE INDEX IF NOT EXISTS idx_doubt_sessions_status ON doubt_sessions(status,id);`);
+
+async function emailSiteNotification(row){
+ if(!smtpReady())return {sent:false,reason:'SMTP not configured'};
+ const recipients=db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>''").all(row.created_at).map(x=>x.email).filter(Boolean);
+ if(!recipients.length)return {sent:true,count:0};
+ const tr=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
+ const from=process.env.SMTP_FROM||process.env.SMTP_USER;let count=0;
+ const safe=v=>String(v||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+ for(let i=0;i<recipients.length;i+=80){const batch=recipients.slice(i,i+80);await tr.sendMail({from,to:from,bcc:batch,subject:`Shivjee's Typing — ${row.title}`,text:`${row.title}\n\n${row.message}\n\n— Shivjee's Typing`,html:`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`});count+=batch.length}
+ db.prepare('UPDATE site_notifications SET last_emailed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);return {sent:true,count};
+}
+function notificationJoinDate(userId){return db.prepare('SELECT created_at FROM users WHERE id=?').get(userId)?.created_at||'1970-01-01 00:00:00'}
+app.get('/api/notifications/me',auth,(req,res)=>{
+ const joined=notificationJoinDate(req.user.id);
+ const rows=db.prepare(`SELECT n.id,n.title,n.message,n.priority,n.pinned,n.created_at,
+  CASE WHEN nr.user_id IS NULL THEN 0 ELSE 1 END is_read
+  FROM site_notifications n LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=?
+  WHERE n.active=1 AND datetime(n.created_at)>=datetime(?)
+  ORDER BY n.pinned DESC,CASE n.priority WHEN 'urgent' THEN 0 WHEN 'important' THEN 1 ELSE 2 END,datetime(n.created_at) DESC,n.id DESC LIMIT 100`).all(req.user.id,joined);
+ res.json(rows);
+});
+app.get('/api/notifications/unread-count',auth,(req,res)=>{
+ const joined=notificationJoinDate(req.user.id);
+ const row=db.prepare(`SELECT COUNT(*) n FROM site_notifications n LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=? WHERE n.active=1 AND datetime(n.created_at)>=datetime(?) AND nr.user_id IS NULL`).get(req.user.id,joined);
+ res.json({count:Number(row?.n||0)});
+});
+app.post('/api/notifications/:id/read',auth,(req,res)=>{
+ const id=Number(req.params.id),joined=notificationJoinDate(req.user.id);const n=db.prepare('SELECT id FROM site_notifications WHERE id=? AND active=1 AND datetime(created_at)>=datetime(?)').get(id,joined);
+ if(!n)return res.status(404).json({error:'Notification not found'});
+ db.prepare('INSERT OR IGNORE INTO notification_reads(user_id,notification_id) VALUES(?,?)').run(req.user.id,id);res.json({ok:true});
+});
+app.post('/api/notifications/read-all',auth,(req,res)=>{
+ const joined=notificationJoinDate(req.user.id),ids=db.prepare('SELECT id FROM site_notifications WHERE active=1 AND datetime(created_at)>=datetime(?)').all(joined);
+ const ins=db.prepare('INSERT OR IGNORE INTO notification_reads(user_id,notification_id) VALUES(?,?)');const tx=db.transaction(()=>{for(const x of ids)ins.run(req.user.id,x.id)});tx();res.json({ok:true,count:ids.length});
+});
+app.get('/api/owner/notifications',auth,ownerOnly,(req,res)=>res.json(db.prepare('SELECT * FROM site_notifications ORDER BY pinned DESC,id DESC LIMIT 200').all()));
+app.post('/api/owner/notifications',auth,ownerOnly,async(req,res)=>{try{
+ const b=req.body||{},title=String(b.title||'').trim().slice(0,160),message=String(b.message||'').trim().slice(0,5000);
+ if(!title||!message)return res.status(400).json({error:'Title and message are required'});
+ const priority=['normal','important','urgent'].includes(String(b.priority))?String(b.priority):'normal';
+ const r=db.prepare('INSERT INTO site_notifications(title,message,priority,active,pinned,created_by) VALUES(?,?,?,?,?,?)').run(title,message,priority,1,b.pinned?1:0,req.user.id);
+ const row=db.prepare('SELECT * FROM site_notifications WHERE id=?').get(r.lastInsertRowid);let email={sent:false};if(b.send_email)try{email=await emailSiteNotification(row)}catch(e){email={sent:false,reason:e.message}}
+ audit(req,'BROADCAST','notification',row.id,title);res.json({ok:true,id:row.id,email});
+ }catch(e){res.status(400).json({error:e.message})}});
+app.delete('/api/owner/notifications/:id',auth,ownerOnly,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM notification_reads WHERE notification_id=?').run(id);db.prepare('DELETE FROM site_notifications WHERE id=?').run(id);audit(req,'DELETE','notification',id);res.json({ok:true})});
+
+app.get('/api/doubts/me',auth,(req,res)=>{const rows=db.prepare(`SELECT id,subject,message,status,owner_reply,created_at,updated_at,replied_at FROM doubt_sessions WHERE user_id=? ORDER BY id DESC`).all(req.user.id);res.json(rows)});
+app.post('/api/doubts',auth,(req,res)=>{
+ if(req.user.role==='admin')return res.status(403).json({error:'Candidate account required'});
+ const subject=String(req.body?.subject||'').trim().slice(0,160),message=String(req.body?.message||'').trim().slice(0,5000);if(!message)return res.status(400).json({error:'Please write your doubt'});
+ const r=db.prepare("INSERT INTO doubt_sessions(user_id,subject,message,status) VALUES(?,?,?,'open')").run(req.user.id,subject||'Typing / Exam Doubt',message);audit(req,'CREATE','doubt',r.lastInsertRowid,subject);res.json({ok:true,id:r.lastInsertRowid});
+});
+app.get('/api/owner/doubts',auth,ownerOnly,(req,res)=>{
+ const status=String(req.query.status||'').trim();let sql=`SELECT d.*,u.name student_name,u.email student_email,u.phone student_phone FROM doubt_sessions d JOIN users u ON u.id=d.user_id`,args=[];
+ if(['open','answered','closed'].includes(status)){sql+=' WHERE d.status=?';args=[status]}sql+=" ORDER BY CASE d.status WHEN 'open' THEN 0 WHEN 'answered' THEN 1 ELSE 2 END,d.id DESC LIMIT 500";res.json(db.prepare(sql).all(...args));
+});
+app.put('/api/owner/doubts/:id',auth,ownerOnly,(req,res)=>{
+ const id=Number(req.params.id),cur=db.prepare('SELECT * FROM doubt_sessions WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Doubt not found'});
+ const reply=String(req.body?.owner_reply??cur.owner_reply??'').trim().slice(0,5000),status=['open','answered','closed'].includes(String(req.body?.status))?String(req.body.status):(reply?'answered':cur.status);
+ db.prepare(`UPDATE doubt_sessions SET owner_reply=?,status=?,updated_at=CURRENT_TIMESTAMP,replied_at=CASE WHEN ?<>'' THEN CURRENT_TIMESTAMP ELSE replied_at END WHERE id=?`).run(reply,status,reply,id);audit(req,'REPLY','doubt',id,status);res.json({ok:true});
+});
+app.delete('/api/owner/doubts/:id',auth,ownerOnly,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM doubt_sessions WHERE id=?').run(id);audit(req,'DELETE','doubt',id);res.json({ok:true})});
+
 // SECURITY FIX: unknown API routes must never fall through to the SPA HTML.
 app.use('/api',(req,res)=>res.status(404).json({error:'API endpoint not found'}));
 // SPA fallback must be after every API route.
