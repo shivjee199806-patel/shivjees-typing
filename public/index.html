@@ -900,6 +900,106 @@ body.jp-home-premium-dark.public-landing #motivation .keyboard-show span{
 }
 </style>
 
+
+<style id="jp-google-auth-button-design-20260923">
+/* Visual-only Google Login / Sign Up treatment. The official GIS button remains untouched functionally. */
+#authModal .jp-google-auth-wrap{
+  margin:14px 0 12px;
+  padding:0;
+}
+#authModal .jp-google-divider{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:12px 0 11px;
+}
+#authModal .jp-google-divider span{
+  height:1px;
+  flex:1;
+  background:linear-gradient(90deg,transparent,#c9d7eb);
+}
+#authModal .jp-google-divider span:last-child{
+  background:linear-gradient(90deg,#c9d7eb,transparent);
+}
+#authModal .jp-google-divider b{
+  color:#6b7b93;
+  font-size:10px;
+  letter-spacing:.9px;
+  font-weight:900;
+  white-space:nowrap;
+}
+#authModal .jp-google-button-shell{
+  position:relative;
+  width:100%;
+  min-height:58px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:7px;
+  box-sizing:border-box;
+  border-radius:18px;
+  background:linear-gradient(145deg,#ffffff,#f7faff);
+  border:1px solid #d8e4f3;
+  box-shadow:0 10px 28px rgba(43,86,145,.10), inset 0 1px 0 rgba(255,255,255,.9);
+  overflow:hidden;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+#authModal .jp-google-button-shell:hover{
+  transform:translateY(-1px);
+  border-color:#b8d1f2;
+  box-shadow:0 14px 34px rgba(43,86,145,.16),0 0 0 3px rgba(66,133,244,.07);
+}
+#authModal .jp-google-glow{
+  position:absolute;
+  inset:-40% -10%;
+  pointer-events:none;
+  opacity:.34;
+  background:
+    radial-gradient(circle at 18% 50%,rgba(66,133,244,.18),transparent 28%),
+    radial-gradient(circle at 42% 40%,rgba(52,168,83,.12),transparent 24%),
+    radial-gradient(circle at 67% 60%,rgba(251,188,5,.13),transparent 24%),
+    radial-gradient(circle at 88% 42%,rgba(234,67,53,.13),transparent 26%);
+}
+#authModal .jp-google-signin-host{
+  position:relative;
+  z-index:1;
+  width:100%;
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#authModal .jp-google-signin-host > div{
+  max-width:100%!important;
+}
+#authModal .jp-google-auth-note{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  gap:6px;
+  margin:8px auto 0;
+  max-width:360px;
+  color:#66758c;
+  font-size:10.5px;
+  line-height:1.45;
+  text-align:left;
+}
+#authModal .jp-google-lock{
+  flex:0 0 auto;
+  font-size:11px;
+  margin-top:1px;
+}
+body[data-theme="dark"] #authModal .jp-google-button-shell{
+  background:linear-gradient(145deg,#ffffff,#f4f7fb);
+  border-color:#cbd8e9;
+}
+@media(max-width:520px){
+  #authModal .jp-google-divider b{font-size:9px;letter-spacing:.6px}
+  #authModal .jp-google-button-shell{border-radius:15px;padding:6px}
+  #authModal .jp-google-auth-note{font-size:10px;padding:0 4px}
+}
+</style>
+
 </head>
 
 <style id="welcome-social-final-style">
@@ -961,7 +1061,7 @@ body.jp-home-premium-dark.public-landing #motivation .keyboard-show span{
 <div id="adminRegisterFields" style="display:none"><div class="notice" style="margin-bottom:12px"><b>Secure Owner Signup</b><br>Signup is verified by a 6-digit OTP sent to the registered mobile number. No private signup code is required.</div><div class="form-grid"><div class="field"><label>Admin Full Name *</label><input id="adminName" class="input" placeholder="Full name"></div><div class="field"><label>Father's Name *</label><input id="adminFather" class="input" placeholder="Father's name"></div><div class="field"><label>Date of Birth *</label><input id="adminDob" class="input" type="date"></div><div class="field"><label>Mobile Number *</label><input id="adminPhone" class="input" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></div><div class="field"><label>Email *</label><input id="adminEmail" class="input" type="email" placeholder="admin@example.com"></div></div><div class="field"><label>Admin Password *</label><input id="adminPassword" class="input" type="password" placeholder="Minimum 10 characters"></div></div>
 <div id="passwordLoginFields"><div class="field"><label id="loginIdLabel">Email</label><input id="loginEmail" class="input" type="text" autocomplete="username" placeholder="you@example.com"></div><div class="field"><label>Password</label><input id="loginPassword" class="input" type="password" autocomplete="current-password" placeholder="Your password"></div><div id="ownerFirstPhoneField" class="field" style="display:none"><label>Owner Mobile <span class="muted">(first login only)</span></label><input id="ownerLoginPhone" class="input" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10-digit mobile number"><div class="muted" style="margin-top:5px">अगर mobile पहले से account से linked है तो इसे खाली छोड़ दें।</div></div></div><div id="admin2faFields" style="display:none"><div class="notice" style="margin-bottom:12px"><b>🔐 Step 2 of 2 — Mobile Verification</b><br><span id="admin2faHint">A 6-digit OTP has been sent to your registered mobile number.</span></div><div class="field"><label>6-digit OTP *</label><input id="admin2faOtp" class="input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="Enter OTP"></div><button class="btn btn-soft" type="button" style="width:100%;margin-bottom:8px" onclick="resendAdminOtp()">Resend OTP</button><div id="admin2faDevHint" class="notice" style="display:none;margin-bottom:8px"></div></div>
 <div id="otpLoginFields" style="display:none"><div class="field"><label>Registered Mobile Number</label><input id="otpPhone" class="input" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></div><div id="otpCodeWrap" class="field" style="display:none"><label>6-digit OTP</label><input id="otpCode" class="input" inputmode="numeric" maxlength="6" placeholder="Enter OTP"></div><button id="sendOtpBtn" class="btn btn-soft" style="width:100%;margin-bottom:8px" onclick="requestLoginOtp()">Send OTP</button><div id="devOtpHint" class="notice" style="display:none;margin-bottom:8px"></div></div>
-<div id="googleCandidateWrap" style="display:none;margin:10px 0 12px"><div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="height:1px;background:#d9dfeb;flex:1"></span><span class="muted" style="font-size:12px;font-weight:700">OR</span><span style="height:1px;background:#d9dfeb;flex:1"></span></div><div id="googleSignInButton" style="display:flex;justify-content:center;min-height:44px"></div><div class="muted" style="font-size:11px;text-align:center;margin-top:6px">Google से पहली बार आने पर Candidate account अपने आप बन जाएगा।</div></div>
+<div id="googleCandidateWrap" class="jp-google-auth-wrap" style="display:none"><div class="jp-google-divider"><span></span><b>OR CONTINUE WITH</b><span></span></div><div class="jp-google-button-shell"><div class="jp-google-glow" aria-hidden="true"></div><div id="googleSignInButton" class="jp-google-signin-host"></div></div><div class="jp-google-auth-note"><span class="jp-google-lock">🔒</span><span>Google से सुरक्षित Login / Sign Up करें। पहली बार आने पर Candidate account अपने आप बन जाएगा।</span></div></div>
 <div id="candidateReferralWrap" class="field" style="display:none;margin-top:8px"><label>Referral From <span class="muted">(Optional)</span></label><input id="authReferralFrom" class="input" maxlength="160" autocomplete="off" placeholder="Name / Group / Channel / Friend (optional)"></div>
 <div class="error" id="authError"></div><div id="forgotPasswordRow" style="text-align:right;margin:2px 0 8px"><button type="button" style="border:0;background:transparent;color:#1849d6;font-weight:800;padding:0" onclick="openForgotPassword()">Forgot Password?</button></div><button id="authContinueBtn" class="btn btn-primary auth-main-btn" style="width:100%;margin-top:6px" onclick="submitAuth()">Continue</button><div id="authSwitch" class="auth-switch"></div><div id="authPrivacyNote" class="auth-note">🔒 Your account details and typing progress are stored with your account so you can return and continue later.</div><button class="btn btn-white" style="width:100%;margin-top:10px" onclick="closeModal('authModal')">Cancel</button></div></div></div>
 <div class="modal" id="forgotModal"><div class="modal-box" style="width:min(520px,100%)"><div class="modal-head"><h2>Reset Password</h2><button class="close" onclick="closeModal('forgotModal')">✕</button></div><p class="muted">Candidate email या Master Owner ID / Admin email डालें। OTP registered mobile पर जाएगा.</p><div id="forgotStep1"><div class="field"><label>Registered Email / Master Owner ID</label><input id="forgotLoginId" class="input" style="width:100%" placeholder="you@example.com or MASTER-OWNER-001"></div><button class="btn btn-primary" style="width:100%" onclick="forgotPasswordStart()">Send Reset OTP →</button></div><div id="forgotStep2" style="display:none"><div id="forgotOtpHint" class="notice" style="margin-bottom:12px"></div><div id="forgotDevOtp" class="owner-dev-otp" style="display:none"></div><div class="field"><label>6-digit OTP</label><input id="forgotOtp" class="input" inputmode="numeric" maxlength="6" style="width:100%" placeholder="Enter OTP"></div><div class="field"><label>New Password</label><input id="forgotNewPassword" class="input" type="password" style="width:100%" placeholder="Candidate 8+ / Admin 10+ characters"></div><button class="btn btn-primary" style="width:100%" onclick="forgotPasswordComplete()">Change Password →</button><button class="btn btn-white" style="width:100%;margin-top:8px" onclick="forgotPasswordReset()">← Start Again</button></div><div class="error" id="forgotError" style="margin-top:10px"></div></div></div>
@@ -1462,7 +1562,7 @@ async function setupCandidateGoogle(){
  try{const c=await api('/api/auth/google-config');if(!c.enabled||!c.client_id){wrap.style.display='none';return}wrap.style.display='block';
   let tries=0;while(!window.google?.accounts?.id&&tries++<40)await new Promise(r=>setTimeout(r,100));if(!window.google?.accounts?.id)throw Error('Google Sign-In is still loading');
   if(!GOOGLE_AUTH_READY){google.accounts.id.initialize({client_id:c.client_id,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:true});GOOGLE_AUTH_READY=true}
-  btn.innerHTML='';google.accounts.id.renderButton(btn,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:320});
+  btn.innerHTML='';const gw=Math.min(360,Math.max(280,Math.floor(btn.parentElement?.clientWidth||340)));google.accounts.id.renderButton(btn,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'pill',logo_alignment:'left',width:gw});
  }catch(e){wrap.style.display='none';console.warn(e.message)}
 }
 async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.new_account||Number(d.user?.google_profile_completed||0)!==1;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();showLoginCelebration(S.user);location.hash='#dashboard'}catch(e){authError.textContent=e.message}}
