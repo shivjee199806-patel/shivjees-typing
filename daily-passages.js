@@ -1,10 +1,10 @@
 'use strict';
-// JP_DYNAMIC_MATTER_UNIVERSE_V5_20260922
+// JP_DYNAMIC_MATTER_UNIVERSE_V8_EXAM_DIFFICULTY_ONLY_20260923
 // Daily passage composer v5: dynamic broad-topic, bilingual, difficulty-graded long-source passages.
 // Design goals:
 // 1) stored source matter is long enough for a 30-minute selection,
 // 2) exam UI can trim that source to the selected exam/time rule,
-// 3) Easy/Medium stay clean; numbers and mixed official notation start only after Medium,
+// 3) Practice rules stay unchanged; Exam mode alone gets a stronger Medium-to-Hard numeric/punctuation progression,
 // 4) Exam + Practice draw from a broad procedural topic universe instead of a short fixed list,
 // 5) exact full passages and exact topic-angle signatures never repeat; recent base subjects also cool down.
 const crypto=require('crypto');
@@ -28,9 +28,11 @@ function matterWordsForExam(ex,minutes){
  const baseMinutes=Math.max(1,Number(ex?.duration)||mins),minimum=Math.max(0,Number(ex?.min_words)||0),wpm=Math.max(0,Number(ex?.required_wpm)||0);
  return Math.max(1,Math.round(minimum>0?(minimum/baseMinutes)*mins:(wpm||30)*mins));
 }
-function sourceTargetWords(language,targetType,exam){
+function sourceTargetWords(language,targetType,exam,difficulty='Medium'){
  if(targetType==='practice'||targetType==='live')return PRACTICE_30_MIN_WORDS[language]||900;
- // Exam source is a 30-minute reservoir. Candidate-side rules show only the exact selected-time matter.
+ // Keep every existing Exam setting untouched. Only the generated Hard Exam source is kept in the requested character band.
+ if(targetType==='exam'&&difficulty==='Hard')return language==='Hindi'?760:610;
+ // Other Exam levels continue to use the existing exam/time settings.
  return matterWordsForExam(exam,30);
 }
 
@@ -672,6 +674,62 @@ function officialNumeric(language,difficulty,random){
  return `The record showed reference (${ref}), room ${room} and serial ${c}-${a}. During checking, ${number(random,12,39)} entries matched, while ${number(random,2,9)} were kept aside for a second review.`;
 }
 
+
+// Exam-only notation. Numbers are always used in real-looking contexts such as dates, prices,
+// times, percentages, reference numbers or counts; never as a bare 0123456789 sequence.
+function examOfficialNumeric(language,difficulty,random){
+ if(!['Medium','Moderate to Hard','Hard'].includes(difficulty))return '';
+ const y=number(random,2019,2026),m=number(random,1,12),d=number(random,1,28),hh=number(random,9,18),mm=String(number(random,0,59)).padStart(2,'0');
+ const qty=number(random,12,96),pct=number(random,62,98),serial=number(random,1000,9999),price=number(random,1250,98500);
+ const ref=`${String.fromCharCode(65+number(random,0,20))}-${number(random,100,999)}/${String(y).slice(-2)}`;
+ const date=`${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}-${y}`;
+ if(language==='Hindi'){
+  if(difficulty==='Medium')return `संक्षिप्त जाँच में दिनांक ${date}, रसीद (${ref}) और ₹${price.toLocaleString('en-IN')} की राशि मिलाई गई; टिप्पणी "प्राप्त" दर्ज थी।`;
+  if(difficulty==='Moderate to Hard')return `अभिलेख (${ref}) में दिनांक ${date}, समय ${hh}:${mm}, ${qty} प्रविष्टियाँ और ₹${price.toLocaleString('en-IN')}.50 की राशि दर्ज थी; ${pct}% कार्य पूरा होने पर फाइल को "Review-${number(random,1,4)}" के लिए अलग रखा गया।`;
+  return `सत्यापन पत्र (${ref}) में दिनांक ${date}, समय ${hh}:${mm}, क्रम ${serial}-${number(random,10,99)}, प्रगति ${pct}% और ₹${price.toLocaleString('en-IN')}.50 दर्ज था; टिप्पणी "Priority-${String.fromCharCode(65+number(random,0,3))}" तथा अनुभाग (${number(random,1,9)}-B) का अलग मिलान किया गया।`;
+ }
+ if(difficulty==='Medium')return `A short check matched the date ${date}, receipt (${ref}), and price Rs. ${price.toLocaleString('en-IN')}; the remark "Received" was recorded.`;
+ if(difficulty==='Moderate to Hard')return `Record (${ref}) listed the date ${date}, time ${hh}:${mm}, ${qty} entries, and a price of Rs. ${price.toLocaleString('en-IN')}.50; after ${pct}% completion, the file was marked "Review-${number(random,1,4)}".`;
+ return `The verification sheet (${ref}) carried date ${date}, time ${hh}:${mm}, serial ${serial}-${number(random,10,99)}, progress ${pct}%, and Rs. ${price.toLocaleString('en-IN')}.50; the remark "Priority-${String.fromCharCode(65+number(random,0,3))}" and section (${number(random,1,9)}-B) were checked separately.`;
+}
+
+function examHardNotation(language,random,index){
+ const y=number(random,2021,2026),date=`${String(number(random,1,28)).padStart(2,'0')}/${String(number(random,1,12)).padStart(2,'0')}/${y}`;
+ const amount=number(random,2500,125000),count=number(random,18,88),ref=`${String.fromCharCode(65+number(random,0,20))}-${number(random,100,999)}/${String(y).slice(-2)}`;
+ if(language==='Hindi'){
+  const rows=[
+   `फाइल (${ref}) पर "Urgent-${number(random,1,5)}" लिखा था; दिनांक ${date} को ₹${amount.toLocaleString('en-IN')} की प्रविष्टि और ${count} संलग्नक दोबारा जाँचे गए।`,
+   `रजिस्टर में "नाम/तिथि/राशि" तीनों का मिलान आवश्यक था; कक्ष (${number(random,1,12)}-A), क्रम ${number(random,1000,9999)}-${number(random,10,99)} और समय ${number(random,9,18)}:${String(number(random,0,59)).padStart(2,'0')} भी दर्ज था।`,
+   `आदेश संख्या ${ref} के साथ (${number(random,2,8)} प्रतियाँ), ${number(random,65,99)}% प्रगति और ₹${amount.toLocaleString('en-IN')}.75 का विवरण था; टिप्पणी "Re-check" मिलने पर अंतिम प्रविष्टि रोकी गई।`
+  ];return rows[index%rows.length];
+ }
+ const rows=[
+  `File (${ref}) was marked "Urgent-${number(random,1,5)}"; on ${date}, a price entry of Rs. ${amount.toLocaleString('en-IN')} and ${count} attachments were checked again.`,
+  `The register required "Name/Date/Amount" to match; room (${number(random,1,12)}-A), serial ${number(random,1000,9999)}-${number(random,10,99)}, and time ${number(random,9,18)}:${String(number(random,0,59)).padStart(2,'0')} were also recorded.`,
+  `Order no. ${ref} listed (${number(random,2,8)} copies), ${number(random,65,99)}% progress, and Rs. ${amount.toLocaleString('en-IN')}.75; the final entry was held when the remark "Re-check" appeared.`
+ ];return rows[index%rows.length];
+}
+
+function fitExamHardCharacters(text,language,random){
+ let out=String(text||'').replace(/\s+/g,' ').trim();
+ // Hard Exam matter is intentionally kept around 3,400-4,200 characters without changing any exam setting.
+ let guard=0;
+ while(out.length<3500&&guard++<12){
+  out+=' '+examHardNotation(language,random,guard)+' '+examOfficialNumeric(language,'Hard',random);
+ }
+ if(out.length>4180){
+  const floor=3450,limit=4180;
+  let cut=-1;
+  const marks=language==='Hindi'?['। ','. ']:['. ','। '];
+  for(const mark of marks){const i=out.lastIndexOf(mark,limit);if(i>=floor)cut=Math.max(cut,i+mark.trim().length)}
+  if(cut<floor){
+   const space=out.lastIndexOf(' ',limit);cut=space>=floor?space:limit;
+  }
+  out=out.slice(0,cut).trim();
+ }
+ return out;
+}
+
 function contextualize(sentence,focus,language,index){
  const en=[
   `, a useful point when ${focus} is examined closely.`,`, especially in a practical account of ${focus}.`,`, which helps keep an explanation of ${focus} grounded.`,`, a detail worth remembering while studying ${focus}.`,`, which becomes clearer in the wider context of ${focus}.`,`, an approach that supports a balanced account of ${focus}.`,`, which is relevant when records about ${focus} are checked later.`,`, a useful habit for anyone trying to understand ${focus}.`,`, which keeps the main issue visible in a discussion of ${focus}.`,`, a practical standard when the subject of ${focus} is reviewed.`,`, which reduces confusion in a detailed account of ${focus}.`,`, an important consideration in any careful study of ${focus}.`
@@ -720,18 +778,29 @@ function paragraphForFact(fact,language,difficulty,random,index,shift,focus,targ
  const note=scopeLine(contextualize(notes[(index+shift)%12],focus,language,index+shift),targetType,language,index+shift);
  if(difficulty==='Medium'){
   const s1=scopeLine(simple[(index*3+shift)%simple.length],targetType,language,index),s2=scopeLine(simple[(index*3+shift+7)%simple.length],targetType,language,index+2);
-  return `${base} ${note} ${s1} ${s2}`;
+  let out=`${base} ${note} ${s1} ${s2}`;
+  if(targetType==='exam'&&(index+1)%4===0){const n=examOfficialNumeric(language,difficulty,random);if(n)out+=' '+n}
+  return out;
  }
  const bridge=scopeLine(contextualize((hi?BRIDGE_HI:BRIDGE_EN)[(index*5+shift)%12],focus,language,index*3+shift),targetType,language,index+1);
  if(difficulty==='Moderate to Hard'){
   let out=`${base} ${note} ${bridge}`;
-  if((index+1)%3===0){const n=officialNumeric(language,difficulty,random);if(n)out+=' '+n}
+  if(targetType==='exam'){
+   if((index+1)%2===0){const n=examOfficialNumeric(language,difficulty,random);if(n)out+=' '+n}
+  }else{
+   if((index+1)%3===0){const n=officialNumeric(language,difficulty,random);if(n)out+=' '+n}
+  }
   return out;
  }
  const support=scopeLine(contextualize((hi?SUPPORT_HI:SUPPORT_EN)[(index*7+shift)%12],focus,language,index*7+shift),targetType,language,index+3);
  const hard=scopeLine((hi?HARD_HI:HARD_EN)[(index+shift)%6],targetType,language,index+4);
  let out=`${base} ${note} ${bridge} ${support} ${hard}`;
- if((index+1)%2===0){const n=officialNumeric(language,difficulty,random);if(n)out+=' '+n}
+ if(targetType==='exam'){
+  out+=' '+examHardNotation(language,random,index);
+  const n=examOfficialNumeric(language,difficulty,random);if(n)out+=' '+n
+ }else{
+  if((index+1)%2===0){const n=officialNumeric(language,difficulty,random);if(n)out+=' '+n}
+ }
  return out;
 }
 
@@ -789,7 +858,7 @@ function legacyCompose({difficulty,date,targetType,exam,serial,attempt},target){
  return fitExactly(arr,target,'English',targetType);
 }
 function composeDynamicDetailed({language,difficulty,date,targetType,exam={},serial=1,attempt=0}){
- const target=sourceTargetWords(language,targetType,exam),legacy=language==='Hindi'&&/kruti|devlys|chanakya/i.test(exam.layout||'');
+ const target=sourceTargetWords(language,targetType,exam,difficulty),legacy=language==='Hindi'&&/kruti|devlys|chanakya/i.test(exam.layout||'');
  if(legacy){
   const content=legacyCompose({difficulty,date,targetType,exam,serial,attempt},target);
   return {content,topicTitle:`${language} Typing Matter`,topicSignature:null,topicFamily:'legacy',baseSubject:'legacy'};
@@ -800,8 +869,8 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
  const facts=shuffle(topic.facts,random),shift=Math.floor(random()*12),focus=hi?topic.hi.split(/\s+/).slice(0,4).join(' '):topic.en.split(/\s+/).slice(0,5).join(' ');
  for(let i=0;i<facts.length;i++)parts.push(paragraphForFact(facts[i],language,difficulty,random,i,shift,focus,targetType));
  parts.push(scopeLine(pick(hi?CLOSE_HI:CLOSE_EN,random),targetType,language,99));
- if(['Easy','Medium'].includes(difficulty)){for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹-]+/g,' ').replace(/\s+/g,' ').trim()}
- return {content:fitExactly(parts,target,language,targetType),topicTitle:hi?topic.hi:topic.en,topicSignature:topic.signature,topicFamily:topic.family,baseSubject:topic.baseSubject};
+ if(targetType==='exam'&&difficulty==='Easy'){for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹"-]+/g,' ').replace(/\d+/g,' ').replace(/\s+/g,' ').trim()}else if(targetType!=='exam'&&['Easy','Medium'].includes(difficulty)){for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹-]+/g,' ').replace(/\s+/g,' ').trim()}
+ let content=fitExactly(parts,target,language,targetType);if(targetType==='exam'&&difficulty==='Hard')content=fitExamHardCharacters(content,language,random);return {content,topicTitle:hi?topic.hi:topic.en,topicSignature:topic.signature,topicFamily:topic.family,baseSubject:topic.baseSubject};
 }
 
 // Exam + Practice use the broad dynamic topic universe. Live keeps its existing generator.

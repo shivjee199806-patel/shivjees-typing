@@ -2312,6 +2312,12 @@ CREATE TABLE IF NOT EXISTS doubt_sessions(
 );
 CREATE INDEX IF NOT EXISTS idx_doubt_sessions_user ON doubt_sessions(user_id,id);
 CREATE INDEX IF NOT EXISTS idx_doubt_sessions_status ON doubt_sessions(status,id);`);
+const jpDoubtCols=db.prepare("PRAGMA table_info(doubt_sessions)").all().map(x=>x.name);
+if(!jpDoubtCols.includes('owner_seen_at')){
+ db.exec("ALTER TABLE doubt_sessions ADD COLUMN owner_seen_at TEXT");
+ db.exec("UPDATE doubt_sessions SET owner_seen_at=CURRENT_TIMESTAMP WHERE owner_seen_at IS NULL");
+}
+
 
 async function emailSiteNotification(row){
  if(!smtpReady())return {sent:false,reason:'SMTP not configured'};
@@ -2364,6 +2370,14 @@ app.post('/api/doubts',auth,(req,res)=>{
  const subject=String(req.body?.subject||'').trim().slice(0,160),message=String(req.body?.message||'').trim().slice(0,5000);if(!message)return res.status(400).json({error:'Please write your doubt'});
  const r=db.prepare("INSERT INTO doubt_sessions(user_id,subject,message,status) VALUES(?,?,?,'open')").run(req.user.id,subject||'Typing / Exam Doubt',message);audit(req,'CREATE','doubt',r.lastInsertRowid,subject);res.json({ok:true,id:r.lastInsertRowid});
 });
+app.get('/api/owner/doubts/unread-count',auth,ownerOnly,(req,res)=>{
+ const row=db.prepare("SELECT COUNT(*) n FROM doubt_sessions WHERE owner_seen_at IS NULL").get();
+ res.json({count:Number(row?.n||0)});
+});
+app.post('/api/owner/doubts/mark-seen',auth,ownerOnly,(req,res)=>{
+ const r=db.prepare("UPDATE doubt_sessions SET owner_seen_at=CURRENT_TIMESTAMP WHERE owner_seen_at IS NULL").run();
+ res.json({ok:true,count:Number(r.changes||0)});
+});
 app.get('/api/owner/doubts',auth,ownerOnly,(req,res)=>{
  const status=String(req.query.status||'').trim();let sql=`SELECT d.*,u.name student_name,u.email student_email,u.phone student_phone FROM doubt_sessions d JOIN users u ON u.id=d.user_id`,args=[];
  if(['open','answered','closed'].includes(status)){sql+=' WHERE d.status=?';args=[status]}sql+=" ORDER BY CASE d.status WHEN 'open' THEN 0 WHEN 'answered' THEN 1 ELSE 2 END,d.id DESC LIMIT 500";res.json(db.prepare(sql).all(...args));
@@ -2371,7 +2385,7 @@ app.get('/api/owner/doubts',auth,ownerOnly,(req,res)=>{
 app.put('/api/owner/doubts/:id',auth,ownerOnly,(req,res)=>{
  const id=Number(req.params.id),cur=db.prepare('SELECT * FROM doubt_sessions WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Doubt not found'});
  const reply=String(req.body?.owner_reply??cur.owner_reply??'').trim().slice(0,5000),status=['open','answered','closed'].includes(String(req.body?.status))?String(req.body.status):(reply?'answered':cur.status);
- db.prepare(`UPDATE doubt_sessions SET owner_reply=?,status=?,updated_at=CURRENT_TIMESTAMP,replied_at=CASE WHEN ?<>'' THEN CURRENT_TIMESTAMP ELSE replied_at END WHERE id=?`).run(reply,status,reply,id);audit(req,'REPLY','doubt',id,status);res.json({ok:true});
+ db.prepare(`UPDATE doubt_sessions SET owner_reply=?,status=?,updated_at=CURRENT_TIMESTAMP,replied_at=CASE WHEN ?<>'' THEN CURRENT_TIMESTAMP ELSE replied_at END,owner_seen_at=COALESCE(owner_seen_at,CURRENT_TIMESTAMP) WHERE id=?`).run(reply,status,reply,id);audit(req,'REPLY','doubt',id,status);res.json({ok:true});
 });
 app.delete('/api/owner/doubts/:id',auth,ownerOnly,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM doubt_sessions WHERE id=?').run(id);audit(req,'DELETE','doubt',id);res.json({ok:true})});
 
