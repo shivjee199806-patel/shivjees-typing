@@ -839,6 +839,67 @@ body.jp-home-premium-dark:not(.public-landing):not(.exam-mode) #app>.stats-strip
 body.jp-home-premium-dark:not(.public-landing):not(.exam-mode) #app>.section a{color:#d8b4fe!important}
 </style>
 
+
+<style id="jp-home-motivation-readability-final-20260923">
+/* Final Home Motivation readability fix — visual only. */
+body.jp-home-clean-sky.public-landing #motivation .motivation-list div{
+  color:#284966 !important;
+  opacity:1 !important;
+  font-weight:650 !important;
+  text-shadow:none !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .motivation-list div::before{
+  color:#f97316 !important;
+  opacity:1 !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .big-quote{
+  color:#f8fbff !important;
+  background:linear-gradient(135deg,#17324d,#0c2942) !important;
+  border-color:#f97316 !important;
+  opacity:1 !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .big-quote strong{
+  color:#ffd24a !important;
+  opacity:1 !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .keyboard-show span{
+  color:#ffffff !important;
+  background:#0d2f4c !important;
+  border-color:#3f79a8 !important;
+  opacity:1 !important;
+  font-weight:900 !important;
+  text-shadow:none !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .keyboard-show span:hover{
+  color:#ffffff !important;
+  background:#f97316 !important;
+  border-color:#fb923c !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .public-title small{
+  color:#0b75d1 !important;
+  opacity:1 !important;
+}
+body.jp-home-clean-sky.public-landing #motivation .public-title h2{
+  color:#17324d !important;
+  opacity:1 !important;
+}
+
+/* Premium Dark safeguard too. */
+body.jp-home-premium-dark.public-landing #motivation .motivation-list div{
+  color:#e4edf7 !important;
+  opacity:1 !important;
+}
+body.jp-home-premium-dark.public-landing #motivation .big-quote{
+  color:#ffffff !important;
+  opacity:1 !important;
+}
+body.jp-home-premium-dark.public-landing #motivation .keyboard-show span{
+  color:#ffffff !important;
+  opacity:1 !important;
+  font-weight:900 !important;
+}
+</style>
+
 </head>
 
 <style id="welcome-social-final-style">
@@ -3396,7 +3457,93 @@ window.myCertificates=async function(){
 };
 window.demoPayCertificate=async function(id){try{const txn=document.getElementById('certTxn'+id)?.value.trim();if(!txn)return showToast('Demo Transaction Number भरें');await api('/api/certificates/'+id+'/demo-pay',{method:'POST',body:JSON.stringify({txn_ref:txn,method:'demo'})});showToast('✅ Payment successful — Download unlocked');myCertificates()}catch(e){showToast(e.message)}};
 // Print/download ONLY the certificate, never the surrounding application page.
-window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);w.document.close()}catch(e){showToast(e.message)}};
+window.downloadCertificate=async function(id){try{await api('/api/certificates/'+id+'/download',{method:'POST'});const box=document.querySelector('#certificateOnly'+id+' .certificate-live');if(!box)throw new Error('Certificate preview not found');const w=window.open('','_blank','width=1200,height=850');if(!w)throw new Error('Popup blocked — allow popups for certificate download');w.document.write(`<!doctype html><html><head><title>Certificate</title><meta charset="utf-8"><style>body{margin:0;padding:20px;background:white;font-family:Arial,sans-serif}@page{size:landscape;margin:8mm}.certificate-live{box-sizing:border-box;page-break-inside:avoid}</style></head><body>${box.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script>
+<style id="jp-payment-pricing-strict-visibility-20260923">
+/* Pricing is hidden by default. It becomes visible only after the server
+   explicitly confirms that the master Payment System is ON. */
+a[data-route="pricing"],
+a[href="#pricing"]{
+  display:none !important;
+}
+html.jp-payment-confirmed-on a[data-route="pricing"],
+html.jp-payment-confirmed-on a[href="#pricing"],
+body.jp-payment-confirmed-on a[data-route="pricing"],
+body.jp-payment-confirmed-on a[href="#pricing"]{
+  display:inline-flex !important;
+}
+</style>
+<script id="jp-payment-pricing-strict-visibility-20260923-script">
+(function(){
+  let confirmedOn=false;
+
+  function apply(enabled){
+    confirmedOn = enabled === true;
+    window.PAYMENT_SYSTEM_ENABLED = confirmedOn;
+
+    document.documentElement.classList.toggle('jp-payment-confirmed-on', confirmedOn);
+    document.documentElement.classList.toggle('jp-payment-off', !confirmedOn);
+    if(document.body){
+      document.body.classList.toggle('jp-payment-confirmed-on', confirmedOn);
+      document.body.classList.toggle('jp-payment-off', !confirmedOn);
+    }
+
+    document.querySelectorAll('a[data-route="pricing"],a[href="#pricing"]').forEach(function(a){
+      if(confirmedOn){
+        a.style.removeProperty('display');
+      }else{
+        a.style.setProperty('display','none','important');
+      }
+    });
+
+    if(!confirmedOn && location.hash === '#pricing'){
+      location.hash = (window.S && S.user) ? '#dashboard' : '#home';
+    }
+  }
+
+  async function sync(){
+    /* Fail closed: if the setting cannot be read, Pricing stays hidden. */
+    apply(false);
+    try{
+      const x = await api('/api/public/settings');
+      apply(String(x.payment_system_enabled || '0') === '1');
+    }catch(_e){
+      apply(false);
+    }
+  }
+
+  window.jpSyncPricingVisibility = sync;
+  window.jpApplyStrictPaymentVisibility = apply;
+
+  /* Any later nav rebuild must obey the already-confirmed state. */
+  const mo = new MutationObserver(function(){
+    apply(confirmedOn);
+  });
+  function start(){
+    if(document.body){
+      mo.observe(document.body,{childList:true,subtree:true});
+      sync();
+    }else{
+      setTimeout(start,20);
+    }
+  }
+  start();
+
+  /* Re-check after owner changes the master payment switch. */
+  document.addEventListener('click',function(e){
+    const b=e.target && e.target.closest ? e.target.closest('button') : null;
+    if(!b)return;
+    const t=String(b.textContent||'');
+    if(b.id==='jpPaymentMasterToggle' || /Payment System ON|Payment System OFF|Start Payment System ON|Turn Payment System OFF/i.test(t)){
+      setTimeout(sync,350);
+      setTimeout(sync,1000);
+    }
+  },true);
+
+  window.addEventListener('pageshow',sync);
+})();
+</script>
+
+</body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 })();
 </script>
 
@@ -6114,7 +6261,22 @@ body:not(.public-landing)[data-theme="dark"]:not(.exam-mode) .topnav a:not(.acti
 </style>
 <script id="jp-notification-doubt-feature-20260922">
 async function refreshNotificationBadge(){
- if(!S?.user)return;try{const d=await api('/api/notifications/unread-count');const n=Number(d.count||0),top=document.getElementById('jpTopNotifBadge'),side=document.getElementById('jpSideNotifBadge');for(const el of [top,side])if(el){el.textContent=n>99?'99+':String(n);el.style.display=n?'inline-block':'none'}}catch(e){}
+ if(!S?.user)return;
+ try{
+  const isOwner=String(S.user.role||'').toLowerCase()==='admin'&&Number(S.user?.is_owner)===1;
+  const d=await api(isOwner?'/api/owner/doubts/unread-count':'/api/notifications/unread-count');
+  const n=Number(d.count||0),top=document.getElementById('jpTopNotifBadge'),side=document.getElementById('jpSideNotifBadge');
+  for(const el of [top,side])if(el){el.textContent=n>99?'99+':String(n);el.style.display=n?'inline-block':'none'}
+  const bell=document.getElementById('jpNotifBell');
+  if(bell&&isOwner){bell.title=n?`${n} new candidate doubt${n===1?'':'s'}`:'Candidate Doubts';bell.onclick=()=>openOwnerDoubtInbox()}
+  if(isOwner){const prev=window.__jpOwnerDoubtLastCount;if(Number.isFinite(prev)&&n>prev)showToast(`💬 ${n-prev} नया candidate doubt आया है`);window.__jpOwnerDoubtLastCount=n}
+ }catch(e){}
+}
+function openOwnerDoubtInbox(){
+ if(!S?.user||Number(S.user?.is_owner)!==1)return;
+ if(location.hash!=='#owner')location.hash='#owner';
+ let tries=0;
+ const t=setInterval(()=>{tries++;const pane=document.getElementById('ownerPane');if(pane&&typeof ownerTab==='function'){clearInterval(t);ownerTab('doubts')}else if(tries>25)clearInterval(t)},120);
 }
 function jpNotifDate(v){try{return new Date(String(v).includes('T')?v:v+'Z').toLocaleString()}catch(e){return v||''}}
 async function notificationsPage(){
@@ -6134,10 +6296,10 @@ async function sendOwnerNotification(){try{const title=jpOwnerNotifTitle.value.t
 async function deleteOwnerNotification(id){if(!confirm('Delete this notification?'))return;try{await api('/api/owner/notifications/'+id,{method:'DELETE'});showToast('Notification deleted');await renderOwnerNotifications()}catch(e){showToast(e.message)}}
 
 async function renderOwnerDoubts(status=''){
- const pane=document.getElementById('ownerPane');if(!pane)return;if(Number(S.user?.is_owner)!==1){pane.innerHTML='<div class="notice">Master Owner only.</div>';return}pane.innerHTML='<div class="card" style="padding:18px">Loading candidate doubts...</div>';try{const rows=await api('/api/owner/doubts'+(status?'?status='+encodeURIComponent(status):''));const open=rows.filter(x=>x.status==='open').length;pane.innerHTML=`<div class="panel-head"><div><h2 style="margin:0">💬 Candidate Doubt Sessions</h2><p class="muted" style="margin:4px 0 0">Owner को सभी candidates के doubts दिखते हैं; candidate को केवल अपना.</p></div><span class="badge amber">${open} open</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px"><button class="btn btn-white" onclick="renderOwnerDoubts('')">All</button><button class="btn btn-white" onclick="renderOwnerDoubts('open')">Open</button><button class="btn btn-white" onclick="renderOwnerDoubts('answered')">Answered</button><button class="btn btn-white" onclick="renderOwnerDoubts('closed')">Closed</button></div>${rows.map(x=>`<div class="jp-owner-doubt ${esc(x.status)}"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h3 style="margin:0">${esc(x.subject||'Typing / Exam Doubt')}</h3><div class="muted" style="margin-top:4px"><b>${esc(x.student_name)}</b> · ${esc(x.student_email||'')} ${x.student_phone?'· '+esc(x.student_phone):''} · ${jpNotifDate(x.created_at)}</div></div><span class="badge ${x.status==='answered'?'green':x.status==='open'?'amber':''}">${esc((x.status||'open').toUpperCase())}</span></div><div style="white-space:pre-wrap;line-height:1.6;margin-top:12px;padding:12px;background:var(--soft);border-radius:12px">${esc(x.message)}</div><label style="display:block;margin-top:12px"><b>Owner Reply</b><textarea id="jpDoubtReply${x.id}" class="input" style="width:100%;min-height:100px;margin-top:6px">${esc(x.owner_reply||'')}</textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-primary" onclick="replyOwnerDoubt(${x.id},'answered')">Reply / Save</button><button class="btn btn-white" onclick="replyOwnerDoubt(${x.id},'closed')">Mark Closed</button><button class="btn btn-white" onclick="deleteOwnerDoubt(${x.id})">Delete</button></div></div>`).join('')||'<div class="notice">No doubts in this filter.</div>'}`;}catch(e){pane.innerHTML=`<div class="notice">${esc(e.message)}</div>`}}
+ const pane=document.getElementById('ownerPane');if(!pane)return;if(Number(S.user?.is_owner)!==1){pane.innerHTML='<div class="notice">Master Owner only.</div>';return}pane.innerHTML='<div class="card" style="padding:18px">Loading candidate doubts...</div>';try{const rows=await api('/api/owner/doubts'+(status?'?status='+encodeURIComponent(status):''));try{await api('/api/owner/doubts/mark-seen',{method:'POST',body:'{}'});window.__jpOwnerDoubtLastCount=0;refreshNotificationBadge()}catch(_e){}const open=rows.filter(x=>x.status==='open').length;pane.innerHTML=`<div class="panel-head"><div><h2 style="margin:0">💬 Candidate Doubt Sessions</h2><p class="muted" style="margin:4px 0 0">Owner को सभी candidates के doubts दिखते हैं; candidate को केवल अपना.</p></div><span class="badge amber">${open} open</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px"><button class="btn btn-white" onclick="renderOwnerDoubts('')">All</button><button class="btn btn-white" onclick="renderOwnerDoubts('open')">Open</button><button class="btn btn-white" onclick="renderOwnerDoubts('answered')">Answered</button><button class="btn btn-white" onclick="renderOwnerDoubts('closed')">Closed</button></div>${rows.map(x=>`<div class="jp-owner-doubt ${esc(x.status)}"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h3 style="margin:0">${esc(x.subject||'Typing / Exam Doubt')}</h3><div class="muted" style="margin-top:4px"><b>${esc(x.student_name)}</b> · ${esc(x.student_email||'')} ${x.student_phone?'· '+esc(x.student_phone):''} · ${jpNotifDate(x.created_at)}</div></div><span class="badge ${x.status==='answered'?'green':x.status==='open'?'amber':''}">${esc((x.status||'open').toUpperCase())}</span></div><div style="white-space:pre-wrap;line-height:1.6;margin-top:12px;padding:12px;background:var(--soft);border-radius:12px">${esc(x.message)}</div><label style="display:block;margin-top:12px"><b>Owner Reply</b><textarea id="jpDoubtReply${x.id}" class="input" style="width:100%;min-height:100px;margin-top:6px">${esc(x.owner_reply||'')}</textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-primary" onclick="replyOwnerDoubt(${x.id},'answered')">Reply / Save</button><button class="btn btn-white" onclick="replyOwnerDoubt(${x.id},'closed')">Mark Closed</button><button class="btn btn-white" onclick="deleteOwnerDoubt(${x.id})">Delete</button></div></div>`).join('')||'<div class="notice">No doubts in this filter.</div>'}`;}catch(e){pane.innerHTML=`<div class="notice">${esc(e.message)}</div>`}}
 async function replyOwnerDoubt(id,status){try{const owner_reply=document.getElementById('jpDoubtReply'+id)?.value||'';await api('/api/owner/doubts/'+id,{method:'PUT',body:JSON.stringify({owner_reply,status})});showToast(status==='closed'?'Doubt closed':'Reply saved');await renderOwnerDoubts()}catch(e){showToast(e.message)}}
 async function deleteOwnerDoubt(id){if(!confirm('Delete this doubt permanently?'))return;try{await api('/api/owner/doubts/'+id,{method:'DELETE'});showToast('Doubt deleted');await renderOwnerDoubts()}catch(e){showToast(e.message)}}
 
 // Refresh the small unread badge while the member site is open. This does not change existing navigation behavior.
-if(!window.__jpNotifPoll){window.__jpNotifPoll=setInterval(()=>{if(S?.user)refreshNotificationBadge()},60000)}
+if(!window.__jpNotifPoll){window.__jpNotifPoll=setInterval(()=>{if(S?.user)refreshNotificationBadge()},20000)}
 </script>
