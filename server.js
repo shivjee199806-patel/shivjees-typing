@@ -470,6 +470,46 @@ if(!resultCols.includes('min_words_snapshot')) db.exec("ALTER TABLE results ADD 
 if(!resultCols.includes('min_chars_snapshot')) db.exec("ALTER TABLE results ADD COLUMN min_chars_snapshot INTEGER");
 if(!resultCols.includes('qualification_method_snapshot')) db.exec("ALTER TABLE results ADD COLUMN qualification_method_snapshot TEXT");
 if(!resultCols.includes('qualification_note_snapshot')) db.exec("ALTER TABLE results ADD COLUMN qualification_note_snapshot TEXT");
+// Legacy result snapshot repair (2026-09-22): preserve already-typed candidate attempts.
+// This ONLY fills fields that older rows did not store. It never changes typed_text,
+// pass/fail, timestamps, duration, or the candidate's saved historical metrics.
+try{
+ const repairLegacyResults=db.transaction(()=>{
+  let changed=0;
+  changed+=db.prepare(`UPDATE results SET original_text=(SELECT p.content FROM passages p WHERE p.id=results.passage_id)
+    WHERE COALESCE(original_text,'')='' AND passage_id IS NOT NULL
+      AND EXISTS(SELECT 1 FROM passages p WHERE p.id=results.passage_id AND COALESCE(p.content,'')<>'')`).run().changes;
+  changed+=db.prepare(`UPDATE results SET scheduled_seconds=COALESCE(
+      (SELECT CASE WHEN COALESCE(e.duration,0)>0 THEN e.duration*60 END FROM exams e WHERE e.id=results.exam_id),
+      CASE WHEN COALESCE(duration,0)>0 THEN duration END)
+    WHERE COALESCE(scheduled_seconds,0)<=0`).run().changes;
+  changed+=db.prepare(`UPDATE results SET result_count_mode_snapshot=COALESCE(
+      (SELECT NULLIF(p.result_count_mode,'') FROM passages p WHERE p.id=results.passage_id),
+      (SELECT NULLIF(e.default_result_count_mode,'') FROM exams e WHERE e.id=results.exam_id),'word')
+    WHERE COALESCE(result_count_mode_snapshot,'')=''`).run().changes;
+  changed+=db.prepare(`UPDATE results SET exam_name_snapshot=(SELECT e.name FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND COALESCE(exam_name_snapshot,'')='' AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET passage_title_snapshot=(SELECT p.title FROM passages p WHERE p.id=results.passage_id)
+    WHERE passage_id IS NOT NULL AND COALESCE(passage_title_snapshot,'')='' AND EXISTS(SELECT 1 FROM passages p WHERE p.id=results.passage_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET required_wpm_snapshot=(SELECT COALESCE(e.required_wpm,0) FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND required_wpm_snapshot IS NULL AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET required_accuracy_snapshot=(SELECT COALESCE(e.required_accuracy,0) FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND required_accuracy_snapshot IS NULL AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET min_words_snapshot=(SELECT COALESCE(e.min_words,0) FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND min_words_snapshot IS NULL AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET min_chars_snapshot=(SELECT COALESCE(e.min_chars,0) FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND min_chars_snapshot IS NULL AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET qualification_method_snapshot=(SELECT COALESCE(NULLIF(e.qualification_method,''),'all') FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND COALESCE(qualification_method_snapshot,'')='' AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  changed+=db.prepare(`UPDATE results SET qualification_note_snapshot=(SELECT COALESCE(e.qualification_note,'') FROM exams e WHERE e.id=results.exam_id)
+    WHERE exam_id IS NOT NULL AND qualification_note_snapshot IS NULL AND EXISTS(SELECT 1 FROM exams e WHERE e.id=results.exam_id)`).run().changes;
+  return changed;
+ });
+ const repaired=repairLegacyResults();
+ const missingTyped=db.prepare("SELECT COUNT(*) c FROM results WHERE COALESCE(typed_text,'')='' AND COALESCE(keystrokes,0)>0").get().c;
+ if(repaired){console.log('Legacy result snapshots repaired:',repaired);scheduleRemoteSqliteMirror()}
+ if(missingTyped)console.warn('Legacy results without recoverable typed_text:',missingTyped);
+}catch(e){console.warn('Legacy result snapshot repair skipped:',e.message)}
 db.exec("CREATE INDEX IF NOT EXISTS idx_live_tests_window ON live_tests(start_at,end_at,active)");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_results_attempt_id ON results(attempt_id) WHERE attempt_id IS NOT NULL");
 db.exec("CREATE INDEX IF NOT EXISTS idx_results_user_created ON results(user_id,created_at DESC)");
