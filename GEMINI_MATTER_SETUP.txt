@@ -1,0 +1,12 @@
+JP Typing — Owner Chhota Bhai: Gemini TEXT Matter only
+
+1. Open https://aistudio.google.com/api-keys and create a Gemini API key for your project.
+2. Railway > YOUR SERVICE > Variables > New Variable:
+   GEMINI_API_KEY = (paste key privately in Railway; NEVER share it in chat)
+   GEMINI_MATTER_MODEL = gemini-3.5-flash-lite (optional, this is already the default)
+3. Deploy the updated server.js (or the full ZIP, preserving your live database/storage configuration).
+4. Owner Dashboard > Chhota Bhai > select destination/topic > Matter taiyar karo.
+5. If an error mentions 429: check free-tier project rate limits in AI Studio and try later.
+
+Gallery/image generation has NOT been added. No browser API key or additional npm dependencies.
+Gemini app subscription is separate from API quota. Actual free-tier availability depends on the project/model/region. Do not enable billing unless you intend to pay for API usage.

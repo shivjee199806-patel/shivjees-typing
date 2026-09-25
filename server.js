@@ -1421,6 +1421,21 @@ app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,COA
 app.get('/api/learning/progress',auth,(req,res)=>{const rows=db.prepare(`SELECT lesson_key,lesson_title,level,COUNT(*) attempts,MAX(score) best_score,MAX(wpm) best_wpm,ROUND(AVG(accuracy),1) avg_accuracy,MAX(created_at) last_practiced FROM learning_attempts WHERE user_id=? GROUP BY lesson_key ORDER BY MAX(id) DESC`).all(req.user.id);const totals=db.prepare(`SELECT COUNT(*) attempts,COUNT(DISTINCT lesson_key) lessons,COALESCE(MAX(wpm),0) best_wpm,COALESCE(ROUND(AVG(accuracy),1),0) avg_accuracy FROM learning_attempts WHERE user_id=?`).get(req.user.id);res.json({rows,totals})});
 app.get('/api/learning/history',auth,(req,res)=>{const limit=Math.min(200,Math.max(1,Number(req.query.limit)||50));res.json(db.prepare(`SELECT id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration,created_at FROM learning_attempts WHERE user_id=? ORDER BY id DESC LIMIT ?`).all(req.user.id,limit))});
 app.post('/api/learning/attempts',auth,(req,res)=>{const b=req.body||{},key=String(b.lesson_key||'').trim().slice(0,80);if(!key)return res.status(400).json({error:'Lesson key required'});const gate=learningAccessState(req.user.id,learningCourseKey(key));if(!gate.allowed)return res.status(402).json({error:'Learning demo finished. Payment required.',code:'LEARNING_PAYMENT_REQUIRED',course_key:learningCourseKey(key),plan:gate.plan});const id=db.prepare(`INSERT INTO learning_attempts(user_id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration) VALUES(?,?,?,?,?,?,?,?,?)`).run(req.user.id,key,String(b.lesson_title||key).slice(0,120),String(b.level||'Basic').slice(0,40),Number(b.score)||0,Number(b.wpm)||0,Math.max(0,Math.min(100,Number(b.accuracy)||0)),Math.max(0,Number(b.errors)||0),Math.max(0,Number(b.duration)||0)).lastInsertRowid;res.json({id})});
+// Short submitted/ended attempts remain visible without affecting competitive ranks.
+app.get('/api/leaderboard/short-attempts',(req,res)=>{
+ const range=req.query.range||'all',mode=req.query.mode==='practice'?'practice':'exam';
+ const durationFilter=mode==='practice'?'r.exam_id IS NULL AND r.duration<120':'r.exam_id IS NOT NULL AND r.duration<240';
+ let dateFilter='';
+ if(range==='daily')dateFilter=" AND date(r.created_at)=date('now','localtime')";
+ if(range==='weekly')dateFilter=" AND date(r.created_at)>=date('now','-6 day','localtime')";
+ const rows=db.prepare(`SELECT r.id result_id,u.name,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name,NULLIF(r.passage_title_snapshot,''),p.title,'Practice') test_name,
+ r.duration,ROUND(r.net_wpm,1) net_wpm,ROUND(r.accuracy,1) accuracy,r.created_at,r.attempt_status
+ FROM results r JOIN users u ON u.id=r.user_id
+ LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id
+ WHERE COALESCE(u.role,'student')!='admin' AND ${durationFilter} ${dateFilter}
+ ORDER BY r.id DESC LIMIT 50`).all();
+ res.json(rows);
+});
 app.get('/api/leaderboard/attempts',(req,res)=>{const range=req.query.range||'all',mode=req.query.mode==='practice'?'practice':'exam';let where=mode==='practice'?'AND r.exam_id IS NULL AND r.duration>=120':'AND r.exam_id IS NOT NULL AND r.duration>=240';if(range==='daily')where+=" AND date(r.created_at)=date('now','localtime')";if(range==='weekly')where+=" AND date(r.created_at)>=date('now','-6 day','localtime')";res.json(db.prepare(`WITH ranked AS (
  SELECT u.id user_id,r.id result_id,u.name,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name,'Practice') test_name,r.duration,r.net_wpm best_wpm,r.gross_wpm,r.accuracy,r.passed,r.exam_id,r.qualification_method_snapshot,
         r.required_wpm_snapshot,r.required_accuracy_snapshot,r.min_words_snapshot,r.min_chars_snapshot,
@@ -2102,8 +2117,8 @@ if(String(process.env.ALLOW_LEGACY_LOCALHOST_MERGE||'')==='1'){
  console.log('Legacy localhost merge: disabled (set ALLOW_LEGACY_LOCALHOST_MERGE=1 only for an intentional one-time recovery)');
 }
 
-// OWNER CHHOTA BHAI — generate an Owner-requested draft from topic/about matter.
-// Requires OPENAI_API_KEY on the server. The key is never sent to the browser.
+// OWNER CHHOTA BHAI — Gemini text-only draft from the Owner's topic/about matter.
+// GEMINI_API_KEY stays on the server. No image model or Gallery integration.
 app.post('/api/admin/brother/generate',auth,admin,async(req,res)=>{
  try{
   const about=String(req.body?.about||'').trim();
@@ -2113,19 +2128,38 @@ app.post('/api/admin/brother/generate',auth,admin,async(req,res)=>{
   const words=Math.max(100,Math.min(2000,Number(req.body?.words)||500));
   if(!about)return res.status(400).json({error:'About Matter / Topic required'});
   if(about.length>4000)return res.status(400).json({error:'Topic instruction बहुत लंबी है'});
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:'छोटा भाई AI अभी connect नहीं है — server में OPENAI_API_KEY जोड़ना होगा'});
+  const apiKey=String(process.env.GEMINI_API_KEY||'').trim();
+  if(!apiKey)return res.status(503).json({error:'छोटा भाई AI के लिए Railway Variables में GEMINI_API_KEY जोड़ें'});
   const kind=format==='notes'?'exam-oriented study notes':format==='questions'?'exam-oriented practice questions':'a clean typing-practice passage';
   const instructions=`You are the private Owner Matter Helper for Shivjee's Typing. Create ${kind}. Follow the owner's topic exactly. Exam: ${exam||'general'}. Language: ${language}. Target length: about ${words} words. Keep facts accurate, useful and suitable for the named exam. Do not invent PYQ claims, official rules, dates, statistics, or citations when uncertain. For typing passages, return a title followed by natural continuous passage text, not meta commentary. For notes/questions, use clear exam-oriented formatting. Return only the prepared matter.`;
-  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Authorization':'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MATTER_MODEL||'gpt-5.6-luna',instructions,input:about,max_output_tokens:Math.max(1200,Math.min(6000,words*3))})});
-  const d=await r.json();
-  if(!r.ok){console.error('Chhota Bhai AI error',r.status,d?.error?.message||'');return res.status(502).json({error:'AI matter service से response नहीं मिला'})}
-  let text=String(d.output_text||'').trim();
-  if(!text&&Array.isArray(d.output)){text=d.output.flatMap(x=>Array.isArray(x.content)?x.content:[]).map(x=>x.text||'').join('\n').trim()}
-  if(!text)return res.status(502).json({error:'Matter खाली आया — दोबारा try करें'});
+  const model=String(process.env.GEMINI_MATTER_MODEL||'gemini-3.5-flash-lite').trim();
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+   method:'POST',
+   headers:{'x-goog-api-key':apiKey,'Content-Type':'application/json'},
+   signal:AbortSignal.timeout(60000),
+   body:JSON.stringify({
+    systemInstruction:{parts:[{text:instructions}]},
+    contents:[{role:'user',parts:[{text:about}]}],
+    generationConfig:{maxOutputTokens:Math.max(1500,Math.min(8192,words*4)),temperature:0.7}
+   })
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){
+   const code=String(d?.error?.status||'');
+   console.error('Chhota Bhai Gemini error',r.status,code);
+   if(r.status===429)return res.status(429).json({error:'Gemini API की Free Tier limit पूरी हो गई है। AI Studio में quota देखें और limit reset होने पर फिर कोशिश करें।'});
+   if(r.status===401||r.status===403)return res.status(502).json({error:'Gemini API Key या project access जाँचें (Railway में GEMINI_API_KEY)।'});
+   if(r.status===404)return res.status(502).json({error:'Gemini model उपलब्ध नहीं है। Railway में GEMINI_MATTER_MODEL जाँचें।'});
+   return res.status(502).json({error:'Gemini से Matter नहीं मिला। Railway Logs में Gemini error देखें।'});
+  }
+  const text=(d.candidates||[]).flatMap(x=>x?.content?.parts||[]).map(x=>typeof x?.text==='string'?x.text:'').filter(Boolean).join('\n').trim();
+  if(!text)return res.status(502).json({error:'Gemini से Matter खाली आया — topic बदलकर दोबारा कोशिश करें।'});
   res.json({ok:true,text});
- }catch(e){console.error('Chhota Bhai generate failed:',e.message);res.status(500).json({error:'Matter तैयार नहीं हो पाया'})}
+ }catch(e){
+  console.error('Chhota Bhai Gemini generate failed:',e?.name||'Error');
+  res.status(e?.name==='TimeoutError'||e?.name==='AbortError'?504:500).json({error:e?.name==='TimeoutError'||e?.name==='AbortError'?'Gemini से जवाब आने में बहुत समय लगा — दोबारा कोशिश करें।':'Matter तैयार नहीं हो पाया — Railway Logs देखें।'});
+ }
 });
-
 
 // Public legal pages for Google OAuth branding.
 app.get('/privacy',(req,res)=>res.type('html').send('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy Policy | Shivjee\'s Typing</title><style>body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.65;color:#172033}h1,h2{color:#111827}a{color:#1d4ed8}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:24px}</style></head><body><h1>Privacy Policy</h1><p><strong>Shivjee\'s Typing</strong> — jptyping.in</p><div class="box"><p>We collect only the information needed to provide and secure our typing-practice services, such as your name, email address, account details, typing-test results, learning progress, and information you choose to provide.</p><h2>Google Sign-In</h2><p>If you choose Continue with Google, we may receive basic profile information authorized by you, such as your name, email address, and Google account identifier. We use this information only to create, identify, and secure your Shivjee\'s Typing candidate account.</p><h2>How information is used</h2><p>Information may be used to provide login and account access, save test results and progress, operate learning and certificate features, prevent abuse, provide support, and maintain service security.</p><h2>Sharing and security</h2><p>We do not sell personal information. Information may be processed by service providers needed to operate the website, authentication, hosting, email, or payment features. We use reasonable technical measures to protect account information.</p><h2>Your choices</h2><p>You may choose not to use Google Sign-In and use available standard account methods instead. You may contact us regarding your account or personal information.</p><h2>Contact</h2><p>Email: support@jptyping.in (alternative: shivjee199806@gmail.com)</p><p>Last updated: 13 September 2026.</p></div><p><a href="/">Back to Shivjee\'s Typing</a></p></body></html>'));
