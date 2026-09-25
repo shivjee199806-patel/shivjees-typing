@@ -2353,6 +2353,7 @@ CREATE TABLE IF NOT EXISTS doubt_sessions(
 );
 CREATE INDEX IF NOT EXISTS idx_doubt_sessions_user ON doubt_sessions(user_id,id);
 CREATE INDEX IF NOT EXISTS idx_doubt_sessions_status ON doubt_sessions(status,id);`);
+if(!db.prepare('PRAGMA table_info(site_notifications)').all().some(c=>c.name==='target_user_id'))db.exec('ALTER TABLE site_notifications ADD COLUMN target_user_id INTEGER');
 const jpDoubtCols=db.prepare("PRAGMA table_info(doubt_sessions)").all().map(x=>x.name);
 if(!jpDoubtCols.includes('owner_seen_at')){
  db.exec("ALTER TABLE doubt_sessions ADD COLUMN owner_seen_at TEXT");
@@ -2362,7 +2363,7 @@ if(!jpDoubtCols.includes('owner_seen_at')){
 
 async function emailSiteNotification(row){
  if(!smtpReady())return {sent:false,reason:'SMTP not configured'};
- const recipients=db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>''").all(row.created_at).map(x=>x.email).filter(Boolean);
+ const recipients=db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>'' AND (? IS NULL OR id=?)").all(row.created_at,row.target_user_id,row.target_user_id).map(x=>x.email).filter(Boolean);
  if(!recipients.length)return {sent:true,count:0};
  const tr=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
  const from=process.env.SMTP_FROM||process.env.SMTP_USER;let count=0;
@@ -2383,7 +2384,7 @@ app.post('/api/push/unsubscribe',auth,(req,res)=>{
  db.prepare('DELETE FROM push_subscriptions WHERE user_id=? AND endpoint=?').run(req.user.id,String(req.body?.endpoint||''));res.json({ok:true});
 });
 async function pushSiteNotification(row){
- const subs=db.prepare("SELECT s.endpoint,s.p256dh,s.auth FROM push_subscriptions s JOIN users u ON u.id=s.user_id WHERE u.role='student' AND u.active=1 AND datetime(u.created_at)<=datetime(?)").all(row.created_at);
+ const subs=db.prepare("SELECT s.endpoint,s.p256dh,s.auth FROM push_subscriptions s JOIN users u ON u.id=s.user_id WHERE u.role='student' AND u.active=1 AND datetime(u.created_at)<=datetime(?) AND (? IS NULL OR u.id=?)").all(row.created_at,row.target_user_id,row.target_user_id);
  let delivered=0,failed=0;
  for(let i=0;i<subs.length;i+=10){
   await Promise.all(subs.slice(i,i+10).map(async s=>{try{
@@ -2399,33 +2400,36 @@ app.get('/api/notifications/me',auth,(req,res)=>{
  const rows=db.prepare(`SELECT n.id,n.title,n.message,n.priority,n.pinned,n.created_at,
   CASE WHEN nr.user_id IS NULL THEN 0 ELSE 1 END is_read
   FROM site_notifications n LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=?
-  WHERE n.active=1 AND datetime(n.created_at)>=datetime(?)
-  ORDER BY n.pinned DESC,CASE n.priority WHEN 'urgent' THEN 0 WHEN 'important' THEN 1 ELSE 2 END,datetime(n.created_at) DESC,n.id DESC LIMIT 100`).all(req.user.id,joined);
+  WHERE n.active=1 AND (n.target_user_id IS NULL OR n.target_user_id=?) AND datetime(n.created_at)>=datetime(?)
+  ORDER BY n.pinned DESC,CASE n.priority WHEN 'urgent' THEN 0 WHEN 'important' THEN 1 ELSE 2 END,datetime(n.created_at) DESC,n.id DESC LIMIT 100`).all(req.user.id,req.user.id,joined);
  res.json(rows);
 });
 app.get('/api/notifications/unread-count',auth,(req,res)=>{
  const joined=notificationJoinDate(req.user.id);
- const row=db.prepare(`SELECT COUNT(*) n FROM site_notifications n LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=? WHERE n.active=1 AND datetime(n.created_at)>=datetime(?) AND nr.user_id IS NULL`).get(req.user.id,joined);
+ const row=db.prepare(`SELECT COUNT(*) n FROM site_notifications n LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=? WHERE n.active=1 AND (n.target_user_id IS NULL OR n.target_user_id=?) AND datetime(n.created_at)>=datetime(?) AND nr.user_id IS NULL`).get(req.user.id,req.user.id,joined);
  res.json({count:Number(row?.n||0)});
 });
 app.post('/api/notifications/:id/read',auth,(req,res)=>{
- const id=Number(req.params.id),joined=notificationJoinDate(req.user.id);const n=db.prepare('SELECT id FROM site_notifications WHERE id=? AND active=1 AND datetime(created_at)>=datetime(?)').get(id,joined);
+ const id=Number(req.params.id),joined=notificationJoinDate(req.user.id);const n=db.prepare('SELECT id FROM site_notifications WHERE id=? AND active=1 AND (target_user_id IS NULL OR target_user_id=?) AND datetime(created_at)>=datetime(?)').get(id,req.user.id,joined);
  if(!n)return res.status(404).json({error:'Notification not found'});
  db.prepare('INSERT OR IGNORE INTO notification_reads(user_id,notification_id) VALUES(?,?)').run(req.user.id,id);res.json({ok:true});
 });
 app.post('/api/notifications/read-all',auth,(req,res)=>{
- const joined=notificationJoinDate(req.user.id),ids=db.prepare('SELECT id FROM site_notifications WHERE active=1 AND datetime(created_at)>=datetime(?)').all(joined);
+ const joined=notificationJoinDate(req.user.id),ids=db.prepare('SELECT id FROM site_notifications WHERE active=1 AND (target_user_id IS NULL OR target_user_id=?) AND datetime(created_at)>=datetime(?)').all(req.user.id,joined);
  const ins=db.prepare('INSERT OR IGNORE INTO notification_reads(user_id,notification_id) VALUES(?,?)');const tx=db.transaction(()=>{for(const x of ids)ins.run(req.user.id,x.id)});tx();res.json({ok:true,count:ids.length});
 });
+app.get('/api/owner/notifications/candidates',auth,ownerOnly,(req,res)=>res.json(db.prepare("SELECT id,name,email FROM users WHERE role='student' AND active=1 ORDER BY name COLLATE NOCASE,id").all()));
 app.get('/api/owner/notifications',auth,ownerOnly,(req,res)=>res.json(db.prepare('SELECT * FROM site_notifications ORDER BY pinned DESC,id DESC LIMIT 200').all()));
 app.post('/api/owner/notifications',auth,ownerOnly,async(req,res)=>{try{
  const b=req.body||{},title=String(b.title||'').trim().slice(0,160),message=String(b.message||'').trim().slice(0,5000);
  if(!title||!message)return res.status(400).json({error:'Title and message are required'});
  const priority=['normal','important','urgent'].includes(String(b.priority))?String(b.priority):'normal';
- const r=db.prepare('INSERT INTO site_notifications(title,message,priority,active,pinned,created_by) VALUES(?,?,?,?,?,?)').run(title,message,priority,1,b.pinned?1:0,req.user.id);
+ const targetId=b.target_user_id==null||b.target_user_id===''?null:Number(b.target_user_id);
+ if(targetId!==null&&(!Number.isSafeInteger(targetId)||targetId<=0||!db.prepare("SELECT id FROM users WHERE id=? AND role='student' AND active=1").get(targetId)))return res.status(400).json({error:'Select a valid active candidate'});
+ const r=db.prepare('INSERT INTO site_notifications(title,message,priority,active,pinned,created_by,target_user_id) VALUES(?,?,?,?,?,?,?)').run(title,message,priority,1,b.pinned?1:0,req.user.id,targetId);
  const row=db.prepare('SELECT * FROM site_notifications WHERE id=?').get(r.lastInsertRowid);let email={sent:false};if(b.send_email)try{email=await emailSiteNotification(row)}catch(e){email={sent:false,reason:e.message}}
  let push={subscribers:0,delivered:0,failed:0};try{push=await pushSiteNotification(row)}catch(e){push={error:e.message}}
- audit(req,'BROADCAST','notification',row.id,title);res.json({ok:true,id:row.id,email,push});
+ audit(req,targetId?'DIRECT':'BROADCAST','notification',row.id,title);res.json({ok:true,id:row.id,email,push});
  }catch(e){res.status(400).json({error:e.message})}});
 app.delete('/api/owner/notifications/:id',auth,ownerOnly,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM notification_reads WHERE notification_id=?').run(id);db.prepare('DELETE FROM site_notifications WHERE id=?').run(id);audit(req,'DELETE','notification',id);res.json({ok:true})});
 
