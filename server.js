@@ -939,6 +939,13 @@ async function deliverOtp(phone,code,email,purpose='login'){
    if(!r.ok){let detail='';try{detail=await r.text()}catch{};console.error('Resend OTP error',r.status,detail.slice(0,500));throw Error('Email OTP could not be sent. Please try again.');}
    return {dev:false,provider:'resend',email_masked:maskEmail(to)};
  }
+ if(purpose==='owner_login'){
+   if(!emailOk(to))throw Error('Master Owner email address is not valid');
+   if(!smtpReady())throw Error('Owner Gmail OTP is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL, or website SMTP, on hosting.');
+   const transport=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
+   await transport.sendMail({from:process.env.SMTP_FROM||process.env.SMTP_USER,to,subject:`${code} is your JP Typing Owner login OTP`,text:`Your Master Owner login OTP is ${code}. It is valid for 5 minutes. Do not share it.`});
+   return {dev:false,provider:'smtp',email_masked:maskEmail(to)};
+ }
  const msg91Key=String(process.env.MSG91_AUTH_KEY||'').trim(),msg91Template=String(process.env.MSG91_TEMPLATE_ID||'').trim();
  if(msg91Key&&msg91Template){
    const mobile=String(phone||'').replace(/\D/g,'');
@@ -997,39 +1004,38 @@ app.post('/api/auth/admin-login-verify',authRateLimit,(req,res)=>{
 // Master Owner private portal: Owner ID/email + password -> OTP.
 // Production never returns an OTP unless DEV_OTP_MODE=1, which must remain disabled on public hosting.
 app.post('/api/auth/owner-otp-start',authRateLimit,async(req,res)=>{try{
- const loginId=String(req.body?.login_id||'').trim(),loginUpper=loginId.toUpperCase(),email=loginId.toLowerCase(),password=String(req.body?.password||''),enteredPhone=normalizePhone(req.body?.phone);
+ const loginId=String(req.body?.login_id||'').trim(),loginUpper=loginId.toUpperCase(),email=loginId.toLowerCase(),password=String(req.body?.password||'');
  if(!loginId||!password)return res.status(401).json({error:'Enter Owner ID/email and password'});
  let u=db.prepare("SELECT * FROM users WHERE role='admin' AND is_owner=1 AND active=1 AND (lower(email)=? OR upper(owner_uid)=?) ORDER BY id LIMIT 1").get(email,loginUpper);
  if(!u && (loginUpper==='MASTER-OWNER-001' || (process.env.ADMIN_EMAIL && email===String(process.env.ADMIN_EMAIL).trim().toLowerCase())))u=db.prepare("SELECT * FROM users WHERE role='admin' AND is_owner=1 AND active=1 ORDER BY id LIMIT 1").get();
  if(!u)return res.status(401).json({error:'Invalid Master Owner ID/email or password'});
  let passwordOk=false;try{passwordOk=bcrypt.compareSync(password,u.password)}catch(_){passwordOk=false}
  if(!passwordOk)return res.status(401).json({error:'Owner password is incorrect'});
- let phone=normalizePhone(u.phone)||enteredPhone;
- if(!phone)return res.status(400).json({error:'Enter Owner mobile number once to link OTP login'});
- if(!normalizePhone(u.phone))db.prepare('UPDATE users SET phone=? WHERE id=?').run(phone,u.id);
- const latest=db.prepare("SELECT created_at FROM otp_codes WHERE phone=? AND purpose='owner_login' ORDER BY id DESC LIMIT 1").get(phone);
+ const ownerEmail=String(u.email||'').trim().toLowerCase();
+ if(!emailOk(ownerEmail))return res.status(400).json({error:'Set a valid Gmail address on the Master Owner account'});
+ const latest=db.prepare("SELECT created_at FROM otp_codes WHERE phone=? AND purpose='owner_login' ORDER BY id DESC LIMIT 1").get(ownerEmail);
  if(latest&&Date.now()-new Date(latest.created_at+'Z').getTime()<30000)return res.status(429).json({error:'Please wait 30 seconds before requesting another Owner OTP'});
  const code=String(crypto.randomInt(100000,1000000)),expires=new Date(Date.now()+5*60*1000).toISOString();
- db.prepare("UPDATE otp_codes SET used=1 WHERE phone=? AND purpose='owner_login' AND used=0").run(phone);
- const otpInsert=db.prepare('INSERT INTO otp_codes(phone,purpose,code_hash,expires_at) VALUES(?,?,?,?)').run(phone,'owner_login',otpHash(phone,'owner_login',code),expires);
- const delivered=await deliverOtp(phone,code,u.email,'owner_login');
- const challenge=jwt.sign({ownerOtp:u.id,phone,type:'owner_login',otp_id:Number(otpInsert.lastInsertRowid)},SECRET,{expiresIn:'5m'});
- res.json({challenge,phone_masked:maskPhone(phone),email_masked:delivered.email_masked||maskEmail(u.email),...(delivered.dev?{dev_otp:code}:{})});
+ db.prepare("UPDATE otp_codes SET used=1 WHERE phone=? AND purpose='owner_login' AND used=0").run(ownerEmail);
+ const delivered=await deliverOtp('',code,ownerEmail,'owner_login');
+ const otpInsert=db.prepare('INSERT INTO otp_codes(phone,purpose,code_hash,expires_at) VALUES(?,?,?,?)').run(ownerEmail,'owner_login',otpHash(ownerEmail,'owner_login',code),expires);
+ const challenge=jwt.sign({ownerOtp:u.id,email:ownerEmail,type:'owner_login',otp_id:Number(otpInsert.lastInsertRowid)},SECRET,{expiresIn:'5m'});
+ res.json({challenge,email_masked:delivered.email_masked||maskEmail(ownerEmail)});
  }catch(e){res.status(503).json({error:e.message||'Could not start Owner OTP login'})}});
 app.post('/api/auth/owner-otp-verify',authRateLimit,(req,res)=>{try{
  let c;try{c=jwt.verify(String(req.body?.challenge||''),SECRET)}catch{return res.status(401).json({error:'Owner OTP expired. Start login again.'})}
  if(!c?.ownerOtp||!Number.isInteger(Number(c.otp_id))||Number(c.otp_id)<=0)return res.status(401).json({error:'Invalid Owner verification'});
  const otp=String(req.body?.otp||'').trim();if(!/^\d{6}$/.test(otp))return res.status(400).json({error:'Enter the 6-digit OTP'});
  const u=db.prepare("SELECT * FROM users WHERE id=? AND role='admin' AND is_owner=1 AND active=1").get(c.ownerOtp);if(!u)return res.status(404).json({error:'Active Master Owner account not found'});
- const phone=normalizePhone(c.phone||u.phone);if(!phone)return res.status(400).json({error:'Owner mobile is not linked'});
- const enteredHash=otpHash(phone,'owner_login',otp);
- const row=db.prepare("SELECT * FROM otp_codes WHERE id=? AND phone=? AND purpose='owner_login' AND used=0 LIMIT 1").get(Number(c.otp_id),phone);
+ const ownerEmail=String(u.email||'').trim().toLowerCase();if(!emailOk(ownerEmail)||c.email!==ownerEmail)return res.status(401).json({error:'Owner Gmail changed. Start login again.'});
+ const enteredHash=otpHash(ownerEmail,'owner_login',otp);
+ const row=db.prepare("SELECT * FROM otp_codes WHERE id=? AND phone=? AND purpose='owner_login' AND used=0 LIMIT 1").get(Number(c.otp_id),ownerEmail);
  if(!row)return res.status(400).json({error:'Request a new Owner OTP'});
  if(new Date(row.expires_at)<new Date()){db.prepare('UPDATE otp_codes SET used=1 WHERE id=? AND used=0').run(row.id);return res.status(400).json({error:'OTP expired. Request a new OTP'})}
  if(Number(row.attempts||0)>=5){db.prepare('UPDATE otp_codes SET used=1 WHERE id=? AND used=0').run(row.id);return res.status(429).json({error:'Too many wrong OTP attempts. Start login again.'})}
  if(enteredHash!==row.code_hash){db.prepare('UPDATE otp_codes SET attempts=COALESCE(attempts,0)+1 WHERE id=? AND used=0').run(row.id);return res.status(401).json({error:'Incorrect Owner OTP'})}
  const consumed=db.prepare('UPDATE otp_codes SET used=1 WHERE id=? AND used=0').run(row.id);if(!consumed.changes)return res.status(409).json({error:'This OTP has already been used. Start login again.'});
- db.prepare('UPDATE users SET phone=?,phone_verified=1,last_login=CURRENT_TIMESTAMP,login_count=COALESCE(login_count,0)+1 WHERE id=?').run(phone,u.id);
+ db.prepare('UPDATE users SET last_login=CURRENT_TIMESTAMP,login_count=COALESCE(login_count,0)+1 WHERE id=?').run(u.id);
  const x=safe(db.prepare('SELECT * FROM users WHERE id=?').get(u.id));res.json({user:x,token:issueToken(db.prepare('SELECT id,auth_version FROM users WHERE id=?').get(x.id))});
  }catch(e){console.error('Owner OTP verify error:',e);res.status(500).json({error:'Owner OTP verification failed: '+(e.message||'unknown error')})}});
 
@@ -1038,7 +1044,7 @@ app.post('/api/auth/forgot-password-start',authRateLimit,async(req,res)=>{try{
  const loginId=String(req.body?.login_id||req.body?.email||'').trim(),email=loginId.toLowerCase();
  if(!loginId)return res.status(400).json({error:'Enter registered email or Master Owner ID'});
  const u=db.prepare("SELECT * FROM users WHERE lower(email)=? OR owner_uid=?").get(email,loginId);
- if(!u||!u.active)return res.status(404).json({error:'Account not found'});
+ if(!u||!u.active||req.body?.candidate_only===true&&(u.role==='admin'||Number(u.is_owner)===1))return res.status(404).json({error:'Candidate account not found'});
  const phone=normalizePhone(u.phone);if(!phone)return res.status(400).json({error:'No verified mobile is linked to this account. Contact the Master Owner.'});
  const latest=db.prepare("SELECT created_at FROM otp_codes WHERE phone=? AND purpose='password_reset' ORDER BY id DESC LIMIT 1").get(phone);
  if(latest&&Date.now()-new Date(latest.created_at+'Z').getTime()<30000)return res.status(429).json({error:'Please wait 30 seconds before requesting another reset OTP'});
@@ -1046,7 +1052,7 @@ app.post('/api/auth/forgot-password-start',authRateLimit,async(req,res)=>{try{
  db.prepare("UPDATE otp_codes SET used=1 WHERE phone=? AND purpose='password_reset' AND used=0").run(phone);
  const otpInsert=db.prepare('INSERT INTO otp_codes(phone,purpose,code_hash,expires_at) VALUES(?,?,?,?)').run(phone,'password_reset',otpHash(phone,'password_reset',code),expires);
  const delivered=await deliverOtp(phone,code,u.email,'password_reset'),challenge=jwt.sign({type:'password_reset',uid:u.id,phone,otp_id:Number(otpInsert.lastInsertRowid)},SECRET,{expiresIn:'10m'});
- res.json({challenge,phone_masked:maskPhone(phone),account_type:u.role==='admin'?'Owner/Admin':'Candidate',...(delivered.dev?{dev_otp:code}:{})});
+ res.json({challenge,phone_masked:maskPhone(phone),email_masked:delivered.email_masked||maskEmail(u.email),account_type:u.role==='admin'?'Owner/Admin':'Candidate',...(delivered.dev?{dev_otp:code}:{})});
 }catch(e){res.status(503).json({error:e.message||'Could not send password reset OTP'})}});
 app.post('/api/auth/forgot-password-complete',authRateLimit,(req,res)=>{
  let c;try{c=jwt.verify(String(req.body?.challenge||''),SECRET)}catch{return res.status(401).json({error:'Password reset expired. Start again.'})}
@@ -2280,6 +2286,13 @@ app.get('/api/admin/passages-page',auth,admin,(req,res)=>{
 // JP NOTIFICATIONS + PRIVATE DOUBT SESSION 2026-09-22
 // Separate from Information Centre. Broadcasts go to candidates who had already joined when the notification was sent.
 // Doubts are private: candidates only see their own; Master Owner sees all.
+const webPush=require('./push');
+const pushKeyFile=path.join(data,'push-vapid.json');
+let pushKeys;
+try{pushKeys=JSON.parse(fs.readFileSync(pushKeyFile,'utf8'))}catch(_){
+ pushKeys=webPush.generateKeys();
+ fs.writeFileSync(pushKeyFile,JSON.stringify(pushKeys),{mode:0o600,flag:'wx'});
+}
 db.exec(`CREATE TABLE IF NOT EXISTS site_notifications(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  title TEXT NOT NULL,
@@ -2299,6 +2312,14 @@ CREATE TABLE IF NOT EXISTS notification_reads(
  PRIMARY KEY(user_id,notification_id)
 );
 CREATE INDEX IF NOT EXISTS idx_notification_reads_user ON notification_reads(user_id,notification_id);
+CREATE TABLE IF NOT EXISTS push_subscriptions(
+ endpoint TEXT PRIMARY KEY,
+ user_id INTEGER NOT NULL,
+ p256dh TEXT NOT NULL,
+ auth TEXT NOT NULL,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 CREATE TABLE IF NOT EXISTS doubt_sessions(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  user_id INTEGER NOT NULL,
@@ -2330,6 +2351,29 @@ async function emailSiteNotification(row){
  db.prepare('UPDATE site_notifications SET last_emailed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);return {sent:true,count};
 }
 function notificationJoinDate(userId){return db.prepare('SELECT created_at FROM users WHERE id=?').get(userId)?.created_at||'1970-01-01 00:00:00'}
+app.get('/api/push/public-key',auth,(req,res)=>res.json({publicKey:pushKeys.publicKey}));
+app.post('/api/push/subscribe',auth,(req,res)=>{
+ if(req.user.role!=='student')return res.status(403).json({error:'Candidate account required'});
+ const s=req.body||{},endpoint=String(s.endpoint||''),p256dh=String(s.keys?.p256dh||''),key=String(s.keys?.auth||'');
+ if(endpoint.length>2048||p256dh.length>256||key.length>256||!/^https:\/\//.test(endpoint)||!p256dh||!key)return res.status(400).json({error:'Invalid push subscription'});
+ db.prepare('INSERT INTO push_subscriptions(endpoint,user_id,p256dh,auth) VALUES(?,?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,p256dh=excluded.p256dh,auth=excluded.auth').run(endpoint,req.user.id,p256dh,key);
+ res.json({ok:true});
+});
+app.post('/api/push/unsubscribe',auth,(req,res)=>{
+ db.prepare('DELETE FROM push_subscriptions WHERE user_id=? AND endpoint=?').run(req.user.id,String(req.body?.endpoint||''));res.json({ok:true});
+});
+async function pushSiteNotification(row){
+ const subs=db.prepare("SELECT s.endpoint,s.p256dh,s.auth FROM push_subscriptions s JOIN users u ON u.id=s.user_id WHERE u.role='student' AND u.active=1 AND datetime(u.created_at)<=datetime(?)").all(row.created_at);
+ let delivered=0,failed=0;
+ for(let i=0;i<subs.length;i+=10){
+  await Promise.all(subs.slice(i,i+10).map(async s=>{try{
+   const status=await webPush.send({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},{title:row.title,body:row.message.slice(0,180),url:'/#notifications',tag:'jp-notif-'+row.id},pushKeys,'mailto:support@jptyping.in');
+   if(status>=200&&status<300)delivered++;
+   else{failed++;if(status===404||status===410)db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').run(s.endpoint)}
+  }catch(e){failed++}}));
+ }
+ return {subscribers:subs.length,delivered,failed};
+}
 app.get('/api/notifications/me',auth,(req,res)=>{
  const joined=notificationJoinDate(req.user.id);
  const rows=db.prepare(`SELECT n.id,n.title,n.message,n.priority,n.pinned,n.created_at,
@@ -2360,7 +2404,8 @@ app.post('/api/owner/notifications',auth,ownerOnly,async(req,res)=>{try{
  const priority=['normal','important','urgent'].includes(String(b.priority))?String(b.priority):'normal';
  const r=db.prepare('INSERT INTO site_notifications(title,message,priority,active,pinned,created_by) VALUES(?,?,?,?,?,?)').run(title,message,priority,1,b.pinned?1:0,req.user.id);
  const row=db.prepare('SELECT * FROM site_notifications WHERE id=?').get(r.lastInsertRowid);let email={sent:false};if(b.send_email)try{email=await emailSiteNotification(row)}catch(e){email={sent:false,reason:e.message}}
- audit(req,'BROADCAST','notification',row.id,title);res.json({ok:true,id:row.id,email});
+ let push={subscribers:0,delivered:0,failed:0};try{push=await pushSiteNotification(row)}catch(e){push={error:e.message}}
+ audit(req,'BROADCAST','notification',row.id,title);res.json({ok:true,id:row.id,email,push});
  }catch(e){res.status(400).json({error:e.message})}});
 app.delete('/api/owner/notifications/:id',auth,ownerOnly,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM notification_reads WHERE notification_id=?').run(id);db.prepare('DELETE FROM site_notifications WHERE id=?').run(id);audit(req,'DELETE','notification',id);res.json({ok:true})});
 
