@@ -873,11 +873,38 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
  let content=fitExactly(parts,target,language,targetType);if(targetType==='exam'&&difficulty==='Hard')content=fitExamHardCharacters(content,language,random);return {content,topicTitle:hi?topic.hi:topic.en,topicSignature:topic.signature,topicFamily:topic.family,baseSubject:topic.baseSubject};
 }
 
+// Practice-only long matter: use several distinct factual/narrative topic cards
+// rather than padding every difficulty with the same stock explanatory sentences.
+function composePracticeDetailed({language,difficulty,date,exam={},serial=1,attempt=0}){
+ const target=sourceTargetWords(language,'practice',exam,difficulty),hi=language==='Hindi';
+ const random=rng([date,language,difficulty,serial,attempt,'practice-topic-series-v1'].join('|'));
+ const preferred={Easy:new Set(['story','heritage']),Medium:new Set(['biography']),'Moderate to Hard':new Set(['system','history']),Hard:new Set(['science','current'])}[difficulty]||new Set(['story','system','science']);
+ const cards=[],seen=new Set();let available=0;
+ const section=(Number(String(date).replace(/\D/g,''))+Number(serial)+(difficulty==='Hard'?1:0))%3;
+ for(let i=0;i<800&&available<target+90;i++){
+  const card=dynamicTopicCard({date,targetType:'practice',exam,language,difficulty,serial:serial+i*13,attempt:attempt+i});
+  if(!preferred.has(card.family)||seen.has(card.baseSubject))continue;
+  seen.add(card.baseSubject);const first=section*4;const facts=shuffle(card.facts.slice(first,first+4).concat(difficulty==='Medium'?[card.facts[(first+4)%card.facts.length]]:[]),random);cards.push({card,facts});
+  available+=wordCount(hi?card.hi:card.en)+facts.reduce((n,p)=>n+wordCount(hi?p[1]:p[0]),0);
+ }
+ if(available<target+20)throw Error('Not enough distinct Practice topic matter');
+ const parts=[];
+ for(const {card,facts} of cards){
+  const title=hi?card.hi.split(', विशेष ध्यान ')[0]:card.en.split(' with a focus on ')[0];
+  parts.push(`${title}.`);
+  for(const fact of facts)parts.push(hi?fact[1]:fact[0]);
+ }
+ if(difficulty==='Easy'||difficulty==='Medium')for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹"-]+/g,' ').replace(/\s+/g,' ').trim();
+ const content=fitExactly(parts,target,language,'practice'),first=cards[0].card;
+ return {content,topicTitle:hi?first.hi:first.en,topicSignature:first.signature,topicFamily:first.family,baseSubject:first.baseSubject};
+}
+
 // Exam + Practice use the broad dynamic topic universe. Live keeps its existing generator.
 // Learning is not handled in this file and remains untouched.
 function composeDetailed(args){
  const type=String(args?.targetType||'');
- if(type==='exam'||type==='practice')return composeDynamicDetailed(args);
+ if(type==='practice')return composePracticeDetailed(args);
+ if(type==='exam')return composeDynamicDetailed(args);
  return {content:legacyDaily.compose(args),topicTitle:null,topicSignature:null,topicFamily:'live',baseSubject:'live'};
 }
 function compose(args){return composeDetailed(args).content}

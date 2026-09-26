@@ -1078,7 +1078,7 @@ function toggleSide(v){const side=document.getElementById('side'),o=document.get
 function setDesktopSidebar(collapsed,remember=true){document.body.classList.toggle('sidebar-collapsed',!!collapsed);const b=document.getElementById('sideToggle');if(b){b.textContent=collapsed?'›':'‹';b.title=collapsed?'Show sidebar':'Hide sidebar';b.setAttribute('aria-label',b.title)}if(remember)localStorage.setItem('st_sidebar_collapsed',collapsed?'1':'0')}
 function toggleDesktopSide(){if(window.innerWidth<=780){toggleSide();return}setDesktopSidebar(!document.body.classList.contains('sidebar-collapsed'))}
 function restoreSidebarAfterExam(){setDesktopSidebar(localStorage.getItem('st_sidebar_collapsed')!=='0',false)}
-function activeNav(route){document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===route));if(S.user&&S.user.role!=='admin'&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(route))sessionStorage.setItem('jp_candidate_page',route);toggleSide(false)}
+function activeNav(route){window.JP_ACTIVE_ROUTE=route;window.JP_ACTIVE_HASH=location.hash;document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===route||(S.user?.role==='admin'&&route==='admin'&&a.closest('#topnav')&&a.dataset.route==='dashboard')));if(S.user&&S.user.role!=='admin'&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(route))sessionStorage.setItem('jp_candidate_page',route);toggleSide(false)}
 function toggleProfileMenu(ev){if(ev)ev.stopPropagation();document.getElementById('profileDropdown')?.classList.toggle('show');markThemeSwatch()}
 function closeProfileMenu(){document.getElementById('profileDropdown')?.classList.remove('show')}
 const THEMES={
@@ -1106,6 +1106,7 @@ function jpCandidateDoubtTopButton(){return (!S.user||S.user.role==='admin')?'':
 function layout(){
  const guest=!S.user;
  document.body.classList.toggle('guest-mode',guest);
+ document.body.classList.toggle('jp-owner-session',S.user?.role==='admin');
  if(!guest)document.body.classList.remove('public-landing');
  applyTheme(localStorage.getItem('st_theme')||'green');
  const topnav=document.getElementById('topnav');
@@ -1115,11 +1116,15 @@ function layout(){
   document.getElementById('adminNav').innerHTML='';
   requestAnimationFrame(()=>{const n=document.getElementById('topnav');if(n)n.scrollLeft=0});
  }else{
-  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
+  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="${S.user.role==='admin'?'#admin':'#dashboard'}">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
   document.getElementById('topActions').innerHTML=`<button id="jpNotifBell" class="jp-notif-bell" type="button" title="Notifications" onclick="goToRoute('notifications')"><span>🔔</span><b id="jpTopNotifBadge" style="display:none">0</b></button>${jpCandidateDoubtTopButton()}<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="goToRoute('dashboard');closeProfileMenu()">📊 My Dashboard</button><button onclick="goToRoute('history');closeProfileMenu()">🕘 Test History</button><button onclick="goToRoute('notifications');closeProfileMenu()">🔔 Notifications</button><button onclick="goToRoute('doubts');closeProfileMenu()">💬 Doubt Session</button><div class="theme-panel"><small>Home Theme</small><div class="home-theme-options"><button class="home-theme-choice" data-home-theme="original" onclick="setHomeTheme('original')">Original</button><button class="home-theme-choice" data-home-theme="sky" onclick="setHomeTheme('sky')">Clean Sky</button><button class="home-theme-choice" data-home-theme="premium" onclick="setHomeTheme('premium')">Premium</button></div></div><div class="theme-panel"><small>Candidate Dashboard</small><div class="home-theme-options"><button class="dashboard-theme-choice" data-dashboard-theme="existing" onclick="setDashboardTheme('existing')">Existing</button><button class="dashboard-theme-choice" data-dashboard-theme="sky" onclick="setDashboardTheme('sky')">Clean Sky</button></div></div><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
   document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
  }
  markThemeSwatch();
+ // layout rebuilds the links; restore their active state after every rebuild.
+ const currentRoute=location.hash.slice(1)||'home';
+ const navRoute=window.JP_ACTIVE_HASH===location.hash&&window.JP_ACTIVE_ROUTE?window.JP_ACTIVE_ROUTE:currentRoute;
+ document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===navRoute||(navRoute==='admin'&&a.closest('#topnav')&&a.dataset.route==='dashboard')));
  if(!guest)setTimeout(refreshNotificationBadge,30);
 }
 function setApp(html){document.getElementById('app').innerHTML=html;document.body.classList.toggle('owner-full-view',!!document.querySelector('.owner-full-page'))}
@@ -3832,6 +3837,7 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
   function buildFolders(exams){const m=new Map();for(const e of exams||[]){const name=baseFolderName(e.name),key=name.toLowerCase();if(!m.has(key))m.set(key,{name,count:0,variants:[]});const g=m.get(key);g.count+=Number(e.passage_count||0);g.variants.push(e)}return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name));}
   window.admin=async function(){
     if(!S.user||S.user.role!=='admin'){auth('login');return}activeNav('admin');
+    setApp('<div class="page"><div class="card" style="padding:28px"><h2>Owner Dashboard</h2><p>Dashboard खुल रहा है…</p></div></div>');
     try{
       const [s,u,l,d]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/recent-logins'),api('/api/admin/passage-directory')]);
       window.JP_PASS_DIR=d;const folders=buildFolders(d.exams);
@@ -3840,7 +3846,7 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
       <div style="height:18px"></div><div class="card" style="padding:18px"><div class="panel-head"><div><h2 style="margin:0">📁 Exam-wise Passage Folders</h2><p class="muted">7258 matters की flat list यहाँ नहीं खुलेगी.</p></div></div><input id="jpDashFolderSearch" class="input" style="width:100%;margin-top:10px" placeholder="Search Exam Folder" oninput="jpDashFilterFolders()"></div>
       <div id="jpDashFolders" class="jp-folder-grid" style="margin-top:14px"><button class="card jp-folder" data-search="free typing practice" onclick="jpDashOpenFolder('free')"><b>⌨ Free Typing Practice</b><span>${d.free_count||0} passages</span></button>${folders.map((g,i)=>`<button class="card jp-folder" data-search="${esc(g.name.toLowerCase())}" onclick="jpDashOpenFolder(${i})"><b>📁 ${esc(g.name)}</b><span>${g.count} passages · ${g.variants.length} language/variant</span></button>`).join('')}</div>
       <div style="height:18px"></div><div class="card" style="padding:20px"><div class="panel-head"><div><h2 style="margin:0">Recent Students</h2><p class="muted">Recent accounts only.</p></div><a href="#users">View all →</a></div><div class="table-wrap"><table class="table"><thead><tr><th>Student</th><th>Email</th><th>Joined</th><th>Action</th></tr></thead><tbody>${u.slice(0,8).map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.email)}</td><td>${new Date(x.created_at).toLocaleDateString()}</td><td><button class="btn btn-soft" onclick="viewUser(${x.id})">Manage</button></td></tr>`).join('')}</tbody></table></div></div></div>`);
-    }catch(e){showToast(e.message||'Owner dashboard could not load')}
+    }catch(e){showToast(e.message||'Owner dashboard could not load');setApp('<div class="page"><div class="card" style="padding:28px"><h2>Owner Dashboard अभी नहीं खुल सका</h2><p>कृपया दोबारा कोशिश करें।</p><button class="btn btn-primary" onclick="admin()">Retry</button></div></div>')}
   };
   window.jpDashFilterFolders=function(){const q=(document.getElementById('jpDashFolderSearch')?.value||'').toLowerCase();document.querySelectorAll('#jpDashFolders .jp-folder').forEach(x=>x.style.display=!q||x.dataset.search.includes(q)?'':'none')};
   window.jpDashOpenFolder=function(which){const d=window.JP_PASS_DIR||{exams:[]};let variants=[],title='',free=false;if(which==='free'){free=true;title='Free Typing Practice'}else{const g=buildFolders(d.exams)[Number(which)];if(!g)return;variants=g.variants;title=g.name}window.JP_DASH_FOLDER={variants,title,free,variant:free?'free':(variants[0]?.id||'')};window.JP_DASH_PAGE=1;jpDashRenderFolder();};
@@ -6634,5 +6640,14 @@ async function maybeShowCandidatePushPrompt(){
 function dismissCandidatePushPrompt(){document.getElementById('jpPushOptIn').hidden=true;localStorage.setItem(candidatePushChoiceKey(),'later')}
 async function acceptCandidatePushPrompt(){document.getElementById('jpPushOptIn').hidden=true;await enableBrowserAlerts();if(Notification.permission==='granted'){try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg&&await reg.pushManager.getSubscription())localStorage.setItem(candidatePushChoiceKey(),'enabled')}catch(e){}}}
 </script>
+<style id="jp-owner-active-home-dashboard-20260926">
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="home"].active,
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].active{
+ background:#079455!important;border-color:#047857!important;color:#fff!important;-webkit-text-fill-color:#fff!important;
+ box-shadow:0 5px 15px rgba(7,148,85,.30)!important;
+}
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="home"].active::before,
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].active::before{color:#fff!important}
+</style>
 </body>
 </html>

@@ -17,6 +17,8 @@ DEPLOY:
 
 EXPECTED:
 - Logged-in candidate: Dashboard on fresh login; browser refresh keeps the current section, including the selected Practice language and duration.
+- Owner/Admin login renders the Owner Dashboard immediately with visible loading and retry states; the top Dashboard tab opens Owner Dashboard for Owner/Admin.
+- Owner Home/Dashboard keeps the currently open top tab visibly green even when navigation is rebuilt.
 - Refresh inside an Exam Main Folder or its Sub-folder restores that same folder after the directory loads; the Exam typing/scoring/matter flow is unchanged.
 - Default home = Clean Sky, default eye comfort = Green, dashboard style = Existing.
 - Candidate's manually saved theme selection remains saved in this browser.
@@ -35,8 +37,9 @@ LATEST FIXES:
 - Pricing navigation appears only when Payment System is confirmed ON by public settings; OFF keeps it hidden.
 
 AUTO PRACTICE MATTER FIX:
-- Practice uses the existing daily dynamic composer; it publishes full 30-minute English/Hindi source matters and trims to the chosen test duration.
+- Practice publishes full 30-minute English/Hindi source matters and trims them to the chosen test duration.
 - The separate four-day fixed-text generator is removed. Its previous short auto matters become inactive; saved result history stays intact.
+- Practice now selects different topic families and fact subsets for each difficulty and date. Today's untouched auto Practice entries are refreshed once. The Exam generator remains unchanged.
 
 PRACTICE DURATION SAFEGUARD:
 - All Practice passages are filtered for the selected duration. A too-short passage cannot start a longer test.
