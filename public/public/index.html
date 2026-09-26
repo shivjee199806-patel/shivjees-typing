@@ -1764,7 +1764,7 @@ async function validateSavedSession(){
    const last=sessionStorage.getItem('jp_candidate_page');
    const current=location.hash.slice(1);
    if(last&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(last)&&(!current||current==='home'&&last!=='home'))history.replaceState(null,'',location.pathname+location.search+'#'+last);
-  }route();const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user)}}
+  }if(S.user?.role!=='admin'&&location.hash==='#exams'&&performance.getEntriesByType('navigation')[0]?.type==='reload')window.JP_RESTORE_EXAM_FOLDER=true;route();const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user)}}
  catch(e){if(S.token)showToast(e.message);else route()}
 }
 
@@ -1833,7 +1833,7 @@ async function openExamFolder(key){
     const all=window.EXAM_OPTIONS?.length?window.EXAM_OPTIONS:await api('/api/exams?candidate=1');
     const g=examFolderByKey(key,all); if(!g)throw Error('Exam folder not found');
     const details=await Promise.all(g.variants.map(v=>api('/api/exams/'+v.id)));
-    window.ACTIVE_EXAM_FOLDER={...g,details}; window.EXAM_FOLDER_LANG='All'; renderExamFolderContents();
+    window.ACTIVE_EXAM_FOLDER={...g,details}; window.EXAM_FOLDER_LANG='All';sessionStorage.setItem('jp_exam_sub_folder',key); renderExamFolderContents();
   }catch(e){showToast(e.message)}
 }
 function renderExamFolderContents(){
@@ -1924,7 +1924,7 @@ ownerTab = function(tab,btn){
   return ownerTabBeforeFolders(tab,btn);
 }
 
-function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');route()}
+function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');dashboard()}
 function goToRoute(name){const next='#'+name;if(location.hash===next){route();return}location.hash=next}
 document.addEventListener('click',event=>{const link=event.target.closest('a[data-route][href^="#"]');if(link&&link.hash===location.hash){event.preventDefault();route()} });
 window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});validateSavedSession();
@@ -4896,15 +4896,24 @@ body.jp-payment-confirmed-on a[href="#pricing"]{display:inline-flex!important}
 
   window.exams=async function(){
     activeNav('exams');
+    const restoring=!!window.JP_RESTORE_EXAM_FOLDER,mainToRestore=restoring?sessionStorage.getItem('jp_exam_main_folder'):null,subToRestore=restoring?sessionStorage.getItem('jp_exam_sub_folder'):null;
+    window.JP_RESTORE_EXAM_FOLDER=false;
+    if(!restoring){sessionStorage.removeItem('jp_exam_main_folder');sessionStorage.removeItem('jp_exam_sub_folder')}
     setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>Typing Exams</h1><p>Main Folder खोलें → Exam Sub-folder चुनें → फिर उसके passages.</p></div></div><div class="exam-directory"><div class="exam-searchbar"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search folder or exam..." autocomplete="off"></div></div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);
     try{
       const d=await loadTree(false); window.EXAM_OPTIONS=d.rows||[]; window.STRICT_EXAM_TREE=d.tree||[];
+      if(location.hash!=='#exams')return;
       const render=()=>{const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase();const tree=(window.STRICT_EXAM_TREE||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.exams||[]).some(e=>String(e.name||'').toLowerCase().includes(q)));examCountLine.textContent=`${tree.length} main exam folders found`;examGrid.innerHTML=tree.map(p=>`<div class="browse-exam-card" onclick="openStrictMainFolder('${esc(p.key)}')"><div class="meta"><span>MAIN FOLDER</span><span>${groupVariants(p.exams).length} subfolders</span></div><h3>📁 ${esc(p.name)}</h3><p>${groupVariants(p.exams).slice(0,3).map(g=>esc(stripParent(p.name,g.name))).join(' • ')}${groupVariants(p.exams).length>3?' …':''}</p><div class="bottom"><span class="count">Open folder</span><button class="open-btn" onclick="event.stopPropagation();openStrictMainFolder('${esc(p.key)}')">Open Folder →</button></div></div>`).join('')||'<div class="card exam-empty">No main folder found.</div>'};
       examSearch.oninput=render;render();
+      if(mainToRestore&&(window.STRICT_EXAM_TREE||[]).some(p=>p.key===mainToRestore)){
+        openStrictMainFolder(mainToRestore);
+        if(subToRestore)await openExamFolder(subToRestore);
+      }
     }catch(e){showToast(e.message||'Exam folders could not load')}
   };
   window.openStrictMainFolder=function(key){
     const p=(window.STRICT_EXAM_TREE||[]).find(x=>x.key===key);if(!p)return showToast('Main folder not found');const groups=groupVariants(p.exams);
+    sessionStorage.setItem('jp_exam_main_folder',key);sessionStorage.removeItem('jp_exam_sub_folder');
     const cardHtml=groups.map(g=>{
       const paid=(g.variants||[]).some(v=>Number(v.paid_enabled)===1);
       const cfg=(g.variants||[]).find(v=>Number(v.paid_enabled)===1)||(g.variants||[])[0]||{};

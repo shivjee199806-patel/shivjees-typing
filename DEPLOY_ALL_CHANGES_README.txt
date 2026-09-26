@@ -17,6 +17,7 @@ DEPLOY:
 
 EXPECTED:
 - Logged-in candidate: Dashboard on fresh login; browser refresh keeps the current section, including the selected Practice language and duration.
+- Refresh inside an Exam Main Folder or its Sub-folder restores that same folder after the directory loads; the Exam typing/scoring/matter flow is unchanged.
 - Default home = Clean Sky, default eye comfort = Green, dashboard style = Existing.
 - Candidate's manually saved theme selection remains saved in this browser.
 - Exam Mode LEFT and wider, Practice RIGHT and narrower.
@@ -41,4 +42,4 @@ PRACTICE DURATION SAFEGUARD:
 - All Practice passages are filtered for the selected duration. A too-short passage cannot start a longer test.
 - Changing the selected duration refreshes eligible passages; existing manually authored passages and past results are retained.
 - Current day's previously generated Practice matters are refreshed once where the owner has not edited them; Exam Mode generator and its output are unchanged.
-- Pre-26-Sep auto-generated Practice passages are hidden from the candidate list if untouched by the owner; historical results and owner-edited passages are retained.
+- Existing Practice passages remain in the candidate list; if the previous package archived old auto Practice rows, this release restores those rows while keeping saved results and owner edits.

@@ -1954,19 +1954,18 @@ dailyPassages=require('./daily-passages').createService(db,{setting,indiaDatePar
 // one-time legacy restoration that undoes the earlier accidental experiment.
 async function runDeferredMatterMaintenance(){
  try{
-  const marker='archive_repetitive_auto_practice_before_20260926_v1';
+  const marker='restore_auto_practice_archived_20260926_v1',oldMarker='archive_repetitive_auto_practice_before_20260926_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-   const old=db.prepare("SELECT p.id,p.content passage_content,q.content queue_content FROM daily_passage_queue q JOIN passages p ON p.id=q.published_passage_id WHERE q.target_type='practice' AND COALESCE(q.manual,0)=0 AND q.queue_date<'2026-09-26' AND p.active=1 AND p.exam_id IS NULL").all();
-   let archived=0;
-   db.transaction(()=>{const deactivate=db.prepare('UPDATE passages SET active=0 WHERE id=? AND active=1');for(const row of old){
-    // Never overwrite an owner-edited passage; saved results still refer to archived IDs.
-    if(row.passage_content!==row.queue_content)continue;
-    archived+=deactivate.run(row.id).changes;
-   }db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,String(archived))})();
-   if(archived)scheduleRemoteSqliteMirror();
-   console.log('Old auto Practice matters archived:',archived);
+   const archived=Number(db.prepare('SELECT value FROM app_meta WHERE key=?').get(oldMarker)?.value||0);
+   let restored=0;
+   if(archived>0){
+    const rows=db.prepare("SELECT p.id,p.content passage_content,q.content queue_content FROM daily_passage_queue q JOIN passages p ON p.id=q.published_passage_id WHERE q.target_type='practice' AND COALESCE(q.manual,0)=0 AND q.status='published' AND q.queue_date<'2026-09-26' AND p.active=0 AND p.exam_id IS NULL ORDER BY q.id DESC").all();
+    db.transaction(()=>{const activate=db.prepare('UPDATE passages SET active=1 WHERE id=? AND active=0');for(const row of rows){if(restored>=archived)break;if(row.passage_content===row.queue_content)restored+=activate.run(row.id).changes}db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,String(restored))})();
+   }else db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,'0');
+   if(restored)scheduleRemoteSqliteMirror();
+   console.log('Auto Practice passages restored:',restored);
   }
- }catch(e){console.warn('Old Practice matter cleanup skipped:',e.message)}
+ }catch(e){console.warn('Practice passage restore skipped:',e.message)}
  try{
   const marker='practice_matter_distinct_20260926_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
