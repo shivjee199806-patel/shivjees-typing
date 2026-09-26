@@ -12,7 +12,7 @@ const legacyDaily=require('./daily-passages-legacy');
 const LEVELS=['Easy','Medium','Moderate to Hard','Hard'];
 const EXAM_COUNTS=[1,1,1,1];
 const PRACTICE_COUNTS=[1,1,1,1]; // Daily load rule: one passage per difficulty per language.
-const PRACTICE_30_MIN_WORDS={English:1020,Hindi:816};
+const PRACTICE_30_MIN_WORDS={English:1350,Hindi:1080};
 
 function rng(seed){let n=crypto.createHash('sha256').update(String(seed)).digest().readUInt32LE();return ()=>{n+=0x6D2B79F5;let t=n;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
 function wordCount(s){return (String(s||'').trim().match(/\S+/g)||[]).length}
@@ -878,7 +878,7 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
 function composePracticeDetailed({language,difficulty,date,exam={},serial=1,attempt=0}){
  const target=sourceTargetWords(language,'practice',exam,difficulty),hi=language==='Hindi';
  const random=rng([date,language,difficulty,serial,attempt,'practice-topic-series-v1'].join('|'));
- const preferred={Easy:new Set(['story','heritage']),Medium:new Set(['biography']),'Moderate to Hard':new Set(['system','history']),Hard:new Set(['science','current'])}[difficulty]||new Set(['story','system','science']);
+ const preferred={Easy:new Set(['story','heritage']),Medium:new Set(['biography','history']),'Moderate to Hard':new Set(['system','history']),Hard:new Set(['science','current'])}[difficulty]||new Set(['story','system','science']);
  const cards=[],seen=new Set();let available=0;
  const section=(Number(String(date).replace(/\D/g,''))+Number(serial)+(difficulty==='Hard'?1:0))%3;
  for(let i=0;i<800&&available<target+90;i++){
