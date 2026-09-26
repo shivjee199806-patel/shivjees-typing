@@ -1776,12 +1776,12 @@ async function validateSavedSession(){
  // Authenticated candidates arriving at the bare domain land on Dashboard.
  // Explicit Home navigation and refreshes on other active tabs remain unchanged.
  if(S.user.role!=='admin'&&!location.hash&&location.pathname!=='/owner-portal'){
-   history.replaceState(null,'',location.pathname+location.search+'#dashboard');
+   if(location.hash!=='#dashboard')location.hash='#dashboard';
  }
  try{if(S.user?.role!=='admin'&&performance.getEntriesByType('navigation')[0]?.type==='reload'){
    const last=sessionStorage.getItem('jp_candidate_page');
    const current=location.hash.slice(1);
-   if(last&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(last)&&(!current||current==='home'&&last!=='home'))history.replaceState(null,'',location.pathname+location.search+'#'+last);
+   if(last&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(last)&&(!current||current==='home'&&last!=='home'))location.hash='#'+last;
   }if(S.user?.role!=='admin'&&location.hash==='#exams'&&performance.getEntriesByType('navigation')[0]?.type==='reload')window.JP_RESTORE_EXAM_FOLDER=true;await route();if(S.token!==restoringToken)return;const d=await api('/api/auth/me');if(S.token!==restoringToken)return;if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user);if(S.user.role!=='admin'){
     if(S.user.google_profile_pending)sessionStorage.setItem('st_google_first_setup','1');
     else sessionStorage.removeItem('st_google_first_setup');
@@ -1953,7 +1953,7 @@ ownerTab = function(tab,btn){
   return ownerTabBeforeFolders(tab,btn);
 }
 
-function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');return route()}
+function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');if(location.hash!=='#dashboard')location.hash='#dashboard';return route()}
 function goToRoute(name){const next='#'+name;if(location.hash===next){route();return}location.hash=next}
 document.addEventListener('click',event=>{const link=event.target.closest('a[data-route][href^="#"]');if(link&&link.hash===location.hash){event.preventDefault();route()} });
 window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});
@@ -3265,17 +3265,16 @@ showLoginCelebration=function(user){
 
   // Candidate logout gets its own farewell lady/animation. Owner/Admin logout remains unchanged.
   const previousLogout=window.logout;
-  window.logout=function(){
+  window.logout=async function(){
     const u=S?.user?{...S.user}:null;
     if(!u||String(u.role||'').toLowerCase()==='admin')return previousLogout();
-    clearStoredSession();
+    await previousLogout();
     closeModal('authModal');
     const pushPrompt=document.getElementById('jpPushOptIn');if(pushPrompt)pushPrompt.hidden=true;
     document.getElementById('googleMobileStage')?.remove();
     sessionStorage.setItem('st_home_welcome_seen','1'); // Farewell already covers this visit.
-    history.replaceState(null,'',location.pathname+location.search+'#home');
-    layout();home(); // Render public Home immediately, including Login and Sign Up.
-    showCustomWelcome('logout',u,()=>{window.location.replace('/#home')}); // Farewell, then re-enter the public Home.
+    goToRoute('home');
+    showCustomWelcome('logout',u,()=>{goToRoute('home')});
   };
 
   window.socialChannelClick=function(name,b){
