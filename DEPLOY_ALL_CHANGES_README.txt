@@ -1,0 +1,29 @@
+JP Typing — Combined update (Gemini + candidate UI + leaderboard)
+
+This package includes the following existing-project files:
+- server.js (Gemini matter generator, leaderboard endpoints and filters)
+- public/index.html (candidate home, theme, leaderboard, short attempts, recent-results removal)
+- public/public/index.html (sync the old nested copy of the HTML page to the current frontend)
+
+DEPLOY:
+1. Extract THIS ZIP into the ROOT folder of your existing jptyping.in source project.
+2. Confirm that server.js is in the project ROOT, and public/index.html is inside public/.
+   Do not put the ZIP's containing folder inside public/ or upload index.html alone.
+3. Overwrite the matching files, then commit/push to the Git repository used by Railway.
+4. Wait until Railway shows the new deployment as successful.
+5. Confirm the GEMINI_API_KEY Railway variable remains in place; no key belongs inside this ZIP.
+6. On jptyping.in, Ctrl+Shift+R once, then check Home and Leaderboard.
+
+EXPECTED:
+- Logged-in candidate: Home after login/refresh, owner routing unaffected.
+- Default home = Clean Sky, default eye comfort = Green, dashboard style = Existing.
+- Candidate's manually saved theme selection remains saved in this browser.
+- Exam Mode LEFT and wider, Practice RIGHT and narrower.
+- 2min Practice / 4min Exam minimum for ranking.
+- Up to 5 eligible tests individually; more than 5 expand under name.
+- Short Attempts section for less-than-threshold tests; all saved results in history.
+- No Recent Results table on Home.
+- Chhota Bhai AI matter works with Gemini; Gallery unchanged.
+
+NOTE: This zip contains CHANGED FILES, not a standalone complete web application.
+Do not remove or reset your live database, other Railway variables or user files.
