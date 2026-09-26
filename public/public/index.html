@@ -512,8 +512,28 @@ input,select,textarea,button{max-width:100%}
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-MNC4RT8VQJ');
-  window.jpTrack = function(name, params){ try { gtag('event', name, params || {}); } catch(e) {} };
+  // GA4 only: exclude sessions identified as Owner/Admin on this browser.
+  // Google Search Console search clicks cannot be excluded by site JavaScript.
+  window.jpAnalyticsAdminExcluded = (function(){
+    try {
+      var user = JSON.parse(localStorage.getItem('st_user') || 'null');
+      return !!(localStorage.getItem('st_token') && user && user.role === 'admin');
+    } catch (_) { return false; }
+  })();
+  window['ga-disable-G-MNC4RT8VQJ'] = window.jpAnalyticsAdminExcluded;
+  if (!window.jpAnalyticsAdminExcluded) gtag('config', 'G-MNC4RT8VQJ');
+  window.jpTrack = function(name, params){
+    if (window.jpAnalyticsAdminExcluded) return;
+    try { gtag('event', name, params || {}); } catch(e) {}
+  };
+  window.jpSetAnalyticsAdminExcluded = function(user){
+    if (user && user.role === 'admin') {
+      window.jpAnalyticsAdminExcluded = true;
+      window['ga-disable-G-MNC4RT8VQJ'] = true;
+    }
+    // No mid-session re-enable: avoids counting Owner/Admin activity after logout.
+    // A fresh guest/candidate page load re-enables GA4 normally.
+  };
 </script>
 
 <style id="jp-collapsed-exam-directory-style-20260917">
@@ -1605,7 +1625,7 @@ async function setupCandidateGoogle(){
   btn.innerHTML='';btn.setAttribute('aria-label','Continue with Google');google.accounts.id.renderButton(btn,{type:'icon',theme:'outline',size:'large',shape:'circle'});
  }catch(e){wrap.style.display='none';console.warn(e.message)}
 }
-async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.user?.google_profile_pending||!!d.new_account;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();openCandidateHomeAfterLogin();sessionStorage.setItem('jp_auth_welcome_seen','1');try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(needsGoogleSetup)setTimeout(()=>{if(S.user?.google_profile_pending&&!document.getElementById('customWelcomeStage')&&!document.getElementById('googleMobileStage'))showGoogleMobileCapture()},1800);setTimeout(maybeShowCandidatePushPrompt,1800)}catch(e){authError.textContent=e.message}}
+async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;window.jpSetAnalyticsAdminExcluded(S.user);localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.user?.google_profile_pending||!!d.new_account;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();openCandidateHomeAfterLogin();sessionStorage.setItem('jp_auth_welcome_seen','1');try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(needsGoogleSetup)setTimeout(()=>{if(S.user?.google_profile_pending&&!document.getElementById('customWelcomeStage')&&!document.getElementById('googleMobileStage'))showGoogleMobileCapture()},1800);setTimeout(maybeShowCandidatePushPrompt,1800)}catch(e){authError.textContent=e.message}}
 async function auth(mode){
  const m=document.getElementById('authModal');
  m.classList.add('show');m.scrollTop=0;m.querySelector('.auth-modal-box').scrollTop=0;m.dataset.mode=mode;m.dataset.method='password';m.dataset.adminChallenge='';m.dataset.adminSignupChallenge='';
@@ -1676,7 +1696,7 @@ async function submitAuth(){try{
  const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});
  if(mode==='admin-register'&&d.created){showToast('Owner account created. Login now with Email + Password + OTP.');const e=adminEmail.value;auth('admin-login');loginEmail.value=e;return}
  if(mode==='admin-login'&&d.user?.role!=='admin')throw Error('This account does not have Admin/Owner access');
- S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();if(S.user.role==='admin')goToRoute('admin');else openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(S.user.role!=='admin'){sessionStorage.setItem('jp_auth_welcome_seen','1');setTimeout(maybeShowCandidatePushPrompt,1800);}
+ S.token=d.token;S.user=d.user;window.jpSetAnalyticsAdminExcluded(S.user);localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();if(S.user.role==='admin')goToRoute('admin');else openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(S.user.role!=='admin'){sessionStorage.setItem('jp_auth_welcome_seen','1');setTimeout(maybeShowCandidatePushPrompt,1800);}
 }catch(e){document.getElementById('authError').textContent=e.message}}
 
 async function adminSignupPage(){
@@ -1699,7 +1719,7 @@ function ownerLoginPage(){
  window.OWNER_OTP_CHALLENGE='';
 }
 async function ownerOtpStart(){const e=document.getElementById('ownerLoginError');e.textContent='';try{const d=await api('/api/auth/owner-otp-start',{method:'POST',body:JSON.stringify({login_id:ownerPageEmail.value,password:ownerPagePassword.value})});window.OWNER_OTP_CHALLENGE=d.challenge||'';ownerOtpStep1.style.display='none';ownerOtpStep2.style.display='block';ownerOtpHint.textContent='OTP '+(d.email_masked||'registered Gmail')+' पर भेजा गया है। 5 मिनट में verify करें।';ownerOtpDev.style.display='none';ownerOtpCode.focus()}catch(x){e.textContent=x.message}}
-async function ownerOtpVerify(){const e=document.getElementById('ownerLoginError');e.textContent='';try{if(!window.OWNER_OTP_CHALLENGE)throw Error('पहले Owner OTP बनाइए');const d=await api('/api/auth/owner-otp-verify',{method:'POST',body:JSON.stringify({challenge:window.OWNER_OTP_CHALLENGE,otp:ownerOtpCode.value})});S.token=d.token;S.user=d.user;localStorage.setItem('st_token',S.token);localStorage.setItem('st_user',JSON.stringify(S.user));layout();await admin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}}catch(x){e.textContent=x.message}}
+async function ownerOtpVerify(){const e=document.getElementById('ownerLoginError');e.textContent='';try{if(!window.OWNER_OTP_CHALLENGE)throw Error('पहले Owner OTP बनाइए');const d=await api('/api/auth/owner-otp-verify',{method:'POST',body:JSON.stringify({challenge:window.OWNER_OTP_CHALLENGE,otp:ownerOtpCode.value})});S.token=d.token;S.user=d.user;window.jpSetAnalyticsAdminExcluded(S.user);localStorage.setItem('st_token',S.token);localStorage.setItem('st_user',JSON.stringify(S.user));layout();await admin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}}catch(x){e.textContent=x.message}}
 function ownerOtpBack(){window.OWNER_OTP_CHALLENGE='';ownerOtpStep2.style.display='none';ownerOtpStep1.style.display='block';ownerLoginError.textContent=''}
 
 async function logout(){try{const reg=await navigator.serviceWorker?.getRegistration('/');const sub=await reg?.pushManager?.getSubscription();if(sub){await api('/api/push/unsubscribe',{method:'POST',body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});await sub.unsubscribe()}}catch(_){}localStorage.removeItem('st_token');localStorage.removeItem('st_user');S.token='';S.user=null;layout();showToast('Logged out. Your results and learning progress remain saved.');location.hash='#home'}
