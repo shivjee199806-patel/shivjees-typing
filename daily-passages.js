@@ -12,7 +12,7 @@ const legacyDaily=require('./daily-passages-legacy');
 const LEVELS=['Easy','Medium','Moderate to Hard','Hard'];
 const EXAM_COUNTS=[1,1,1,1];
 const PRACTICE_COUNTS=[1,1,1,1]; // Daily load rule: one passage per difficulty per language.
-const PRACTICE_30_MIN_WORDS={English:1020,Hindi:816};
+const PRACTICE_30_MIN_WORDS={English:1350,Hindi:1080};
 
 function rng(seed){let n=crypto.createHash('sha256').update(String(seed)).digest().readUInt32LE();return ()=>{n+=0x6D2B79F5;let t=n;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
 function wordCount(s){return (String(s||'').trim().match(/\S+/g)||[]).length}
@@ -632,7 +632,7 @@ function dynamicTopicCard({date,targetType,exam={},language,difficulty,serial=1,
  }else{
   const x=pick(SYSTEM_SUBJECTS,random);baseSubject=`system:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForSystem(x[1],x[2],angle[1],angle[2]);
  }
- facts=[[`This version looks at the subject through ${lens[1]} ${stage[1]}, giving the passage a different practical focus.`,`इस रूप में विषय को ${lens[2]} के दृष्टिकोण से ${stage[2]} देखा गया है, जिससे अनुच्छेद का व्यावहारिक केंद्र अलग रहता है।`],...facts.slice(0,11)];
+ if(targetType!=='practice')facts=[[`This version looks at the subject through ${lens[1]} ${stage[1]}, giving the passage a different practical focus.`,`इस रूप में विषय को ${lens[2]} के दृष्टिकोण से ${stage[2]} देखा गया है, जिससे अनुच्छेद का व्यावहारिक केंद्र अलग रहता है।`],...facts.slice(0,11)];
  en=`${en} with a focus on ${lens[1]}`;hi=`${hi}, विशेष ध्यान ${lens[2]}`;
  return {key,en,hi,facts,family,baseSubject,signature:crypto.createHash('sha256').update(key).digest('hex')};
 }
@@ -865,7 +865,7 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
  }
  const random=rng([date,targetType,exam.id||0,exam.name||'',language,difficulty,serial,attempt,'human-v5'].join('|'));
  const topic=dynamicTopicCard({language,difficulty,date,targetType,exam,serial,attempt}),hi=language==='Hindi',parts=[];
- parts.push(`${hi?topic.hi:topic.en}. ${scopeLine(pick(hi?OPEN_HI:OPEN_EN,random),targetType,language,0)}`);
+ parts.push(targetType==='practice'?`${hi?topic.hi:topic.en}.`:`${hi?topic.hi:topic.en}. ${scopeLine(pick(hi?OPEN_HI:OPEN_EN,random),targetType,language,0)}`);
  const facts=shuffle(topic.facts,random),shift=Math.floor(random()*12),focus=hi?topic.hi.split(/\s+/).slice(0,4).join(' '):topic.en.split(/\s+/).slice(0,5).join(' ');
  for(let i=0;i<facts.length;i++)parts.push(paragraphForFact(facts[i],language,difficulty,random,i,shift,focus,targetType));
  parts.push(scopeLine(pick(hi?CLOSE_HI:CLOSE_EN,random),targetType,language,99));
@@ -873,11 +873,38 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
  let content=fitExactly(parts,target,language,targetType);if(targetType==='exam'&&difficulty==='Hard')content=fitExamHardCharacters(content,language,random);return {content,topicTitle:hi?topic.hi:topic.en,topicSignature:topic.signature,topicFamily:topic.family,baseSubject:topic.baseSubject};
 }
 
+// Practice-only long matter: use several distinct factual/narrative topic cards
+// rather than padding every difficulty with the same stock explanatory sentences.
+function composePracticeDetailed({language,difficulty,date,exam={},serial=1,attempt=0}){
+ const target=sourceTargetWords(language,'practice',exam,difficulty),hi=language==='Hindi';
+ const random=rng([date,language,difficulty,serial,attempt,'practice-topic-series-v1'].join('|'));
+ const preferred={Easy:new Set(['story','heritage']),Medium:new Set(['biography','history']),'Moderate to Hard':new Set(['system','history']),Hard:new Set(['science','current'])}[difficulty]||new Set(['story','system','science']);
+ const cards=[],seen=new Set();let available=0;
+ const section=(Number(String(date).replace(/\D/g,''))+Number(serial)+(difficulty==='Hard'?1:0))%3;
+ for(let i=0;i<800&&available<target+90;i++){
+  const card=dynamicTopicCard({date,targetType:'practice',exam,language,difficulty,serial:serial+i*13,attempt:attempt+i});
+  if(!preferred.has(card.family)||seen.has(card.baseSubject))continue;
+  seen.add(card.baseSubject);const first=section*4;const facts=shuffle(card.facts.slice(first,first+4).concat(difficulty==='Medium'?[card.facts[(first+4)%card.facts.length]]:[]),random);cards.push({card,facts});
+  available+=wordCount(hi?card.hi:card.en)+facts.reduce((n,p)=>n+wordCount(hi?p[1]:p[0]),0);
+ }
+ if(available<target+20)throw Error('Not enough distinct Practice topic matter');
+ const parts=[];
+ for(const {card,facts} of cards){
+  const title=hi?card.hi.split(', विशेष ध्यान ')[0]:card.en.split(' with a focus on ')[0];
+  parts.push(`${title}.`);
+  for(const fact of facts)parts.push(hi?fact[1]:fact[0]);
+ }
+ if(difficulty==='Easy'||difficulty==='Medium')for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹"-]+/g,' ').replace(/\s+/g,' ').trim();
+ const content=fitExactly(parts,target,language,'practice'),first=cards[0].card;
+ return {content,topicTitle:hi?first.hi:first.en,topicSignature:first.signature,topicFamily:first.family,baseSubject:first.baseSubject};
+}
+
 // Exam + Practice use the broad dynamic topic universe. Live keeps its existing generator.
 // Learning is not handled in this file and remains untouched.
 function composeDetailed(args){
  const type=String(args?.targetType||'');
- if(type==='exam'||type==='practice')return composeDynamicDetailed(args);
+ if(type==='practice')return composePracticeDetailed(args);
+ if(type==='exam')return composeDynamicDetailed(args);
  return {content:legacyDaily.compose(args),topicTitle:null,topicSignature:null,topicFamily:'live',baseSubject:'live'};
 }
 function compose(args){return composeDetailed(args).content}

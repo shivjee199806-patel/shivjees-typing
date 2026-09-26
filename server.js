@@ -1954,6 +1954,46 @@ dailyPassages=require('./daily-passages').createService(db,{setting,indiaDatePar
 // one-time legacy restoration that undoes the earlier accidental experiment.
 async function runDeferredMatterMaintenance(){
  try{
+  const marker='practice_matter_duration_20260926_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const refreshed=dailyPassages.refreshDate(indiaDateParts().date,['practice']);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+   if(refreshed.updated)scheduleRemoteSqliteMirror();
+   console.log('Today Practice matter length updated:',refreshed);
+  }
+ }catch(e){console.warn('Today Practice matter length update skipped:',e.message)}
+ try{
+  const marker='practice_matter_varied_20260926_v2';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const refreshed=dailyPassages.refreshDate(indiaDateParts().date,['practice']);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+   if(refreshed.updated)scheduleRemoteSqliteMirror();
+   console.log('Today Practice matter varied by level:',refreshed);
+  }
+ }catch(e){console.warn('Today Practice matter variation skipped:',e.message)}
+ try{
+  const marker='restore_auto_practice_archived_20260926_v1',oldMarker='archive_repetitive_auto_practice_before_20260926_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const archived=Number(db.prepare('SELECT value FROM app_meta WHERE key=?').get(oldMarker)?.value||0);
+   let restored=0;
+   if(archived>0){
+    const rows=db.prepare("SELECT p.id,p.content passage_content,q.content queue_content FROM daily_passage_queue q JOIN passages p ON p.id=q.published_passage_id WHERE q.target_type='practice' AND COALESCE(q.manual,0)=0 AND q.queue_date<'2026-09-26' AND p.active=0 AND p.exam_id IS NULL ORDER BY q.id DESC").all();
+    db.transaction(()=>{const activate=db.prepare('UPDATE passages SET active=1 WHERE id=? AND active=0');for(const row of rows){if(restored>=archived)break;if(row.passage_content===row.queue_content)restored+=activate.run(row.id).changes}db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,String(restored))})();
+   }else db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,'0');
+   if(restored)scheduleRemoteSqliteMirror();
+   console.log('Auto Practice passages restored:',restored);
+  }
+ }catch(e){console.warn('Practice passage restore skipped:',e.message)}
+ try{
+  const marker='practice_matter_distinct_20260926_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const refreshed=dailyPassages.refreshDate(indiaDateParts().date,['practice']);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+   if(refreshed.updated)scheduleRemoteSqliteMirror();
+   console.log('Current Practice matter refreshed:',refreshed);
+  }
+ }catch(e){console.warn('Practice matter refresh skipped:',e.message)}
+ try{
   const marker='daily_auto_all_exam_history_refresh_20260921_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
    const refreshed=await dailyPassages.refreshHistoricalExamMatter(indiaDateParts().date);
@@ -1965,7 +2005,7 @@ async function runDeferredMatterMaintenance(){
  try{
   const marker='daily_auto_non_exam_restore_20260921_legacy_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-   const restored=dailyPassages.refreshDate('2026-09-21',['practice','live']);
+   const restored=dailyPassages.refreshDate('2026-09-21',['live']);
    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(restored));
    if(restored.updated)scheduleRemoteSqliteMirror();
    console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
@@ -2281,34 +2321,11 @@ async function shutdown(signal){
 }
 process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
 
-// FREE PRACTICE 4-DAY ROTATION — add 5 unique matters per language, never duplicate existing passage matter.
-function ensureFreePracticeFourDayRotation(){
-  db.exec(`CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)`);
-  const key='free_practice_last_batch_at';
-  const row=db.prepare('SELECT value FROM app_meta WHERE key=?').get(key);
-  const now=Date.now(), fourDays=4*24*60*60*1000;
-  if(row && Number(row.value) && now-Number(row.value)<fourDays)return;
-  const norm=t=>String(t||'').replace(/\s+/g,' ').trim().toLowerCase();
-  const used=new Set(db.prepare('SELECT content FROM passages').all().map(x=>norm(x.content)));
-  const insert=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,auto_scroll) VALUES(?,?,?,?,?,1,'none',1)`);
-  const batch=Math.floor(now/fourDays);
-  for(const lang of ['English','Hindi']){
-    let made=0,attempt=0;
-    while(made<5 && attempt<250){
-      attempt++;
-      const seed=(lang==='English'?700000:800000)+(batch*503)+(attempt*37);
-      const diff=made<2?'Easy':made<4?'Medium':'Hard';
-      const content=(lang==='Hindi'
-        ? `अभ्यास क्रमांक ${seed} में अभ्यर्थी को कार्यालयी पत्राचार, अभिलेख, तिथि, संदर्भ संख्या, आवेदन, सूचना, सत्यापन और डिजिटल रिकॉर्ड से संबंधित सामग्री को सावधानी से टाइप करना है। शुद्धता बनाए रखते हुए प्रत्येक शब्द, संख्या और विराम चिह्न को मूल पाठ के अनुसार लिखें। नियमित अभ्यास से गति, एकाग्रता और त्रुटि नियंत्रण बेहतर होता है। इस ${diff} स्तर के अभ्यास में संदर्भ ${1000+(seed%8900)} तथा दिनांक ${1+(seed%28)}/${1+(seed%12)}/2026 को ध्यान से टाइप करें।`
-        : `Practice set ${seed} is designed for accurate office and examination typing with records, dates, reference numbers, applications, notices, verification, correspondence, and digital administration. Type every word, number, space, and punctuation mark exactly as shown while maintaining steady speed and accuracy. Regular practice improves concentration, rhythm, and error control. This ${diff} level set includes reference ${1000+(seed%8900)} and date ${1+(seed%28)}/${1+(seed%12)}/2026 for careful typing.`), n=norm(content);
-      if(!n || used.has(n))continue;
-      used.add(n); made++;
-      insert.run(`Free Practice ${lang} Auto ${batch}-${made}`,lang,lang==='Hindi'?'Unicode / Mangal':'QWERTY',diff,content);
-    }
-  }
-  db.prepare(`INSERT INTO app_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key,String(now));
-}
-ensureFreePracticeFourDayRotation();
+// Retire the separate fixed-text four-day Practice batches. Daily dynamic matter
+// publishing already makes full-length English/Hindi source passages for 30 minutes,
+// and the candidate Practice screen trims them to the selected duration.
+// Leave rows in place for existing result/history references.
+db.prepare("UPDATE passages SET active=0 WHERE active=1 AND exam_id IS NULL AND title LIKE 'Free Practice % Auto %'").run();
 
 // CERTIFICATE ASSIGNED MATTER SNAPSHOT FIX 2026-09-13
 // Preserve the exact matter used for every future assigned certificate test, even if a passage is later edited/moved/deleted.

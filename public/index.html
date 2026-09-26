@@ -1069,7 +1069,7 @@ body[data-theme="dark"] #authModal .jp-google-button-shell{
 <div id="toast" style="position:fixed;right:18px;bottom:18px;z-index:100;background:#101d35;color:#fff;padding:12px 15px;border-radius:10px;box-shadow:0 10px 30px #0002;display:none;font-size:13px"></div>
 <script>
 const S={token:localStorage.st_token||'',user:JSON.parse(localStorage.st_user||'null'),exam:null,passage:null,total:0,left:0,timer:null,started:false,done:false,mode:'practice',wordTimings:[],wordStartTs:0,lastWordCount:0,learning:null};
-function clearStoredSession(){localStorage.removeItem('st_token');localStorage.removeItem('st_user');S.token='';S.user=null;}
+function clearStoredSession(){localStorage.removeItem('st_token');localStorage.removeItem('st_user');sessionStorage.removeItem('jp_candidate_page');S.token='';S.user=null;}
 const api=async(u,o={})=>{o.headers={...(o.headers||{}),'Content-Type':'application/json',...(S.token?{Authorization:'Bearer '+S.token}:{})};const r=await fetch(u,o);let d={};try{d=await r.json()}catch{}if(!r.ok){const msg=d.error||'Request failed';if(r.status===401&&S.token&&(msg==='Account not found'||msg==='Session expired'||msg==='Login required')){const wasAdmin=S.user?.role==='admin';clearStoredSession();layout();setTimeout(()=>auth(wasAdmin?'admin-login':'login'),80);throw Error('Saved session was from an older database. Please login once again.');}throw Error(msg)}try{if(typeof jpTrack==='function'){if(u==='/api/auth/login'||u==='/api/auth/verify-otp'||u==='/api/auth/google')jpTrack('login',{method:u.includes('google')?'google':u.includes('verify-otp')?'otp':'password'});else if(u==='/api/auth/register-verify')jpTrack('sign_up',{method:'email_otp'});else if(u==='/api/payment-requests'&&String(d.status||'').toLowerCase()==='approved')jpTrack('purchase',{currency:'INR',transaction_id:String(d.id||d.payment_id||Date.now())});}}catch(_){}return d};
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=s=>String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')+':'+String(Math.max(0,s)%60).padStart(2,'0');
@@ -1078,7 +1078,7 @@ function toggleSide(v){const side=document.getElementById('side'),o=document.get
 function setDesktopSidebar(collapsed,remember=true){document.body.classList.toggle('sidebar-collapsed',!!collapsed);const b=document.getElementById('sideToggle');if(b){b.textContent=collapsed?'›':'‹';b.title=collapsed?'Show sidebar':'Hide sidebar';b.setAttribute('aria-label',b.title)}if(remember)localStorage.setItem('st_sidebar_collapsed',collapsed?'1':'0')}
 function toggleDesktopSide(){if(window.innerWidth<=780){toggleSide();return}setDesktopSidebar(!document.body.classList.contains('sidebar-collapsed'))}
 function restoreSidebarAfterExam(){setDesktopSidebar(localStorage.getItem('st_sidebar_collapsed')!=='0',false)}
-function activeNav(route){document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===route));toggleSide(false)}
+function activeNav(route){window.JP_ACTIVE_ROUTE=route;window.JP_ACTIVE_HASH=location.hash;document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===route||(S.user?.role==='admin'&&route==='admin'&&a.closest('#topnav')&&a.dataset.route==='dashboard')));if(S.user&&S.user.role!=='admin'&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(route))sessionStorage.setItem('jp_candidate_page',route);toggleSide(false)}
 function toggleProfileMenu(ev){if(ev)ev.stopPropagation();document.getElementById('profileDropdown')?.classList.toggle('show');markThemeSwatch()}
 function closeProfileMenu(){document.getElementById('profileDropdown')?.classList.remove('show')}
 const THEMES={
@@ -1101,11 +1101,12 @@ function setDashboardTheme(name){localStorage.setItem('st_dashboard_theme',name=
 function markDashboardThemeChoice(){const cur=dashboardThemeName();document.querySelectorAll('.dashboard-theme-choice').forEach(x=>x.classList.toggle('active',x.dataset.dashboardTheme===cur))}
 document.addEventListener('click',e=>{if(!e.target.closest('.profile-menu-wrap'))closeProfileMenu()});
 applyTheme(localStorage.getItem('st_theme')||'green');
-function jpPricingNavLink(){return window.PAYMENT_SYSTEM_ENABLED===true?'<a data-route="pricing" href="#pricing">Pricing</a>':''}
+function jpPricingNavLink(){return window.PAYMENT_SYSTEM_ENABLED===true&&document.documentElement.classList.contains('jp-payment-confirmed-on')?'<a data-route="pricing" href="#pricing">Pricing</a>':''}
 function jpCandidateDoubtTopButton(){return (!S.user||S.user.role==='admin')?'':`<button id="jpTopDoubtBtn" class="jp-top-doubt-btn" type="button" title="Doubt Session" onclick="goToRoute('doubts')"><span>💬</span><em>Doubt</em></button>`}
 function layout(){
  const guest=!S.user;
  document.body.classList.toggle('guest-mode',guest);
+ document.body.classList.toggle('jp-owner-session',S.user?.role==='admin');
  if(!guest)document.body.classList.remove('public-landing');
  applyTheme(localStorage.getItem('st_theme')||'green');
  const topnav=document.getElementById('topnav');
@@ -1115,11 +1116,15 @@ function layout(){
   document.getElementById('adminNav').innerHTML='';
   requestAnimationFrame(()=>{const n=document.getElementById('topnav');if(n)n.scrollLeft=0});
  }else{
-  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="#dashboard">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
+  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="${S.user.role==='admin'?'#admin':'#dashboard'}">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
   document.getElementById('topActions').innerHTML=`<button id="jpNotifBell" class="jp-notif-bell" type="button" title="Notifications" onclick="goToRoute('notifications')"><span>🔔</span><b id="jpTopNotifBadge" style="display:none">0</b></button>${jpCandidateDoubtTopButton()}<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="goToRoute('dashboard');closeProfileMenu()">📊 My Dashboard</button><button onclick="goToRoute('history');closeProfileMenu()">🕘 Test History</button><button onclick="goToRoute('notifications');closeProfileMenu()">🔔 Notifications</button><button onclick="goToRoute('doubts');closeProfileMenu()">💬 Doubt Session</button><div class="theme-panel"><small>Home Theme</small><div class="home-theme-options"><button class="home-theme-choice" data-home-theme="original" onclick="setHomeTheme('original')">Original</button><button class="home-theme-choice" data-home-theme="sky" onclick="setHomeTheme('sky')">Clean Sky</button><button class="home-theme-choice" data-home-theme="premium" onclick="setHomeTheme('premium')">Premium</button></div></div><div class="theme-panel"><small>Candidate Dashboard</small><div class="home-theme-options"><button class="dashboard-theme-choice" data-dashboard-theme="existing" onclick="setDashboardTheme('existing')">Existing</button><button class="dashboard-theme-choice" data-dashboard-theme="sky" onclick="setDashboardTheme('sky')">Clean Sky</button></div></div><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
   document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
  }
  markThemeSwatch();
+ // layout rebuilds the links; restore their active state after every rebuild.
+ const currentRoute=location.hash.slice(1)||'home';
+ const navRoute=window.JP_ACTIVE_HASH===location.hash&&window.JP_ACTIVE_ROUTE?window.JP_ACTIVE_ROUTE:currentRoute;
+ document.querySelectorAll('[data-route]').forEach(a=>a.classList.toggle('active',a.dataset.route===navRoute||(navRoute==='admin'&&a.closest('#topnav')&&a.dataset.route==='dashboard')));
  if(!guest)setTimeout(refreshNotificationBadge,30);
 }
 function setApp(html){document.getElementById('app').innerHTML=html;document.body.classList.toggle('owner-full-view',!!document.querySelector('.owner-full-page'))}
@@ -1191,10 +1196,16 @@ function renderPrePractice(){S.practiceLeft=120;const txt=randomPracticeText();s
 function practiceCompleteWarning(){clearInterval(S.practiceTimer);setApp(`<div class="exam-warning-modal"><div class="exam-warning-card"><h2>⚠️ Main Exam Entry</h2><p>Practice समाप्त हो गई है। <b>Enter Main Exam</b> दबाते ही exam Full Screen में खुलेगा, cursor typing pane में रहेगा और actual timer तुरंत शुरू हो जाएगा.</p><p>Keyboard/input तैयार रखें। Sound/Zoom timer चलते समय manage होंगे; Theme बदलते समय ही timer temporarily pause होगा.</p><button class="btn btn-primary" onclick="beginMainExam()">Enter Main Exam →</button></div></div>`)}
 function beginMainExam(){S.left=S.total;S.started=false;S.done=false;S.submitting=false;S.backspaces=0;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest(true);requestExamFullscreen();const el=document.getElementById('typing');el?.focus();S.started=true;S.startTime=Date.now();S.deadline=S.startTime+S.total*1000;clearInterval(S.timer);S.timer=setInterval(timerTick,250);timerTick()}
 async function startExam(){if(!S.user){auth('login');return}if(!S.exam)return;openPassagePicker()}
-function practice(){activeNav('practice');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1><p>English और Hindi practice अलग folders में। Daily Auto ON होने पर हर भाषा में रोज़ 7 नए passages जुड़ते हैं: 2 Easy, 2 Medium, 2 Moderate to Hard, 1 Hard.</p></div></div><div class="grid2" style="margin-bottom:18px"><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('English')"><div class="topline"><span class="badge">English</span></div><h3>English Practice</h3><p>Unique English typing matters</p></button><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('Hindi')"><div class="topline"><span class="badge">Hindi</span></div><h3>Hindi Practice</h3><p>Unique Hindi typing matters</p></button></div><div id="practiceFolder"></div></div>`)}
-function openPracticeFolder(lang){S.practiceFolder=lang;document.getElementById('practiceFolder').innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="S.practiceFolder=null;practice()">← Back</button><b>${esc(lang)} Practice</b><select id="pdiff" class="select"><option value="">All Levels</option><option>Easy</option><option>Medium</option><option>Moderate to Hard</option><option>Hard</option></select><select id="pmins" class="select"><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1200">20 min</option><option value="1500">25 min</option><option value="1800">30 min</option></select><label class="opt" style="display:flex;align-items:center;gap:6px"><input id="practiceHighlight" type="checkbox" ${S.practiceHighlight?'checked':''} onchange="S.practiceHighlight=this.checked"> Highlight</label></div><div id="pp" class="grid3"></div>`;pdiff.onchange=loadPractice;loadPractice()}
-async function loadPractice(){const lang=S.practiceFolder||'English';let u='/api/passages?language='+encodeURIComponent(lang);if(document.getElementById('pdiff')?.value)u+='&difficulty='+encodeURIComponent(pdiff.value);const p=await api(u);document.getElementById('pp').innerHTML=p.map(x=>`<div class="card exam-card"><div class="topline"><span class="badge">${esc(x.language)}</span><span class="badge amber">${esc(x.difficulty)}</span></div><h3>${esc(x.title)}</h3><p>${esc(x.layout)} · Practice passage</p><div class="card-actions"><button class="btn btn-primary" onclick="startPractice(${x.id})">Start Practice</button></div></div>`).join('')||`<div class="card" style="padding:25px">No passages available.</div>`}
-async function startPractice(id){if(!S.user){auth('login');return}try{const a=await api('/api/practice-access/'+id);if(!a.can_start){const p=a.passage||{};setApp(`<div class="page"><div class="card fee-lock"><div style="font-size:48px">🔒</div><h1>${esc(p.title||'Practice Passage')}</h1><p>आज के ${Number(p.practice_daily_demo_limit||0)} free demo attempts पूरे हो गए हैं। इस practice passage को जारी रखने के लिए access unlock करें.</p><div class="fee-price">₹${Number(p.practice_fee_amount||0).toFixed(0)}</div><p class="muted">Validity: ${Number(p.practice_validity_days||30)} days</p><button class="btn btn-primary" onclick="payPracticePassage(${id})">Pay Securely</button> <button class="btn btn-white" onclick="practice()">Back to Practice</button></div></div>`);return}}catch(e){showToast(e.message);return}const p=await api('/api/passages');S.passage=p.find(x=>x.id===id);S.total=Number(document.getElementById('pmins')?.value||300);const mins=Math.max(5,Math.min(30,Math.round(S.total/60)));if(S.passage){const hi=String(S.passage.language||'').toLowerCase()==='hindi';const per15=hi?408:510;const matterWords=Math.max(1,Math.round(per15*mins/15));S.passage={...S.passage,highlight_mode:S.practiceHighlight?'current_word':'none',content:cleanTrimWords(S.passage.content,matterWords)};const available=(S.passage.content.match(/\S+/g)||[]).length;if(available<matterWords)showToast('इस passage में केवल '+available+' words उपलब्ध हैं.')}S.attemptHighlightMode=S.practiceHighlight?'current_word':'none';S.exam=null;S.left=S.total;S.started=false;S.done=false;S.mode='practice';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest()}
+function practice(){activeNav('practice');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1><p>English और Hindi practice अलग folders में। Daily Auto ON होने पर हर भाषा में रोज़ 7 नए passages जुड़ते हैं: 2 Easy, 2 Medium, 2 Moderate to Hard, 1 Hard.</p></div></div><div class="grid2" style="margin-bottom:18px"><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('English')"><div class="topline"><span class="badge">English</span></div><h3>English Practice</h3><p>Unique English typing matters</p></button><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('Hindi')"><div class="topline"><span class="badge">Hindi</span></div><h3>Hindi Practice</h3><p>Unique Hindi typing matters</p></button></div><div id="practiceFolder"></div></div>`);const folder=sessionStorage.getItem('jp_practice_folder');if(['English','Hindi'].includes(folder))openPracticeFolder(folder)}
+function openPracticeFolder(lang){S.practiceFolder=lang;sessionStorage.setItem('jp_practice_folder',lang);document.getElementById('practiceFolder').innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="S.practiceFolder=null;sessionStorage.removeItem('jp_practice_folder');practice()">← Back</button><b>${esc(lang)} Practice</b><select id="pdiff" class="select"><option value="">All Levels</option><option>Easy</option><option>Medium</option><option>Moderate to Hard</option><option>Hard</option></select><select id="pmins" class="select"><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1200">20 min</option><option value="1500">25 min</option><option value="1800">30 min</option></select><label class="opt" style="display:flex;align-items:center;gap:6px"><input id="practiceHighlight" type="checkbox" ${S.practiceHighlight?'checked':''} onchange="S.practiceHighlight=this.checked"> Highlight</label></div><div id="pp" class="grid3"></div>`;pmins.value=sessionStorage.getItem('jp_practice_minutes')||'300';pdiff.onchange=loadPractice;pmins.onchange=()=>{sessionStorage.setItem('jp_practice_minutes',pmins.value);loadPractice()};loadPractice()}
+function practiceWordsNeeded(lang,seconds){
+ const language=String(lang||'').toLowerCase()==='hindi'?'Hindi':'English';
+ const sourceWords=language==='Hindi'?1080:1350;
+ // Use the same duration-to-matter rule as Exam Mode, with a separate Practice source.
+ return requiredMatterWords({language,duration:30,min_words:sourceWords,duration_word_map:'{}'},Math.max(5,Number(seconds||300)/60));
+}
+async function loadPractice(){const lang=S.practiceFolder||'English';let u='/api/passages?language='+encodeURIComponent(lang);if(document.getElementById('pdiff')?.value)u+='&difficulty='+encodeURIComponent(pdiff.value);const p=await api(u),need=practiceWordsNeeded(lang,document.getElementById('pmins')?.value||300),eligible=p.filter(x=>String(x.content||'').trim().split(/\s+/).filter(Boolean).length>=need);document.getElementById('pp').innerHTML=eligible.map(x=>`<div class="card exam-card"><div class="topline"><span class="badge">${esc(x.language)}</span><span class="badge amber">${esc(x.difficulty)}</span></div><h3>${esc(x.title)}</h3><p>${esc(x.layout)} · Practice passage</p><div class="card-actions"><button class="btn btn-primary" onclick="startPractice(${x.id})">Start Practice</button></div></div>`).join('')||`<div class="card" style="padding:25px">इस अवधि के लिए पर्याप्त लंबा matter अभी उपलब्ध नहीं है। छोटी अवधि या दूसरा level चुनें।</div>`}
+async function startPractice(id){if(!S.user){auth('login');return}try{const a=await api('/api/practice-access/'+id);if(!a.can_start){const p=a.passage||{};setApp(`<div class="page"><div class="card fee-lock"><div style="font-size:48px">🔒</div><h1>${esc(p.title||'Practice Passage')}</h1><p>आज के ${Number(p.practice_daily_demo_limit||0)} free demo attempts पूरे हो गए हैं। इस practice passage को जारी रखने के लिए access unlock करें.</p><div class="fee-price">₹${Number(p.practice_fee_amount||0).toFixed(0)}</div><p class="muted">Validity: ${Number(p.practice_validity_days||30)} days</p><button class="btn btn-primary" onclick="payPracticePassage(${id})">Pay Securely</button> <button class="btn btn-white" onclick="practice()">Back to Practice</button></div></div>`);return}}catch(e){showToast(e.message);return}const p=await api('/api/passages');S.passage=p.find(x=>x.id===id);if(!S.passage){showToast('Passage उपलब्ध नहीं है');return}const selectedSeconds=Number(document.getElementById('pmins')?.value||300),need=practiceWordsNeeded(S.passage.language,selectedSeconds),available=String(S.passage.content||'').trim().split(/\s+/).filter(Boolean).length;if(available<need){showToast('इस अवधि के लिए matter छोटा है। दूसरा passage या छोटी अवधि चुनें।');return}S.total=selectedSeconds;S.passage={...S.passage,highlight_mode:S.practiceHighlight?'current_word':'none',content:cleanTrimWords(S.passage.content,need)};S.attemptHighlightMode=S.practiceHighlight?'current_word':'none';S.exam=null;S.left=S.total;S.started=false;S.done=false;S.mode='practice';S.backspaces=0;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest()}
 async function enterTypingFullscreen(){
  if(document.fullscreenElement)return true;
  const root=document.documentElement;
@@ -1379,6 +1390,7 @@ async function loadLB(range,el){if(el){document.querySelectorAll('.tab').forEach
 async function dashboard(){
  if(!S.user){auth('login');return}
  activeNav('dashboard');
+ setApp('<div class="page"><div class="card" style="padding:28px"><h2>My Typing Dashboard</h2><p>Loading your results…</p></div></div>');
  try{
   const [d,examsData,lb]=await Promise.all([api('/api/results/me'),api('/api/exams'),api('/api/leaderboard?range=weekly')]);
   const displayRows=d.map(x=>({...x,__display:savedResultDisplayMetrics(x)}));
@@ -1413,7 +1425,7 @@ async function dashboard(){
    <div style="height:16px"></div>
    <div class="card table-wrap"><div class="panel-head"><h2>Recent Test Results</h2><a href="#history">See all →</a></div>${historyTable(recent)}</div>
   </div>`);
- }catch(e){showToast(e.message)}
+ }catch(e){showToast(e.message);setApp('<div class="page"><div class="card" style="padding:28px"><h2>Dashboard अभी नहीं खुल सका</h2><p>कृपया फिर से कोशिश करें।</p><button class="btn btn-primary" onclick="dashboard()">Retry</button></div></div>')}
 }
 
 const LESSONS=[
@@ -1575,7 +1587,7 @@ async function setupCandidateGoogle(){
   btn.innerHTML='';btn.setAttribute('aria-label','Continue with Google');google.accounts.id.renderButton(btn,{type:'icon',theme:'outline',size:'large',shape:'circle'});
  }catch(e){wrap.style.display='none';console.warn(e.message)}
 }
-async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.new_account||Number(d.user?.google_profile_completed||0)!==1;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();showLoginCelebration(S.user);goToRoute('home');setTimeout(maybeShowCandidatePushPrompt,650)}catch(e){authError.textContent=e.message}}
+async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.new_account||Number(d.user?.google_profile_completed||0)!==1;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}setTimeout(maybeShowCandidatePushPrompt,650)}catch(e){authError.textContent=e.message}}
 async function auth(mode){
  const m=document.getElementById('authModal');
  m.classList.add('show');m.scrollTop=0;m.querySelector('.auth-modal-box').scrollTop=0;m.dataset.mode=mode;m.dataset.method='password';m.dataset.adminChallenge='';m.dataset.adminSignupChallenge='';
@@ -1646,7 +1658,7 @@ async function submitAuth(){try{
  const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});
  if(mode==='admin-register'&&d.created){showToast('Owner account created. Login now with Email + Password + OTP.');const e=adminEmail.value;auth('admin-login');loginEmail.value=e;return}
  if(mode==='admin-login'&&d.user?.role!=='admin')throw Error('This account does not have Admin/Owner access');
- S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();showLoginCelebration(S.user);goToRoute(S.user.role==='admin'?'admin':'home');if(S.user.role!=='admin')setTimeout(maybeShowCandidatePushPrompt,650);
+ S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();if(S.user.role==='admin')goToRoute('admin');else openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(S.user.role!=='admin')setTimeout(maybeShowCandidatePushPrompt,650);
 }catch(e){document.getElementById('authError').textContent=e.message}}
 
 async function adminSignupPage(){
@@ -1669,7 +1681,7 @@ function ownerLoginPage(){
  window.OWNER_OTP_CHALLENGE='';
 }
 async function ownerOtpStart(){const e=document.getElementById('ownerLoginError');e.textContent='';try{const d=await api('/api/auth/owner-otp-start',{method:'POST',body:JSON.stringify({login_id:ownerPageEmail.value,password:ownerPagePassword.value})});window.OWNER_OTP_CHALLENGE=d.challenge||'';ownerOtpStep1.style.display='none';ownerOtpStep2.style.display='block';ownerOtpHint.textContent='OTP '+(d.email_masked||'registered Gmail')+' पर भेजा गया है। 5 मिनट में verify करें।';ownerOtpDev.style.display='none';ownerOtpCode.focus()}catch(x){e.textContent=x.message}}
-async function ownerOtpVerify(){const e=document.getElementById('ownerLoginError');e.textContent='';try{if(!window.OWNER_OTP_CHALLENGE)throw Error('पहले Owner OTP बनाइए');const d=await api('/api/auth/owner-otp-verify',{method:'POST',body:JSON.stringify({challenge:window.OWNER_OTP_CHALLENGE,otp:ownerOtpCode.value})});S.token=d.token;S.user=d.user;localStorage.setItem('st_token',S.token);localStorage.setItem('st_user',JSON.stringify(S.user));layout();showLoginCelebration(S.user);await admin()}catch(x){e.textContent=x.message}}
+async function ownerOtpVerify(){const e=document.getElementById('ownerLoginError');e.textContent='';try{if(!window.OWNER_OTP_CHALLENGE)throw Error('पहले Owner OTP बनाइए');const d=await api('/api/auth/owner-otp-verify',{method:'POST',body:JSON.stringify({challenge:window.OWNER_OTP_CHALLENGE,otp:ownerOtpCode.value})});S.token=d.token;S.user=d.user;localStorage.setItem('st_token',S.token);localStorage.setItem('st_user',JSON.stringify(S.user));layout();await admin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}}catch(x){e.textContent=x.message}}
 function ownerOtpBack(){window.OWNER_OTP_CHALLENGE='';ownerOtpStep2.style.display='none';ownerOtpStep1.style.display='block';ownerLoginError.textContent=''}
 
 async function logout(){try{const reg=await navigator.serviceWorker?.getRegistration('/');const sub=await reg?.pushManager?.getSubscription();if(sub){await api('/api/push/unsubscribe',{method:'POST',body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});await sub.unsubscribe()}}catch(_){}localStorage.removeItem('st_token');localStorage.removeItem('st_user');S.token='';S.user=null;layout();showToast('Logged out. Your results and learning progress remain saved.');location.hash='#home'}
@@ -1757,10 +1769,13 @@ async function downloadCertificate(id){try{await api('/api/certificates/'+id+'/d
 
 async function route(){document.body.classList.remove('exam-mode');document.body.classList.remove('jp-home-premium-dark','jp-home-clean-sky');if(location.pathname==='/owner-portal'){if(S.user?.role==='admin'){const r=location.hash.slice(1)||'admin';layout();if(r==='admin')await admin();else if(r==='users')await users();else if(r==='owner')await owner();else if(r==='database')await database();else if(r==='exams')await exams();else if(r==='practice')await practice();else if(r==='learning')await learning();else if(r==='certificates')await myCertificates();else if(r==='owner-certificates')await ownerCertificates();else if(r==='live')await liveTests();else if(r==='history')await history();else if(r==='leaderboard')await leaderboard();else if(r==='gallery')await gallery();else if(r==='dashboard')await admin();else if(r==='notifications')await notificationsPage();else if(r==='doubts')await doubtsPage();else if(r==='pricing')await pricing();else await admin();return}ownerLoginPage();return}const saved=localStorage.getItem('st_sidebar_collapsed')!=='0';setDesktopSidebar(saved,false);layout();const r=location.hash.slice(1)||'home';if(r==='login'){location.hash='#home';home();setTimeout(()=>auth('login'),80);return}if(r==='owner-access'||r==='owner-login'){location.hash='#home';home();return}if(r==='owner-signup'&&!S.user){home();setTimeout(()=>auth('admin-register'),120);return}const publicSections=['home','about','how','motivation','login','gallery','information'];if(!S.user&&!publicSections.includes(r)){location.hash='#home';home();setTimeout(()=>auth('login'),120);return}if(r==='gallery')await gallery();else if(r==='information')await informationCentre();else if(publicSections.includes(r)){home();if(r!=='home')setTimeout(()=>document.getElementById(r)?.scrollIntoView({behavior:'smooth'}),60)}else if(r==='live')liveTests();else if(r==='exams')exams();else if(r==='practice')practice();else if(r==='learning')learning();else if(r==='certificates')myCertificates();else if(r==='owner-certificates')ownerCertificates();else if(r==='pricing')pricing();else if(r==='leaderboard')leaderboard();else if(r==='dashboard')dashboard();else if(r==='history')history();else if(r==='notifications')notificationsPage();else if(r==='doubts')doubtsPage();else if(r==='admin')admin();else if(r==='users')users();else if(r==='owner')owner();else if(r==='admin-signup')adminSignupPage();else if(r==='database')database();else home()}
 async function validateSavedSession(){
- if(S.token&&S.user&&S.user.role!=='admin'&&location.pathname!=='/owner-portal'&&location.hash!=='#home'){history.replaceState(null,'',location.pathname+location.search+'#home')}
- if(!S.token||!S.user){route();return}
- try{const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user)}route()}
- catch(e){if(S.token)showToast(e.message);route()}
+ if(!S.token||!S.user){await route();return}
+ try{if(S.user?.role!=='admin'&&performance.getEntriesByType('navigation')[0]?.type==='reload'){
+   const last=sessionStorage.getItem('jp_candidate_page');
+   const current=location.hash.slice(1);
+   if(last&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(last)&&(!current||current==='home'&&last!=='home'))history.replaceState(null,'',location.pathname+location.search+'#'+last);
+  }if(S.user?.role!=='admin'&&location.hash==='#exams'&&performance.getEntriesByType('navigation')[0]?.type==='reload')window.JP_RESTORE_EXAM_FOLDER=true;await route();const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user)}}
+ catch(e){if(S.token)showToast(e.message);else route()}
 }
 
 
@@ -1828,7 +1843,7 @@ async function openExamFolder(key){
     const all=window.EXAM_OPTIONS?.length?window.EXAM_OPTIONS:await api('/api/exams?candidate=1');
     const g=examFolderByKey(key,all); if(!g)throw Error('Exam folder not found');
     const details=await Promise.all(g.variants.map(v=>api('/api/exams/'+v.id)));
-    window.ACTIVE_EXAM_FOLDER={...g,details}; window.EXAM_FOLDER_LANG='All'; renderExamFolderContents();
+    window.ACTIVE_EXAM_FOLDER={...g,details}; window.EXAM_FOLDER_LANG='All';sessionStorage.setItem('jp_exam_sub_folder',key); renderExamFolderContents();
   }catch(e){showToast(e.message)}
 }
 function renderExamFolderContents(){
@@ -1919,9 +1934,12 @@ ownerTab = function(tab,btn){
   return ownerTabBeforeFolders(tab,btn);
 }
 
+function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');dashboard()}
 function goToRoute(name){const next='#'+name;if(location.hash===next){route();return}location.hash=next}
 document.addEventListener('click',event=>{const link=event.target.closest('a[data-route][href^="#"]');if(link&&link.hash===location.hash){event.preventDefault();route()} });
-window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});validateSavedSession();
+window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});
+// Later inline scripts install the final page renderers. Restore the selected page only after they have all loaded.
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',validateSavedSession,{once:true});else queueMicrotask(validateSavedSession);
 </script>
 
 <!-- Exam Result passage comparison UI only — force the approved red/green diff on exam/live results. -->
@@ -3187,7 +3205,7 @@ showLoginCelebration=function(user){
 
 <script id="welcome-social-final-runtime">
 (function(){
-  const DISPLAY_MS=2000, FADE_MS=350;
+  const DISPLAY_MS=1300, FADE_MS=250;
   function firstName(user){return (String(user?.name||'Candidate').trim().split(/\s+/)[0]||'Candidate')}
   function removeWelcome(){document.getElementById('customWelcomeStage')?.remove()}
   function addParticles(stage,type){
@@ -3219,6 +3237,7 @@ showLoginCelebration=function(user){
     previousCelebration(user);
     document.getElementById('welcomeLadyStage')?.remove();
     document.querySelector('#loginCelebration .login-welcome')?.remove();
+    const particles=document.getElementById('loginCelebration');if(particles)setTimeout(()=>particles.remove(),DISPLAY_MS);
     const isFirst=Number(user.login_count||0)<=1;
     showCustomWelcome(isFirst?'first':'return',user);
   };
@@ -3592,6 +3611,7 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
  window.PAYMENT_SYSTEM_ENABLED=false;
  async function refreshPaymentMasterUI(){
   try{const x=await api('/api/public/settings');window.PAYMENT_SYSTEM_ENABLED=String(x.payment_system_enabled||'0')==='1'}catch(e){window.PAYMENT_SYSTEM_ENABLED=false}
+  if(typeof window.jpApplyStrictPaymentVisibility==='function')window.jpApplyStrictPaymentVisibility(window.PAYMENT_SYSTEM_ENABLED===true);
   document.querySelectorAll('a[data-route="pricing"],a[href="#pricing"]').forEach(a=>a.style.display=window.PAYMENT_SYSTEM_ENABLED?'':'none');
   document.querySelectorAll('a[data-route="certificates"],a[href="#certificates"]').forEach(a=>a.style.display='');
  }
@@ -3824,15 +3844,19 @@ html,body{max-width:100%;overflow-x:hidden}.content,#app,.page,.owner-full-page,
   function buildFolders(exams){const m=new Map();for(const e of exams||[]){const name=baseFolderName(e.name),key=name.toLowerCase();if(!m.has(key))m.set(key,{name,count:0,variants:[]});const g=m.get(key);g.count+=Number(e.passage_count||0);g.variants.push(e)}return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name));}
   window.admin=async function(){
     if(!S.user||S.user.role!=='admin'){auth('login');return}activeNav('admin');
+    setApp('<div class="page"><div class="card" style="padding:28px"><h2>Owner Dashboard</h2><p>Dashboard खुल रहा है…</p></div></div>');
     try{
-      const [s,u,l,d]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/recent-logins'),api('/api/admin/passage-directory')]);
+      const [s,u,l,d]=await Promise.race([
+        Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/recent-logins'),api('/api/admin/passage-directory')]),
+        new Promise((_,reject)=>setTimeout(()=>reject(Error('Owner Dashboard request timed out. Please retry.')),12000))
+      ]);
       window.JP_PASS_DIR=d;const folders=buildFolders(d.exams);
       setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Owner</div><h1>Admin Dashboard</h1><p>Fast owner view — passages are opened exam-wise, 50 at a time.</p></div></div>
       <div class="metrics"><div class="metric"><small>Students</small><b>${s.users}</b></div><div class="metric"><small>Exams</small><b>${s.exams}</b></div><div class="metric"><small>Passages</small><b>${s.passages}</b></div><div class="metric"><small>Total Tests</small><b>${s.tests}</b></div></div>
       <div style="height:18px"></div><div class="card" style="padding:18px"><div class="panel-head"><div><h2 style="margin:0">📁 Exam-wise Passage Folders</h2><p class="muted">7258 matters की flat list यहाँ नहीं खुलेगी.</p></div></div><input id="jpDashFolderSearch" class="input" style="width:100%;margin-top:10px" placeholder="Search Exam Folder" oninput="jpDashFilterFolders()"></div>
       <div id="jpDashFolders" class="jp-folder-grid" style="margin-top:14px"><button class="card jp-folder" data-search="free typing practice" onclick="jpDashOpenFolder('free')"><b>⌨ Free Typing Practice</b><span>${d.free_count||0} passages</span></button>${folders.map((g,i)=>`<button class="card jp-folder" data-search="${esc(g.name.toLowerCase())}" onclick="jpDashOpenFolder(${i})"><b>📁 ${esc(g.name)}</b><span>${g.count} passages · ${g.variants.length} language/variant</span></button>`).join('')}</div>
       <div style="height:18px"></div><div class="card" style="padding:20px"><div class="panel-head"><div><h2 style="margin:0">Recent Students</h2><p class="muted">Recent accounts only.</p></div><a href="#users">View all →</a></div><div class="table-wrap"><table class="table"><thead><tr><th>Student</th><th>Email</th><th>Joined</th><th>Action</th></tr></thead><tbody>${u.slice(0,8).map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.email)}</td><td>${new Date(x.created_at).toLocaleDateString()}</td><td><button class="btn btn-soft" onclick="viewUser(${x.id})">Manage</button></td></tr>`).join('')}</tbody></table></div></div></div>`);
-    }catch(e){showToast(e.message||'Owner dashboard could not load')}
+    }catch(e){showToast(e.message||'Owner dashboard could not load');setApp('<div class="page"><div class="card" style="padding:28px"><h2>Owner Dashboard अभी नहीं खुल सका</h2><p>कृपया दोबारा कोशिश करें।</p><button class="btn btn-primary" onclick="admin()">Retry</button></div></div>')}
   };
   window.jpDashFilterFolders=function(){const q=(document.getElementById('jpDashFolderSearch')?.value||'').toLowerCase();document.querySelectorAll('#jpDashFolders .jp-folder').forEach(x=>x.style.display=!q||x.dataset.search.includes(q)?'':'none')};
   window.jpDashOpenFolder=function(which){const d=window.JP_PASS_DIR||{exams:[]};let variants=[],title='',free=false;if(which==='free'){free=true;title='Free Typing Practice'}else{const g=buildFolders(d.exams)[Number(which)];if(!g)return;variants=g.variants;title=g.name}window.JP_DASH_FOLDER={variants,title,free,variant:free?'free':(variants[0]?.id||'')};window.JP_DASH_PAGE=1;jpDashRenderFolder();};
@@ -4800,10 +4824,10 @@ body.jp-home-premium-dark:not(.exam-mode) .topbar .topnav a.active:visited{color
    st.innerHTML=`<div class="google-mobile-card"><div class="google-mobile-icon">👤</div><h2>Google Account Setup</h2><p>पहली बार Google से login करने के लिए अपनी Candidate details पूरी करें। इसके बाद Mobile Number + Password से भी login कर सकेंगे।</p><input id="googleFullNameInput" class="google-mobile-input" autocomplete="name" maxlength="80" placeholder="Full Name" value="${esc(S.user.name||'')}"><input id="googleMobileInput" class="google-mobile-input" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="10-digit Mobile Number"><input id="googlePasswordInput" class="google-mobile-input" type="password" autocomplete="new-password" maxlength="200" placeholder="Create Password (minimum 8 characters)"><button id="googleMobileSave" class="google-mobile-save">Save & Continue</button><div id="googleMobileError" class="google-mobile-error"></div><p class="google-mobile-note">अगली बार Login ID = आपका Mobile Number और Password = अभी बनाया गया password होगा। Google Login भी चालू रहेगा।</p></div>`;
    document.body.appendChild(st);const name=st.querySelector('#googleFullNameInput'),inp=st.querySelector('#googleMobileInput'),pass=st.querySelector('#googlePasswordInput'),btn=st.querySelector('#googleMobileSave'),err=st.querySelector('#googleMobileError');name.focus();
    inp.addEventListener('input',()=>{inp.value=inp.value.replace(/\D/g,'').slice(0,10);err.textContent=''});
-   btn.onclick=async()=>{const fullName=name.value.trim(),phone=inp.value.trim(),password=pass.value;if(fullName.length<2){err.textContent='अपना Full Name दर्ज करें।';return}if(!/^[6-9]\d{9}$/.test(phone)){err.textContent='सही 10-digit Indian mobile number दर्ज करें।';return}if(password.length<8){err.textContent='Password कम से कम 8 characters का रखें।';return}btn.disabled=true;btn.textContent='Saving…';try{const d=await api('/api/me/google-first-profile',{method:'PATCH',body:JSON.stringify({name:fullName,phone,password})});S.user=d.user;localStorage.st_user=JSON.stringify(S.user);st.remove();showToast('Account ready · अब Mobile + Password से भी login कर सकते हैं')}catch(e){err.textContent=e.message||'Details save नहीं हुईं।';btn.disabled=false;btn.textContent='Save & Continue'}};
+   btn.onclick=async()=>{const fullName=name.value.trim(),phone=inp.value.trim(),password=pass.value;if(fullName.length<2){err.textContent='अपना Full Name दर्ज करें।';return}if(!/^[6-9]\d{9}$/.test(phone)){err.textContent='सही 10-digit Indian mobile number दर्ज करें।';return}if(password.length<8){err.textContent='Password कम से कम 8 characters का रखें।';return}btn.disabled=true;btn.textContent='Saving…';try{const d=await api('/api/me/google-first-profile',{method:'PATCH',body:JSON.stringify({name:fullName,phone,password})});S.user=d.user;localStorage.st_user=JSON.stringify(S.user);sessionStorage.removeItem('st_google_first_setup');st.remove();showToast('Account ready · अब Mobile + Password से भी login कर सकते हैं');setTimeout(maybeShowCandidatePushPrompt,180)}catch(e){err.textContent=e.message||'Details save नहीं हुईं।';btn.disabled=false;btn.textContent='Save & Continue'}};
  };
  const oldWelcome=window.showCustomWelcome;
- if(typeof oldWelcome==='function')window.showCustomWelcome=function(type,user,onDone){const firstGoogle=sessionStorage.getItem('st_google_first_setup')==='1';return oldWelcome(type,user,function(){if(firstGoogle){sessionStorage.removeItem('st_google_first_setup');setTimeout(showGoogleMobileCapture,60)}if(typeof onDone==='function')onDone()})};
+ if(typeof oldWelcome==='function')window.showCustomWelcome=function(type,user,onDone){const firstGoogle=sessionStorage.getItem('st_google_first_setup')==='1';return oldWelcome(type,user,function(){if(firstGoogle)setTimeout(showGoogleMobileCapture,60);if(typeof onDone==='function')onDone()})};
 })();
 </script>
 
@@ -4842,7 +4866,7 @@ body.jp-payment-confirmed-on a[href="#pricing"]{display:inline-flex!important}
 </style>
 <script id="jp-true-end-home-nav-pricing-fix-20260923-script">
 (function(){
- let lastConfirmed = window.PAYMENT_SYSTEM_ENABLED===true;
+ let lastConfirmed = false, syncSequence = 0;
  function apply(enabled){
    enabled = enabled===true;
    const changed = lastConfirmed!==enabled;
@@ -4858,8 +4882,8 @@ body.jp-payment-confirmed-on a[href="#pricing"]{display:inline-flex!important}
    if(changed && window.S && S.user && typeof window.layout==='function') setTimeout(function(){try{layout()}catch(_e){}},0);
  }
  async function sync(){
-   apply(false);
-   try{const x=await api('/api/public/settings');apply(String(x.payment_system_enabled||'0')==='1')}catch(_e){apply(false)}
+   const current=++syncSequence;apply(false);
+   try{const x=await api('/api/public/settings');if(current===syncSequence)apply(String(x.payment_system_enabled||'0')==='1')}catch(_e){if(current===syncSequence)apply(false)}
  }
  window.jpSyncPricingVisibility=sync;
  window.jpApplyStrictPaymentVisibility=apply;
@@ -4888,15 +4912,24 @@ body.jp-payment-confirmed-on a[href="#pricing"]{display:inline-flex!important}
 
   window.exams=async function(){
     activeNav('exams');
+    const restoring=!!window.JP_RESTORE_EXAM_FOLDER,mainToRestore=restoring?sessionStorage.getItem('jp_exam_main_folder'):null,subToRestore=restoring?sessionStorage.getItem('jp_exam_sub_folder'):null;
+    window.JP_RESTORE_EXAM_FOLDER=false;
+    if(!restoring){sessionStorage.removeItem('jp_exam_main_folder');sessionStorage.removeItem('jp_exam_sub_folder')}
     setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Exams</div><h1>Typing Exams</h1><p>Main Folder खोलें → Exam Sub-folder चुनें → फिर उसके passages.</p></div></div><div class="exam-directory"><div class="exam-searchbar"><div class="exam-searchbox"><span>⌕</span><input id="examSearch" class="input" placeholder="Search folder or exam..." autocomplete="off"></div></div><div id="examCountLine" class="exam-count-line"></div><div id="examGrid" class="exam-browser-grid"></div></div></div>`);
     try{
       const d=await loadTree(false); window.EXAM_OPTIONS=d.rows||[]; window.STRICT_EXAM_TREE=d.tree||[];
+      if(location.hash!=='#exams')return;
       const render=()=>{const q=(document.getElementById('examSearch')?.value||'').trim().toLowerCase();const tree=(window.STRICT_EXAM_TREE||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.exams||[]).some(e=>String(e.name||'').toLowerCase().includes(q)));examCountLine.textContent=`${tree.length} main exam folders found`;examGrid.innerHTML=tree.map(p=>`<div class="browse-exam-card" onclick="openStrictMainFolder('${esc(p.key)}')"><div class="meta"><span>MAIN FOLDER</span><span>${groupVariants(p.exams).length} subfolders</span></div><h3>📁 ${esc(p.name)}</h3><p>${groupVariants(p.exams).slice(0,3).map(g=>esc(stripParent(p.name,g.name))).join(' • ')}${groupVariants(p.exams).length>3?' …':''}</p><div class="bottom"><span class="count">Open folder</span><button class="open-btn" onclick="event.stopPropagation();openStrictMainFolder('${esc(p.key)}')">Open Folder →</button></div></div>`).join('')||'<div class="card exam-empty">No main folder found.</div>'};
       examSearch.oninput=render;render();
+      if(mainToRestore&&(window.STRICT_EXAM_TREE||[]).some(p=>p.key===mainToRestore)){
+        openStrictMainFolder(mainToRestore);
+        if(subToRestore)await openExamFolder(subToRestore);
+      }
     }catch(e){showToast(e.message||'Exam folders could not load')}
   };
   window.openStrictMainFolder=function(key){
     const p=(window.STRICT_EXAM_TREE||[]).find(x=>x.key===key);if(!p)return showToast('Main folder not found');const groups=groupVariants(p.exams);
+    sessionStorage.setItem('jp_exam_main_folder',key);sessionStorage.removeItem('jp_exam_sub_folder');
     const cardHtml=groups.map(g=>{
       const paid=(g.variants||[]).some(v=>Number(v.paid_enabled)===1);
       const cfg=(g.variants||[]).find(v=>Number(v.paid_enabled)===1)||(g.variants||[])[0]||{};
@@ -6608,6 +6641,7 @@ if(!window.__jpNotifPoll){window.__jpNotifPoll=setInterval(()=>{if(S?.user)refre
 <script id="jp-push-optin-logic">
 function candidatePushChoiceKey(){return 'jp_push_prompt_choice_'+String(S.user?.id||'')}
 async function maybeShowCandidatePushPrompt(){
+ if(sessionStorage.getItem('st_google_first_setup')==='1'||document.getElementById('googleMobileStage'))return;
  if(!S.user||S.user.role==='admin'||!S.user.id||!('Notification'in window)||!('serviceWorker'in navigator)||!('PushManager'in window)||!window.isSecureContext)return;
  if(Notification.permission==='denied'||localStorage.getItem(candidatePushChoiceKey()))return;
  try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg&&await reg.pushManager.getSubscription())return}catch(e){}
@@ -6616,5 +6650,14 @@ async function maybeShowCandidatePushPrompt(){
 function dismissCandidatePushPrompt(){document.getElementById('jpPushOptIn').hidden=true;localStorage.setItem(candidatePushChoiceKey(),'later')}
 async function acceptCandidatePushPrompt(){document.getElementById('jpPushOptIn').hidden=true;await enableBrowserAlerts();if(Notification.permission==='granted'){try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg&&await reg.pushManager.getSubscription())localStorage.setItem(candidatePushChoiceKey(),'enabled')}catch(e){}}}
 </script>
+<style id="jp-owner-active-home-dashboard-20260926">
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="home"].active,
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].active{
+ background:#079455!important;border-color:#047857!important;color:#fff!important;-webkit-text-fill-color:#fff!important;
+ box-shadow:0 5px 15px rgba(7,148,85,.30)!important;
+}
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="home"].active::before,
+body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].active::before{color:#fff!important}
+</style>
 </body>
 </html>
