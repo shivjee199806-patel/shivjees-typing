@@ -437,14 +437,14 @@ input,select,textarea,button{max-width:100%}
 
 <style id="exam-comfort-compact-final">
 /* User-requested compact Exam Comfort Settings drawer only. */
-.exam-drawer{width:min(245px,78vw)!important;height:auto!important;max-height:320px!important;top:50%!important;bottom:auto!important;transform:translateY(-50%)!important;padding:16px 14px 12px!important;border-radius:14px 0 0 14px!important;overflow:auto!important}
-.exam-drawer:not(.open){right:-260px!important}
-.exam-drawer.open{right:0!important}
+.exam-drawer{width:min(245px,78vw)!important;height:auto!important;max-height:320px!important;top:50%!important;bottom:auto!important;transform:translateY(-50%)!important;padding:16px 14px 12px!important;border-radius:0 14px 14px 0!important;overflow:auto!important;right:auto!important;left:-260px!important;transition:left .25s!important}
+.exam-drawer:not(.open){right:auto!important;left:-260px!important}
+.exam-drawer.open{right:auto!important;left:0!important}
 .exam-drawer h2{font-size:17px!important;line-height:1.2!important;margin:0 0 10px!important}
 .exam-drawer .drawer-row{padding:9px 0!important}
 .exam-drawer .drawer-row label{font-size:13px!important;line-height:1.25!important;align-items:center!important}
 .exam-drawer input[type=range]{width:105px!important;height:18px!important}
-.exam-drawer-tab{padding:10px 7px!important}
+.exam-drawer-tab{padding:10px 7px!important;right:auto!important;left:0!important;border-radius:0 10px 10px 0!important}
 @media(max-width:600px){.exam-drawer{width:min(225px,76vw)!important;max-height:290px!important;padding:14px 12px 10px!important}.exam-drawer h2{font-size:16px!important}.exam-drawer .drawer-row label{font-size:12.5px!important}}
 </style>
 
@@ -1005,6 +1005,15 @@ body[data-theme="dark"] #authModal .jp-google-button-shell{
 }
 </style>
 
+
+<style id="jp-only-font-and-sound-position-correction">
+/* The reading matter and typing input, not the rest of the site. */
+.old-simple-test #passage,.old-simple-test #typing{font-size:19px!important}
+/* Put both the sound toggle and its settings drawer on the left; leave the right scrollbar free. */
+.exam-mode .exam-drawer-tab{position:fixed!important;right:auto!important;left:0!important;border-radius:0 10px 10px 0!important}
+.exam-mode .exam-drawer{position:fixed!important;right:auto!important;left:-260px!important;transition:left .25s!important}
+.exam-mode .exam-drawer.open{right:auto!important;left:0!important}
+</style>
 </head>
 
 <style id="welcome-social-final-style">
@@ -1225,23 +1234,24 @@ async function leaveTypingFullscreen(){
  try{if(document.fullscreenElement&&document.exitFullscreen)await document.exitFullscreen()}catch(e){console.warn('Fullscreen exit failed',e)}
 }
 function getTypingZoom(){return Math.max(75,Math.min(160,Number(localStorage.getItem('st_typing_zoom')||100)))}
-function applyTypingZoom(){const z=getTypingZoom(),px=17*z/100;const p=document.getElementById('passage'),t=document.getElementById('typing'),l=document.getElementById('typingZoomLevel');if(p)p.style.fontSize=px+'px';if(t)t.style.fontSize=px+'px';if(l)l.textContent=z+'%'}
+function applyTypingZoom(){const z=getTypingZoom(),px=typingDefaultFontSize()*z/100;const p=document.getElementById('passage'),t=document.getElementById('typing'),l=document.getElementById('typingZoomLevel');if(p)p.style.setProperty('font-size',px+'px','important');if(t)t.style.setProperty('font-size',px+'px','important');if(l)l.textContent=z+'%'}
 function changeTypingZoom(delta){const z=Math.max(75,Math.min(160,getTypingZoom()+delta));localStorage.setItem('st_typing_zoom',z);applyTypingZoom()}
 function requestExamFullscreen(){
  const root=document.documentElement;
  const fn=root.requestFullscreen||root.webkitRequestFullscreen||root.msRequestFullscreen;
  if(fn){try{const r=fn.call(root);if(r&&r.catch)r.catch(()=>{});}catch(e){}}
 }
+function typingDefaultFontSize(){return /hindi|हिंदी|हिन्दी/i.test(String(S.passage?.language||S.exam?.language||''))?20:19}
 function setExamZoom(delta){
  S.examZoom=Math.max(40,Math.min(300,(S.examZoom||100)+delta));
  const passage=document.getElementById('passage'),typing=document.getElementById('typing'),label=document.getElementById('examZoomLabel');
  const scale=S.examZoom/100;
- if(passage)passage.style.fontSize=(17*scale)+'px';
- if(typing)typing.style.fontSize=(17*scale)+'px';
+ if(passage)passage.style.setProperty('font-size',(typingDefaultFontSize()*scale)+'px','important');
+ if(typing)typing.style.setProperty('font-size',(typingDefaultFontSize()*scale)+'px','important');
  if(label)label.textContent=S.examZoom+'%';
 }
 function renderNoBreakPassage(text){let out='',buf='';const flush=()=>{if(!buf)return;out+='<span class="typing-word">'+buf+'</span>';buf=''};Array.from(String(text||'')).forEach((c,i)=>{const h=`<span class="tc" data-i="${i}">${c===' ' ? '&nbsp;' : c==='\n' ? '<br>' : esc(c)}</span>`;if(/\s/.test(c)){flush();out+=h}else buf+=h});flush();return out}
-function renderTest(mainExam=false){const p=S.passage,e=S.exam;S.wordTimings=[];S.wordStartTs=0;S.lastWordCount=0;S.examZoom=100;document.body.classList.add('exam-mode');activeNav(e?'exams':'practice');const chars=renderNoBreakPassage(p.content),isExam=S.mode==='exam'||S.mode==='live';setApp(`<div class="test-shell old-simple-test${isExam?'':' practice-reading-fit'}"><div class="old-test-topbar"><div class="old-zoom"><button type="button" onclick="setExamZoom(-10)">−</button><span id="examZoomLabel">100%</span><button type="button" title="Default zoom" aria-label="Reset to default zoom" onclick="S.examZoom=100;setExamZoom(0)">◎</button><button type="button" onclick="setExamZoom(10)">+</button></div><div class="old-candidate"><span class="old-candidate-avatar">${esc(initials(S.user?.name||'Candidate'))}</span><span>Candidate: ${esc(S.user?.name||'Candidate')}</span></div></div><div class="test-header"><div class="test-title"><h2>${esc(e?.name||'Typing Test')}</h2><small>${esc(p.title)}</small></div><div class="timer" id="tm">${fmt(S.left)}</div></div><div class="passage-box exam-passage highlight-${esc((p.highlight_mode||'current_char').replace('current_char','char').replace('current_word','word').replace('errors_only','errors').replace('none','none'))}" id="passage">${chars}</div><div class="type-wrap"><textarea id="typing" class="typing-area" placeholder="Start typing here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" maxlength="${p.content.length}"></textarea><div class="old-simple-actions">${isExam?`<button class="btn btn-soft" onclick="restartExamConfirm()">Restart Exam</button><button class="btn btn-danger" onclick="endExamConfirm()">End Exam</button><button id="submit" type="button" class="btn btn-primary" onclick="handleSubmitClick(event)">Submit Exam</button>`:`<button id="submit" type="button" class="btn btn-primary" onclick="handleSubmitClick(event)">Submit Test</button><button class="btn btn-danger" onclick="exitTest()">Cancel</button>`}</div></div></div>${isExam?`<button class="exam-drawer-tab" onclick="toggleExamDrawer()">🎧 ‹</button><div id="examDrawer" class="exam-drawer"><h2>Exam Comfort Settings</h2><div class="drawer-row"><label>🎧 Exam Hall Sound <input id="hallSound" type="checkbox" onchange="toggleHallSound(this.checked)"></label><input type="range" min="0" max="100" value="25" oninput="S.hallVolume=this.value/100"></div><div class="drawer-row"><label>⌨️ My Keyboard Sound <input id="keySound" type="checkbox" checked></label></div></div>`:''}`);const el=document.getElementById('typing');if(isExam){el.focus()}else{el.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'})}el.addEventListener('keydown',testKeydown);el.addEventListener('paste',e=>{e.preventDefault();showToast('Paste is disabled during typing tests')});el.addEventListener('drop',e=>{e.preventDefault();showToast('Drop is disabled during typing tests')});el.addEventListener('beforeinput',ev=>{if(ev.inputType&&ev.inputType.startsWith('insert')&&el.value.length>=p.content.length){ev.preventDefault();showToast('Passage complete — submit the test.')}});if(isExam)installExamGuards()}
+function renderTest(mainExam=false){const p=S.passage,e=S.exam;S.wordTimings=[];S.wordStartTs=0;S.lastWordCount=0;S.examZoom=100;document.body.classList.add('exam-mode');activeNav(e?'exams':'practice');const chars=renderNoBreakPassage(p.content),isExam=S.mode==='exam'||S.mode==='live';setApp(`<div class="test-shell old-simple-test${isExam?'':' practice-reading-fit'}"><div class="old-test-topbar"><div class="old-zoom"><button type="button" onclick="setExamZoom(-10)">−</button><span id="examZoomLabel">100%</span><button type="button" title="Default zoom" aria-label="Reset to default zoom" onclick="S.examZoom=100;setExamZoom(0)">◎</button><button type="button" onclick="setExamZoom(10)">+</button></div><div class="old-candidate"><span class="old-candidate-avatar">${esc(initials(S.user?.name||'Candidate'))}</span><span>Candidate: ${esc(S.user?.name||'Candidate')}</span></div></div><div class="test-header"><div class="test-title"><h2>${esc(e?.name||'Typing Test')}</h2><small>${esc(p.title)}</small></div><div class="timer" id="tm">${fmt(S.left)}</div></div><div class="passage-box exam-passage highlight-${esc((p.highlight_mode||'current_char').replace('current_char','char').replace('current_word','word').replace('errors_only','errors').replace('none','none'))}" id="passage">${chars}</div><div class="type-wrap"><textarea id="typing" class="typing-area" placeholder="Start typing here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" maxlength="${p.content.length}"></textarea><div class="old-simple-actions">${isExam?`<button class="btn btn-soft" onclick="restartExamConfirm()">Restart Exam</button><button class="btn btn-danger" onclick="endExamConfirm()">End Exam</button><button id="submit" type="button" class="btn btn-primary" onclick="handleSubmitClick(event)">Submit Exam</button>`:`<button id="submit" type="button" class="btn btn-primary" onclick="handleSubmitClick(event)">Submit Test</button><button class="btn btn-danger" onclick="exitTest()">Cancel</button>`}</div></div></div>${isExam?`<button class="exam-drawer-tab" onclick="toggleExamDrawer()">🎧 ›</button><div id="examDrawer" class="exam-drawer"><h2>Exam Comfort Settings</h2><div class="drawer-row"><label>🎧 Exam Hall Sound <input id="hallSound" type="checkbox" onchange="toggleHallSound(this.checked)"></label><input type="range" min="0" max="100" value="25" oninput="S.hallVolume=this.value/100"></div><div class="drawer-row"><label>⌨️ My Keyboard Sound <input id="keySound" type="checkbox" checked></label></div></div>`:''}`);setExamZoom(0);const el=document.getElementById('typing');if(isExam){el.focus()}else{el.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'})}el.addEventListener('keydown',testKeydown);el.addEventListener('paste',e=>{e.preventDefault();showToast('Paste is disabled during typing tests')});el.addEventListener('drop',e=>{e.preventDefault();showToast('Drop is disabled during typing tests')});el.addEventListener('beforeinput',ev=>{if(ev.inputType&&ev.inputType.startsWith('insert')&&el.value.length>=p.content.length){ev.preventDefault();showToast('Passage complete — submit the test.')}});if(isExam)installExamGuards()}
 let examDrawerCloseTimer=null;
 function closeExamDrawer(){const d=document.getElementById('examDrawer');if(d)d.classList.remove('open');if(examDrawerCloseTimer){clearTimeout(examDrawerCloseTimer);examDrawerCloseTimer=null}}
 function toggleExamDrawer(){const d=document.getElementById('examDrawer');if(!d)return;const opening=!d.classList.contains('open');d.classList.toggle('open');if(examDrawerCloseTimer)clearTimeout(examDrawerCloseTimer);if(opening)examDrawerCloseTimer=setTimeout(closeExamDrawer,8000)}
