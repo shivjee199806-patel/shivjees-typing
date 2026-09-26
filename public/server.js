@@ -1954,20 +1954,6 @@ dailyPassages=require('./daily-passages').createService(db,{setting,indiaDatePar
 // one-time legacy restoration that undoes the earlier accidental experiment.
 async function runDeferredMatterMaintenance(){
  try{
-  const marker='archive_repetitive_auto_practice_before_20260926_v1';
-  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-   const old=db.prepare("SELECT p.id,p.content passage_content,q.content queue_content FROM daily_passage_queue q JOIN passages p ON p.id=q.published_passage_id WHERE q.target_type='practice' AND COALESCE(q.manual,0)=0 AND q.queue_date<'2026-09-26' AND p.active=1 AND p.exam_id IS NULL").all();
-   let archived=0;
-   db.transaction(()=>{const deactivate=db.prepare('UPDATE passages SET active=0 WHERE id=? AND active=1');for(const row of old){
-    // Never overwrite an owner-edited passage; saved results still refer to archived IDs.
-    if(row.passage_content!==row.queue_content)continue;
-    archived+=deactivate.run(row.id).changes;
-   }db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,String(archived))})();
-   if(archived)scheduleRemoteSqliteMirror();
-   console.log('Old auto Practice matters archived:',archived);
-  }
- }catch(e){console.warn('Old Practice matter cleanup skipped:',e.message)}
- try{
   const marker='practice_matter_distinct_20260926_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
    const refreshed=dailyPassages.refreshDate(indiaDateParts().date,['practice']);
@@ -1988,7 +1974,7 @@ async function runDeferredMatterMaintenance(){
  try{
   const marker='daily_auto_non_exam_restore_20260921_legacy_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
-   const restored=dailyPassages.refreshDate('2026-09-21',['live']);
+   const restored=dailyPassages.refreshDate('2026-09-21',['practice','live']);
    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(restored));
    if(restored.updated)scheduleRemoteSqliteMirror();
    console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
