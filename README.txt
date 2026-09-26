@@ -1,14 +1,18 @@
-JPTyping Free Demo Conversion Update - 2026-09-20
+JP Typing - Owner Practice Reminder Settings ONLY
 
-Changed only: public/index.html
+Replace files at these exact locations in the CURRENT deployed repository:
+  server.js
+  public/owner-practice-reminders.html
 
-What changed:
-1. Guest home primary CTA is now Start Free Practice.
-2. One completed guest typing test is allowed per browser/device without login.
-3. Guest test shows WPM, Accuracy, Correct Words and Mistakes.
-4. After the result, Create Free Account is the main CTA; Login is secondary.
-5. Reopening guest test after completion opens Sign Up instead of another free test.
-6. Added a #free-trial section so existing SEO landing links have a real destination.
-7. Learning, exam qualification, payment, owner controls and backend were not changed.
+Important: This patch is based on JP_OWNER_REMINDER_ON_OFF_ONLY.zip, which includes the prior Resend change. Do not overwrite it with older reminder patches afterward.
 
-Note: the one-test limit uses browser localStorage. Clearing browser data or using another browser/device can reset it.
+Owner panel: https://jptyping.in/owner-practice-reminders.html
+- Choose 4 / 7 / 10 / 15 days, edit subject/message or leave defaults, then Save Days & Message.
+- Turn Automatic ON/OFF independently. Send eligible reminders NOW triggers an immediate eligible batch when ON.
+- Send selected manually works independently of automatic ON/OFF.
+- All modes require existing candidate opt-in and still prevent a repeat within 30 days or the same inactivity period.
+- The unsubscribe URL is appended by server; you need not type it yourself.
+- Saving days/message does NOT send mail; Send NOW WILL send mail to currently eligible opted-in users.
+- Resend keys and verified From address must already be configured in Railway. Automatic periodic sending requires an active server (hourly timer) or separately configured external scheduler.
+- Existing public SEO pages, login, OTP, typing engine, leaderboard and dashboard are NOT included in this patch.
+- BEFORE replacing files, keep a backup of both current deployed files and verify no newer independent modifications were made since previous patch.

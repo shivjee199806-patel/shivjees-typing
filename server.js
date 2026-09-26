@@ -2334,25 +2334,58 @@ db.exec(`CREATE TABLE IF NOT EXISTS practice_email_preferences (
  kind TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
  details TEXT DEFAULT '');
  CREATE INDEX IF NOT EXISTS idx_practice_email_log_user ON practice_email_log(user_id,kind,created_at);`);
-const reminderEnabled=()=>String(process.env.PRACTICE_REMINDERS_ENABLED||'0')==='1';
-const reminderFrom=()=>String(process.env.SMTP_FROM||process.env.SMTP_USER||'').trim();
+// Owner's saved choice overrides the Railway default; never affects OTP/security emails.
+const reminderEnabled=()=>{
+ const row=db.prepare("SELECT value FROM site_settings WHERE key='practice_reminders_enabled'").get();
+ return row ? row.value==='1' : String(process.env.PRACTICE_REMINDERS_ENABLED||'0')==='1';
+};
+// Reminders prefer the existing verified Resend sender; authentication/OTP delivery is unchanged.
+const reminderResendReady=()=>!!(String(process.env.RESEND_API_KEY||'').trim()&&String(process.env.RESEND_FROM_EMAIL||'').trim());
+const reminderMailReady=()=>reminderResendReady()||smtpReady();
+const reminderFrom=()=>reminderResendReady()?String(process.env.RESEND_FROM_EMAIL).trim():String(process.env.SMTP_FROM||process.env.SMTP_USER||'').trim();
 const reminderTransport=()=>nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
+async function sendPracticeReminder({to,subject,text,unsubscribe,transport}){
+ if(reminderResendReady()){
+  const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+String(process.env.RESEND_API_KEY).trim(),'Content-Type':'application/json'},body:JSON.stringify({from:reminderFrom(),to:[to],subject,text,headers:{'List-Unsubscribe':`<${unsubscribe}>`}})});
+  if(!response.ok)throw Error('Resend HTTP '+response.status);
+  return;
+ }
+ await transport.sendMail({from:reminderFrom(),to,subject,text,headers:{'List-Unsubscribe':`<${unsubscribe}>`}});
+}
 function reminderSignature(uid){return crypto.createHmac('sha256',SECRET).update('practice-email-optout:'+uid).digest('hex')}
 function reminderOptoutUrl(uid){return 'https://jptyping.in/api/practice-emails/unsubscribe?u='+encodeURIComponent(uid)+'&t='+reminderSignature(uid)}
-const reminderEligible=`FROM users u JOIN practice_email_preferences p ON p.user_id=u.id AND p.opted_in=1 WHERE u.role='student' AND u.active=1 AND COALESCE(u.is_owner,0)=0 AND u.last_login IS NOT NULL AND datetime(u.last_login)<=datetime('now','-7 days') AND u.email IS NOT NULL AND length(trim(u.email))>3`;
+const reminderDays=()=>{const row=db.prepare("SELECT value FROM site_settings WHERE key='practice_reminder_days'").get();const n=Number(row?.value||7);return [4,7,10,15].includes(n)?n:7};
+const reminderDefaultSubject='आपकी Typing Practice आपका इंतजार कर रही है | JP Typing';
+const reminderDefaultBody=`नमस्ते {name},
+
+आपने कुछ दिनों से JP Typing पर अभ्यास नहीं किया है। अपनी Typing Speed और Accuracy बेहतर बनाने के लिए आज फिर से Practice शुरू करें।
+
+✅ Hindi & English Typing Practice
+✅ UP Police Computer Operator Typing Test
+✅ Exam Mode और Practice Mode
+✅ WPM, Accuracy और Result Analysis
+
+Start Typing Practice: https://jptyping.in/
+
+Best Wishes,
+Team JP Typing`;
+const reminderContent=()=>({subject:db.prepare("SELECT value FROM site_settings WHERE key='practice_reminder_subject'").get()?.value||reminderDefaultSubject,body:db.prepare("SELECT value FROM site_settings WHERE key='practice_reminder_body'").get()?.value||reminderDefaultBody});
+const reminderEligible=()=>`FROM users u JOIN practice_email_preferences p ON p.user_id=u.id AND p.opted_in=1 WHERE u.role='student' AND u.active=1 AND COALESCE(u.is_owner,0)=0 AND u.last_login IS NOT NULL AND datetime(u.last_login)<=datetime('now','-${reminderDays()} days') AND u.email IS NOT NULL AND length(trim(u.email))>3`;
+
 app.get('/api/practice-emails/preference',auth,(req,res)=>{const row=db.prepare('SELECT opted_in,updated_at FROM practice_email_preferences WHERE user_id=?').get(req.user.id);res.json({opted_in:!!row?.opted_in,updated_at:row?.updated_at||null})});
 app.put('/api/practice-emails/preference',auth,(req,res)=>{if(typeof req.body?.opted_in!=='boolean')return res.status(400).json({error:'opted_in must be true or false'});const allowed=req.user.role==='student'&&Number(req.user.is_owner||0)!==1;if(!allowed)return res.status(403).json({error:'Candidate only'});db.prepare(`INSERT INTO practice_email_preferences(user_id,opted_in) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET opted_in=excluded.opted_in,updated_at=CURRENT_TIMESTAMP`).run(req.user.id,req.body.opted_in?1:0);res.json({ok:true,opted_in:req.body.opted_in})});
 app.get('/api/practice-emails/unsubscribe',(req,res)=>{const uid=Number(req.query.u);const token=String(req.query.t||'');const good=Number.isSafeInteger(uid)&&uid>0&&/^[a-f0-9]{64}$/.test(token)&&crypto.timingSafeEqual(Buffer.from(token,'hex'),Buffer.from(reminderSignature(uid),'hex'));if(!good)return res.status(400).type('html').send('<h2>Invalid unsubscribe link</h2>');db.prepare(`INSERT INTO practice_email_preferences(user_id,opted_in) VALUES(?,0) ON CONFLICT(user_id) DO UPDATE SET opted_in=0,updated_at=CURRENT_TIMESTAMP`).run(uid);res.type('html').send('<!doctype html><html><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed | JP Typing</title><main style="font:18px Arial;max-width:550px;margin:70px auto;padding:20px"><h2>Practice emails stopped</h2><p>You will no longer receive JP Typing practice-reminder emails. Account security and OTP messages are unaffected.</p><a href="/">Return to JP Typing</a></main></html>')});
 let reminderRunBusy=false;
 async function runPracticeReminders(kind='automatic',selectedIds=[]){
  if(reminderRunBusy)return {ok:false,reason:'Another reminder batch is running'};
- if(!smtpReady())return {ok:false,reason:'SMTP is not configured'};
+ if(!reminderMailReady())return {ok:false,reason:'Neither Resend nor SMTP is configured'};
  if(kind==='automatic'&&!reminderEnabled())return {ok:false,reason:'Automatic reminders are disabled'};
  reminderRunBusy=true;let sent=0,failed=0;
  try{
-  const users=db.prepare(`SELECT u.id,u.name,u.email,u.last_login ${reminderEligible} ORDER BY datetime(u.last_login),u.id LIMIT 250`).all();
-  const tr=reminderTransport();
+  const users=db.prepare(`SELECT u.id,u.name,u.email,u.last_login ${reminderEligible()} ORDER BY datetime(u.last_login),u.id LIMIT 250`).all();
+  const tr=reminderResendReady()?null:reminderTransport();
   for(const u of users){
+   if(kind==='automatic'&&!reminderEnabled())break;
    if(kind==='manual'&&!selectedIds.includes(u.id))continue;
    // One reminder per inactivity period, and never more frequently than every 30 days.
    const prev=db.prepare(`SELECT 1 FROM practice_email_log WHERE user_id=? AND status='sent' AND (datetime(created_at)>=datetime('now','-30 days') OR datetime(created_at)>=datetime(?)) LIMIT 1`).get(u.id,u.last_login);
@@ -2360,15 +2393,34 @@ async function runPracticeReminders(kind='automatic',selectedIds=[]){
    const preference=db.prepare('SELECT opted_in FROM practice_email_preferences WHERE user_id=?').get(u.id);
    if(!preference?.opted_in)continue;
    const unsubscribe=reminderOptoutUrl(u.id);
-   const subject='Continue your typing practice | JP Typing';
-   const msg=`Hello ${String(u.name||'Candidate').slice(0,70)},\n\nYour Hindi and English typing practice is waiting at JP Typing. Continue here: https://jptyping.in/\n\nTo stop practice emails: ${unsubscribe}\n\nTeam JP Typing`;
-   try{await tr.sendMail({from:reminderFrom(),to:u.email,subject,text:msg,headers:{'List-Unsubscribe':`<${unsubscribe}>`}});db.prepare('INSERT INTO practice_email_log(user_id,kind,status) VALUES(?,?,?)').run(u.id,kind,'sent');sent++}
+   const content=reminderContent();
+   const subject=content.subject;
+   // Always attach a functioning opt-out regardless of Owner's custom message.
+   const msg=content.body.replaceAll('{name}',String(u.name||'Candidate').slice(0,70)).replaceAll('{unsubscribe}',unsubscribe)+'\n\nऐसे Practice Reminder बंद करने के लिए / Unsubscribe: '+unsubscribe;   try{await sendPracticeReminder({to:u.email,subject,text:msg,unsubscribe,transport:tr});db.prepare('INSERT INTO practice_email_log(user_id,kind,status) VALUES(?,?,?)').run(u.id,kind,'sent');sent++}
    catch(e){failed++;console.warn('Practice reminder failed for user id',u.id,String(e?.message||'').slice(0,140));db.prepare('INSERT INTO practice_email_log(user_id,kind,status,details) VALUES(?,?,?,?)').run(u.id,kind,'failed',String(e?.message||'').slice(0,150))}
   }
   scheduleRemoteSqliteMirror();return {ok:true,sent,failed};
  }finally{reminderRunBusy=false}
 }
-app.get('/api/admin/practice-reminders',auth,admin,(req,res)=>{const users=db.prepare(`SELECT u.id,u.name,u.email,u.last_login,(SELECT MAX(created_at) FROM practice_email_log l WHERE l.user_id=u.id AND l.status='sent') last_sent ${reminderEligible} ORDER BY datetime(u.last_login),u.id LIMIT 250`).all();res.json({enabled:reminderEnabled(),smtp_ready:smtpReady(),users})});
+app.get('/api/admin/practice-reminders',auth,admin,(req,res)=>{const users=db.prepare(`SELECT u.id,u.name,u.email,u.last_login,(SELECT MAX(created_at) FROM practice_email_log l WHERE l.user_id=u.id AND l.status='sent') last_sent ${reminderEligible()} ORDER BY datetime(u.last_login),u.id LIMIT 250`).all();res.json({enabled:reminderEnabled(),smtp_ready:reminderMailReady(),email_provider:reminderResendReady()?'Resend':(smtpReady()?'SMTP':'Not configured'),days:reminderDays(),subject:reminderContent().subject,body:reminderContent().body,users})});
+app.put('/api/admin/practice-reminders/automatic',auth,admin,(req,res)=>{
+ if(typeof req.body?.enabled!=='boolean')return res.status(400).json({error:'enabled must be true or false'});
+ // Store in the same persisted settings table as other website settings.
+ db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('practice_reminders_enabled',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").run(req.body.enabled?'1':'0');
+ scheduleRemoteSqliteMirror();
+ res.json({ok:true,enabled:reminderEnabled(),email_provider:reminderResendReady()?'Resend':(smtpReady()?'SMTP':'Not configured')});
+});
+app.put('/api/admin/practice-reminders/settings',auth,admin,(req,res)=>{
+ const days=Number(req.body?.days),subject=req.body?.subject,body=req.body?.body;
+ if(![4,7,10,15].includes(days)||typeof subject!=='string'||typeof body!=='string'||!subject.trim()||!body.trim()||subject.length>180||body.length>6000||/[\r\n]/.test(subject))return res.status(400).json({error:'Choose 4, 7, 10 or 15 days, and provide a valid subject (max 180) and message (max 6000).'});
+ const save=db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP");
+ db.transaction(()=>{save.run('practice_reminder_days',String(days));save.run('practice_reminder_subject',subject.trim());save.run('practice_reminder_body',body.trim())})();
+ scheduleRemoteSqliteMirror();res.json({ok:true,days:reminderDays(),...reminderContent()});
+});
+app.post('/api/admin/practice-reminders/run-now',auth,admin,async(req,res)=>{
+ if(!reminderEnabled())return res.status(409).json({error:'Turn Automatic Reminder ON first'});
+ try{const r=await runPracticeReminders('automatic');res.status(r.ok?200:409).json(r)}catch(e){res.status(500).json({error:'Reminder run failed'})}
+});
 app.post('/api/admin/practice-reminders/send',auth,admin,async(req,res)=>{const ids=Array.isArray(req.body?.user_ids)?req.body.user_ids.map(Number).filter(Number.isSafeInteger).slice(0,50):[];if(!ids.length)return res.status(400).json({error:'Select at least one opted-in inactive candidate'});try{const r=await runPracticeReminders('manual',ids);res.status(r.ok?200:409).json(r)}catch(e){res.status(500).json({error:'Could not send practice reminders'})}});
 // An external daily scheduler can use this endpoint to support sleeping/restarting hosts.
 app.post('/api/internal/practice-reminders/run',async(req,res)=>{const configured=String(process.env.PRACTICE_REMINDER_CRON_SECRET||'');const given=String(req.get('X-Reminder-Secret')||'');if(configured.length<32||given.length!==configured.length||!crypto.timingSafeEqual(Buffer.from(given),Buffer.from(configured)))return res.status(403).json({error:'Forbidden'});try{const r=await runPracticeReminders();res.status(r.ok?200:409).json(r)}catch(e){res.status(500).json({error:'Reminder job failed'})}});
