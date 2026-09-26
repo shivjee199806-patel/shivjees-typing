@@ -4,6 +4,7 @@ This package includes the following existing-project files:
 - server.js (Gemini matter generator, leaderboard endpoints and filters)
 - public/index.html (candidate home, theme, leaderboard, short attempts, recent-results removal)
 - public/public/index.html (sync the old nested copy of the HTML page to the current frontend)
+- daily-passages.js and daily-passages-legacy.js (required Practice matter generator and its dependency)
 
 DEPLOY:
 1. Extract THIS ZIP into the ROOT folder of your existing jptyping.in source project.
@@ -15,7 +16,7 @@ DEPLOY:
 6. On jptyping.in, Ctrl+Shift+R once, then check Home and Leaderboard.
 
 EXPECTED:
-- Logged-in candidate: Home after login/refresh, owner routing unaffected.
+- Logged-in candidate: Home on fresh login; browser refresh keeps the currently open candidate section.
 - Default home = Clean Sky, default eye comfort = Green, dashboard style = Existing.
 - Candidate's manually saved theme selection remains saved in this browser.
 - Exam Mode LEFT and wider, Practice RIGHT and narrower.
@@ -39,3 +40,4 @@ AUTO PRACTICE MATTER FIX:
 PRACTICE DURATION SAFEGUARD:
 - All Practice passages are filtered for the selected duration. A too-short passage cannot start a longer test.
 - Changing the selected duration refreshes eligible passages; existing manually authored passages and past results are retained.
+- Current day's previously generated Practice matters are refreshed once where the owner has not edited them; Exam Mode generator and its output are unchanged.

@@ -632,7 +632,7 @@ function dynamicTopicCard({date,targetType,exam={},language,difficulty,serial=1,
  }else{
   const x=pick(SYSTEM_SUBJECTS,random);baseSubject=`system:${x[0]}`;key=`${baseSubject}:${angle[0]}:${lens[0]}:${stage[0]}`;en=`${x[1]}: ${angle[1]}`;hi=`${x[2]}: ${angle[2]}`;facts=makeFactsForSystem(x[1],x[2],angle[1],angle[2]);
  }
- facts=[[`This version looks at the subject through ${lens[1]} ${stage[1]}, giving the passage a different practical focus.`,`इस रूप में विषय को ${lens[2]} के दृष्टिकोण से ${stage[2]} देखा गया है, जिससे अनुच्छेद का व्यावहारिक केंद्र अलग रहता है।`],...facts.slice(0,11)];
+ if(targetType!=='practice')facts=[[`This version looks at the subject through ${lens[1]} ${stage[1]}, giving the passage a different practical focus.`,`इस रूप में विषय को ${lens[2]} के दृष्टिकोण से ${stage[2]} देखा गया है, जिससे अनुच्छेद का व्यावहारिक केंद्र अलग रहता है।`],...facts.slice(0,11)];
  en=`${en} with a focus on ${lens[1]}`;hi=`${hi}, विशेष ध्यान ${lens[2]}`;
  return {key,en,hi,facts,family,baseSubject,signature:crypto.createHash('sha256').update(key).digest('hex')};
 }
@@ -865,7 +865,7 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
  }
  const random=rng([date,targetType,exam.id||0,exam.name||'',language,difficulty,serial,attempt,'human-v5'].join('|'));
  const topic=dynamicTopicCard({language,difficulty,date,targetType,exam,serial,attempt}),hi=language==='Hindi',parts=[];
- parts.push(`${hi?topic.hi:topic.en}. ${scopeLine(pick(hi?OPEN_HI:OPEN_EN,random),targetType,language,0)}`);
+ parts.push(targetType==='practice'?`${hi?topic.hi:topic.en}.`:`${hi?topic.hi:topic.en}. ${scopeLine(pick(hi?OPEN_HI:OPEN_EN,random),targetType,language,0)}`);
  const facts=shuffle(topic.facts,random),shift=Math.floor(random()*12),focus=hi?topic.hi.split(/\s+/).slice(0,4).join(' '):topic.en.split(/\s+/).slice(0,5).join(' ');
  for(let i=0;i<facts.length;i++)parts.push(paragraphForFact(facts[i],language,difficulty,random,i,shift,focus,targetType));
  parts.push(scopeLine(pick(hi?CLOSE_HI:CLOSE_EN,random),targetType,language,99));

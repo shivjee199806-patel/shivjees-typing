@@ -1954,6 +1954,15 @@ dailyPassages=require('./daily-passages').createService(db,{setting,indiaDatePar
 // one-time legacy restoration that undoes the earlier accidental experiment.
 async function runDeferredMatterMaintenance(){
  try{
+  const marker='practice_matter_distinct_20260926_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const refreshed=dailyPassages.refreshDate(indiaDateParts().date,['practice']);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(refreshed));
+   if(refreshed.updated)scheduleRemoteSqliteMirror();
+   console.log('Current Practice matter refreshed:',refreshed);
+  }
+ }catch(e){console.warn('Practice matter refresh skipped:',e.message)}
+ try{
   const marker='daily_auto_all_exam_history_refresh_20260921_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
    const refreshed=await dailyPassages.refreshHistoricalExamMatter(indiaDateParts().date);
