@@ -877,7 +877,7 @@ function composeDynamicDetailed({language,difficulty,date,targetType,exam={},ser
 // rather than padding every difficulty with the same stock explanatory sentences.
 function composePracticeDetailed({language,difficulty,date,exam={},serial=1,attempt=0}){
  const target=sourceTargetWords(language,'practice',exam,difficulty),hi=language==='Hindi';
- const random=rng([date,language,difficulty,serial,attempt,'practice-topic-series-v1'].join('|'));
+ const random=rng([date,language,difficulty,serial,attempt,'practice-topic-series-v2'].join('|'));
  const preferred={Easy:new Set(['story','heritage']),Medium:new Set(['biography','history']),'Moderate to Hard':new Set(['system','history']),Hard:new Set(['science','current'])}[difficulty]||new Set(['story','system','science']);
  const cards=[],seen=new Set();let available=0;
  const section=(Number(String(date).replace(/\D/g,''))+Number(serial)+(difficulty==='Hard'?1:0))%3;
@@ -893,6 +893,16 @@ function composePracticeDetailed({language,difficulty,date,exam={},serial=1,atte
   const title=hi?card.hi.split(', विशेष ध्यान ')[0]:card.en.split(' with a focus on ')[0];
   parts.push(`${title}.`);
   for(const fact of facts)parts.push(hi?fact[1]:fact[0]);
+  // Practice difficulty is applied to typed matter itself, not just the card label.
+  // Easy/Medium have familiar words; upper levels include increasingly demanding figures and punctuation.
+  if(difficulty==='Moderate to Hard'&&parts.length%3===0){
+   const n=number(random,12,98);
+   parts.push(hi?`नमूना रजिस्टर में प्रविष्टि ${n} और तिथि ${number(random,1,28)}.${number(random,1,12)}.2026 को सही क्रम में मिलाना जरूरी है।`:`In a sample register, entry ${n} and date ${number(random,1,28)}.${number(random,1,12)}.2026 must match the original sequence.`);
+  }
+  if(difficulty==='Hard'){
+   const n=number(random,101,999),fraction=number(random,11,98),day=number(random,10,28);
+   parts.push(hi?`उदाहरण के लिए, संदर्भ क्रमांक AB-${n}/26, दिनांक ${day}.09.2026 और ${fraction}.75% के आँकड़ों को बिना अनुमान लगाए बिल्कुल सही लिखें; उद्धरण “अभिलेख सत्यापित है” में चिह्न भी महत्वपूर्ण हैं।`:`For example, reference AB-${n}/26, date ${day}.09.2026 and the figure ${fraction}.75% must be copied exactly; in the note "Record verified, re-check required," every symbol matters.`);
+  }
  }
  if(difficulty==='Easy'||difficulty==='Medium')for(let i=0;i<parts.length;i++)parts[i]=parts[i].replace(/[()\/: %₹"-]+/g,' ').replace(/\s+/g,' ').trim();
  const content=fitExactly(parts,target,language,'practice'),first=cards[0].card;
@@ -990,6 +1000,76 @@ function createService(db,{setting,indiaDateParts,onChange}){
     updateSlot.run(contentHash,row.slot);if(meta?.topicSignature)insertTopicRefresh.run(meta.topicSignature,meta.topicFamily,meta.baseSubject,meta.topicTitle,targetType,targetType==='exam'?exam.id:null,language,difficulty);updated++;
   }});tx();if(updated)changed();return {date,updated,skipped,owner_edited:ownerEdited};
  }
+
+ // One-time Practice-only refresh: replace older published auto matter without losing
+ // a candidate's historical result or overwriting owner-edited passages.
+ // Also renew the ten original short built-in Free Practice examples, if still short.
+ function refreshExistingPracticeMatter(maxDate=indiaDateParts().date){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(maxDate))throw Error('Invalid date');
+  const targetWords=language=>PRACTICE_30_MIN_WORDS[language]||0;
+  const autoRows=db.prepare(`SELECT s.slot,s.queue_id,s.passage_id,s.content_hash,q.queue_date,q.target_type,q.language,q.difficulty,q.content queue_content,q.published_passage_id,
+   p.id existing_id,p.active,p.title,p.content passage_content,p.layout,p.highlight_mode,p.auto_scroll,p.result_count_mode
+   FROM daily_auto_slots s JOIN daily_passage_queue q ON q.id=s.queue_id
+   JOIN passages p ON p.id=q.published_passage_id
+   WHERE q.target_type='practice' AND q.queue_date<=? AND COALESCE(q.manual,0)=0 AND p.exam_id IS NULL AND p.active=1
+   ORDER BY q.queue_date,q.id`).all(maxDate);
+  const originalExamples=db.prepare(`SELECT p.id existing_id,p.title,p.language,p.difficulty,p.layout,p.content passage_content,p.highlight_mode,p.auto_scroll,p.result_count_mode
+   FROM passages p WHERE p.exam_id IS NULL AND p.active=1 AND (
+   p.title GLOB 'Free Practice English [1-5]' OR p.title GLOB 'Free Practice Hindi [1-5]') ORDER BY p.id`).all()
+   .filter(r=>targetWords(r.language)>0&&wordCount(r.passage_content)<targetWords(r.language));
+  const resultCount=db.prepare('SELECT COUNT(*) n FROM results WHERE passage_id=?');
+  const archive=db.prepare('UPDATE passages SET active=0 WHERE id=? AND active=1');
+  const updatePassage=db.prepare('UPDATE passages SET title=?,content=? WHERE id=?');
+  const insertPassage=db.prepare(`INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode)
+   VALUES(?,?,?,?,?,1,?,NULL,?,?)`);
+  const updateQueue=db.prepare('UPDATE daily_passage_queue SET title=?,content=?,published_passage_id=? WHERE id=?');
+  const updateSlot=db.prepare('UPDATE daily_auto_slots SET passage_id=?,content_hash=? WHERE slot=?');
+  const topicInsert=db.prepare('INSERT OR IGNORE INTO daily_topic_history(signature,family,base_subject,title,target_type,exam_id,language,difficulty) VALUES(?,?,?,?,NULL, NULL,?,?)');
+  // Existing records across ALL modes are included so refreshed Practice cannot duplicate Exam or other Practice matter.
+  const known=new Set();
+  for(const x of db.prepare('SELECT content FROM passages WHERE content IS NOT NULL').all())known.add(hash(x.content));
+  for(const x of db.prepare('SELECT content FROM daily_passage_queue WHERE content IS NOT NULL').all())known.add(hash(x.content));
+  const usedTopics=new Set(db.prepare('SELECT signature FROM daily_topic_history').all().map(x=>x.signature));
+  let updated=0,replacedForHistory=0,examplesUpdated=0,examplesReplaced=0,ownerEdited=0,skipped=0;
+  const refreshRow=(row,example)=>{
+   const lang=row.language,level=LEVELS.includes(row.difficulty)?row.difficulty:'Medium';
+   if(!targetWords(lang)){skipped++;return}
+   if(!example){
+    if(!row.content_hash||hash(row.queue_content)!==row.content_hash||hash(row.passage_content)!==row.content_hash){ownerEdited++;return}
+   }
+   const pieces=String(row.slot||'').split('|');
+   const serial=example?(1000+Number(row.existing_id)):(Math.max(1,Number(pieces[5])||1));
+   const date=example?maxDate:row.queue_date;
+   let candidate=null;
+   for(let attempt=0;attempt<260;attempt++){
+    const out=composeDetailed({language:lang,difficulty:level,date,targetType:'practice',exam:{id:0,name:'Typing Practice',layout:lang==='Hindi'?'Unicode / Mangal':'QWERTY'},serial,attempt:attempt+2000});
+    const h=hash(out.content);
+    if(known.has(h)||out.topicSignature&&usedTopics.has(out.topicSignature))continue;
+    candidate={...out,h};break;
+   }
+   if(!candidate){skipped++;return}
+   const hasHistory=Number(resultCount.get(row.existing_id)?.n||0)>0;
+   const title=example?row.title:`${row.queue_date} • ${candidate.topicTitle} • ${level} • ${serial}`;
+   let pid=row.existing_id;
+   if(hasHistory){
+    archive.run(pid);
+    pid=insertPassage.run(title,lang,row.layout|| (lang==='Hindi'?'Unicode / Mangal':'QWERTY'),level,candidate.content,row.highlight_mode||'current_char',Number(row.auto_scroll??1),row.result_count_mode||'word').lastInsertRowid;
+    if(example)examplesReplaced++;else replacedForHistory++;
+   }else{
+    updatePassage.run(title,candidate.content,pid);
+    if(example)examplesUpdated++;else updated++;
+   }
+   if(!example){updateQueue.run(title,candidate.content,pid,row.queue_id);updateSlot.run(pid,candidate.h,row.slot)}
+   known.add(candidate.h);if(candidate.topicSignature){usedTopics.add(candidate.topicSignature);topicInsert.run(candidate.topicSignature,candidate.topicFamily,candidate.baseSubject,candidate.topicTitle,lang,level)}
+  };
+  // Small batches bound transaction time; existing Exam rows, Learning rows and all owner rows are untouched.
+  for(let i=0;i<autoRows.length;i+=8)db.transaction(()=>autoRows.slice(i,i+8).forEach(row=>refreshRow(row,false)))();
+  for(let i=0;i<originalExamples.length;i+=8)db.transaction(()=>originalExamples.slice(i,i+8).forEach(row=>refreshRow(row,true)))();
+  const changedCount=updated+replacedForHistory+examplesUpdated+examplesReplaced;
+  if(changedCount)changed();
+  return {scanned_auto:autoRows.length,scanned_original_examples:originalExamples.length,updated,replaced_for_history:replacedForHistory,examples_updated:examplesUpdated,examples_replaced_for_history:examplesReplaced,owner_edited:ownerEdited,skipped};
+ }
+
  // One-time historical Exam cleanup/refresh for the 21-Sep-2026 matter rules.
  // Scope is deliberately narrow: only auto-generated Exam rows are touched.
  // Practice, Live, Learning, manual/Owner-edited matter and every exam setting remain unchanged.
@@ -1068,5 +1148,5 @@ function createService(db,{setting,indiaDateParts,onChange}){
 
  let lastKey='';function tick(now=new Date()){const ip=indiaDateParts(now),c=controls(),key=[ip.date,c.enabled,c.exam_enabled,c.practice_enabled,setting('live_daily_enabled')].join('|');if(ip.hour<10||!c.enabled||key===lastKey)return {created:0};const result=run(ip.date);lastKey=key;return result}
  function start(){const safe=()=>{try{tick()}catch(e){console.warn('Daily passages:',e.message)}};safe();const timer=setInterval(safe,60000);timer.unref?.();return timer}
- return {controls,setControls,run,refreshDate,refreshHistoricalExamMatter,tick,start};
+ return {controls,setControls,run,refreshDate,refreshExistingPracticeMatter,refreshHistoricalExamMatter,tick,start};
 }

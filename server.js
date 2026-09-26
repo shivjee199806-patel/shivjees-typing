@@ -2011,6 +2011,19 @@ async function runDeferredMatterMaintenance(){
    console.log('Practice/Live auto-matter restored to previous behaviour:',restored);
   }
  }catch(e){console.warn('Practice/Live auto-matter restore skipped:',e.message)}
+ // End-of-maintenance Practice matter only: refresh already-published automatic passages to full 30-minute source
+ // Practice matter only: refresh already-published automatic passages to full 30-minute source
+ // and use the same language/level rules for all newly generated daily Practice matter.
+ // The app_meta marker prevents changing these Practice passages on every reboot.
+ try{
+  const marker='practice_full_30min_fresh_all_levels_20260926_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const result=dailyPassages.refreshExistingPracticeMatter(indiaDateParts().date);
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(result));
+   if(result.updated||result.replaced_for_history||result.examples_updated||result.examples_replaced_for_history)scheduleRemoteSqliteMirror();
+   console.log('Existing auto Practice matter refreshed to full 30-minute sources:',result);
+  }
+ }catch(error){console.error('Practice-only source renewal skipped:',error.message)}
 }
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
