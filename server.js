@@ -2582,9 +2582,9 @@ async function emailSiteNotification(row){
  const recipients=[...new Map(recipientRows.map(u=>[String(u.email||'').trim().toLowerCase(),{email:String(u.email||'').trim(),name:String(u.name||'Candidate').trim().slice(0,70)||'Candidate'}]).filter(([key])=>key)).values()];
  if(!recipients.length)return {sent:true,count:0};
  const subject=`Shivjee's Typing — ${row.title}`;
- const notificationText=name=>`Dear ${name},\n\n${row.title}\n\n${row.message}\n\n— Shivjee's Typing`;
+ const notificationText=name=>`Dear ${name},\nनमस्ते! 🙏\n\n${row.title}\n\n${row.message}\n\n— Shivjee's Typing`;
  const safe=v=>String(v||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
- const notificationHtml=name=>`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><p>Dear ${safe(name)},</p><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`;
+ const notificationHtml=name=>`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><p>Dear ${safe(name)},<br>नमस्ते! 🙏</p><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`;
  let count=0;
  if(hasResend){
    // Send individually to avoid exposing candidate emails to other recipients.
