@@ -27,3 +27,15 @@ EXPECTED:
 
 NOTE: This zip contains CHANGED FILES, not a standalone complete web application.
 Do not remove or reset your live database, other Railway variables or user files.
+
+LATEST FIXES:
+- Fresh candidate login opens Home; refresh preserves the currently open page.
+- Pricing navigation appears only when Payment System is confirmed ON by public settings; OFF keeps it hidden.
+
+AUTO PRACTICE MATTER FIX:
+- Practice uses the existing daily dynamic composer; it publishes full 30-minute English/Hindi source matters and trims to the chosen test duration.
+- The separate four-day fixed-text generator is removed. Its previous short auto matters become inactive; saved result history stays intact.
+
+PRACTICE DURATION SAFEGUARD:
+- All Practice passages are filtered for the selected duration. A too-short passage cannot start a longer test.
+- Changing the selected duration refreshes eligible passages; existing manually authored passages and past results are retained.
