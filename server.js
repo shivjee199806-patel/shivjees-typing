@@ -2396,7 +2396,9 @@ async function runPracticeReminders(kind='automatic',selectedIds=[]){
    const content=reminderContent();
    const subject=content.subject;
    // Always attach a functioning opt-out regardless of Owner's custom message.
-   const msg=content.body.replaceAll('{name}',String(u.name||'Candidate').slice(0,70)).replaceAll('{unsubscribe}',unsubscribe)+'\n\nऐसे Practice Reminder बंद करने के लिए / Unsubscribe: '+unsubscribe;   try{await sendPracticeReminder({to:u.email,subject,text:msg,unsubscribe,transport:tr});db.prepare('INSERT INTO practice_email_log(user_id,kind,status) VALUES(?,?,?)').run(u.id,kind,'sent');sent++}
+   const candidateName=String(u.name||'Candidate').trim().slice(0,70)||'Candidate';
+   const personalizedBody=content.body.includes('{name}')?content.body.replaceAll('{name}',candidateName):'Dear '+candidateName+',\n\n'+content.body;
+   const msg=personalizedBody.replaceAll('{unsubscribe}',unsubscribe)+'\n\nऐसे Practice Reminder बंद करने के लिए / Unsubscribe: '+unsubscribe;   try{await sendPracticeReminder({to:u.email,subject,text:msg,unsubscribe,transport:tr});db.prepare('INSERT INTO practice_email_log(user_id,kind,status) VALUES(?,?,?)').run(u.id,kind,'sent');sent++}
    catch(e){failed++;console.warn('Practice reminder failed for user id',u.id,String(e?.message||'').slice(0,140));db.prepare('INSERT INTO practice_email_log(user_id,kind,status,details) VALUES(?,?,?,?)').run(u.id,kind,'failed',String(e?.message||'').slice(0,150))}
   }
   scheduleRemoteSqliteMirror();return {ok:true,sent,failed};
@@ -2576,24 +2578,25 @@ async function emailSiteNotification(row){
  const resendFrom=String(process.env.RESEND_FROM_EMAIL||'').trim();
  const hasResend=!!(resendKey&&resendFrom);
  if(!hasResend&&!smtpReady())return {sent:false,reason:'Resend or SMTP not configured'};
- const recipients=[...new Set(db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>'' AND (? IS NULL OR id=?)").all(row.created_at,row.target_user_id,row.target_user_id).map(x=>String(x.email||'').trim()).filter(Boolean))];
+ const recipientRows=db.prepare("SELECT name,email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>'' AND (? IS NULL OR id=?)").all(row.created_at,row.target_user_id,row.target_user_id);
+ const recipients=[...new Map(recipientRows.map(u=>[String(u.email||'').trim().toLowerCase(),{email:String(u.email||'').trim(),name:String(u.name||'Candidate').trim().slice(0,70)||'Candidate'}]).filter(([key])=>key)).values()];
  if(!recipients.length)return {sent:true,count:0};
  const subject=`Shivjee's Typing — ${row.title}`;
- const text=`${row.title}\n\n${row.message}\n\n— Shivjee's Typing`;
+ const notificationText=name=>`Dear ${name},\n\n${row.title}\n\n${row.message}\n\n— Shivjee's Typing`;
  const safe=v=>String(v||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
- const html=`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`;
+ const notificationHtml=name=>`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><p>Dear ${safe(name)},</p><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`;
  let count=0;
  if(hasResend){
    // Send individually to avoid exposing candidate emails to other recipients.
-   for(const to of recipients){
-     const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+resendKey,'Content-Type':'application/json'},body:JSON.stringify({from:resendFrom,to:[to],subject,text,html})});
+   for(const recipient of recipients){
+     const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+resendKey,'Content-Type':'application/json'},body:JSON.stringify({from:resendFrom,to:[recipient.email],subject,text:notificationText(recipient.name),html:notificationHtml(recipient.name)})});
      if(!response.ok)throw Error('Notification email: Resend HTTP '+response.status+'; accepted '+count+' of '+recipients.length);
      count++;
    }
  }else{
    const tr=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
    const from=process.env.SMTP_FROM||process.env.SMTP_USER;
-   for(let i=0;i<recipients.length;i+=80){const batch=recipients.slice(i,i+80);await tr.sendMail({from,to:from,bcc:batch,subject,text,html});count+=batch.length}
+   for(const recipient of recipients){await tr.sendMail({from,to:recipient.email,subject,text:notificationText(recipient.name),html:notificationHtml(recipient.name)});count++}
  }
  db.prepare('UPDATE site_notifications SET last_emailed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);
  return {sent:true,count};
