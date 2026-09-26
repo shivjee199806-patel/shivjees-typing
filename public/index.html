@@ -1069,7 +1069,7 @@ body[data-theme="dark"] #authModal .jp-google-button-shell{
 <div id="toast" style="position:fixed;right:18px;bottom:18px;z-index:100;background:#101d35;color:#fff;padding:12px 15px;border-radius:10px;box-shadow:0 10px 30px #0002;display:none;font-size:13px"></div>
 <script>
 const S={token:localStorage.st_token||'',user:JSON.parse(localStorage.st_user||'null'),exam:null,passage:null,total:0,left:0,timer:null,started:false,done:false,mode:'practice',wordTimings:[],wordStartTs:0,lastWordCount:0,learning:null};
-function clearStoredSession(){localStorage.removeItem('st_token');localStorage.removeItem('st_user');sessionStorage.removeItem('jp_candidate_page');S.token='';S.user=null;}
+function clearStoredSession(){localStorage.removeItem('st_token');localStorage.removeItem('st_user');sessionStorage.removeItem('jp_candidate_page');sessionStorage.removeItem('jp_auth_welcome_seen');S.token='';S.user=null;}
 const api=async(u,o={})=>{o.headers={...(o.headers||{}),'Content-Type':'application/json',...(S.token?{Authorization:'Bearer '+S.token}:{})};const r=await fetch(u,o);let d={};try{d=await r.json()}catch{}if(!r.ok){const msg=d.error||'Request failed';if(r.status===401&&S.token&&(msg==='Account not found'||msg==='Session expired'||msg==='Login required')){const wasAdmin=S.user?.role==='admin';clearStoredSession();layout();setTimeout(()=>auth(wasAdmin?'admin-login':'login'),80);throw Error('Saved session was from an older database. Please login once again.');}throw Error(msg)}try{if(typeof jpTrack==='function'){if(u==='/api/auth/login'||u==='/api/auth/verify-otp'||u==='/api/auth/google')jpTrack('login',{method:u.includes('google')?'google':u.includes('verify-otp')?'otp':'password'});else if(u==='/api/auth/register-verify')jpTrack('sign_up',{method:'email_otp'});else if(u==='/api/payment-requests'&&String(d.status||'').toLowerCase()==='approved')jpTrack('purchase',{currency:'INR',transaction_id:String(d.id||d.payment_id||Date.now())});}}catch(_){}return d};
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=s=>String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')+':'+String(Math.max(0,s)%60).padStart(2,'0');
@@ -1587,7 +1587,7 @@ async function setupCandidateGoogle(){
   btn.innerHTML='';btn.setAttribute('aria-label','Continue with Google');google.accounts.id.renderButton(btn,{type:'icon',theme:'outline',size:'large',shape:'circle'});
  }catch(e){wrap.style.display='none';console.warn(e.message)}
 }
-async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.new_account||Number(d.user?.google_profile_completed||0)!==1;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}setTimeout(maybeShowCandidatePushPrompt,650)}catch(e){authError.textContent=e.message}}
+async function handleGoogleCredential(r){try{authError.textContent='';const d=await api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:r.credential,referral_from:(document.getElementById('authReferralFrom')?.value||'')})});if(d.user?.role==='admin')throw Error('Owner/Admin must use Owner Login');S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);const needsGoogleSetup=!!d.user?.google_profile_pending||!!d.new_account;if(needsGoogleSetup)sessionStorage.setItem('st_google_first_setup','1');else sessionStorage.removeItem('st_google_first_setup');closeModal('authModal');layout();openCandidateHomeAfterLogin();sessionStorage.setItem('jp_auth_welcome_seen','1');try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(needsGoogleSetup)setTimeout(()=>{if(S.user?.google_profile_pending&&!document.getElementById('customWelcomeStage')&&!document.getElementById('googleMobileStage'))showGoogleMobileCapture()},1800);setTimeout(maybeShowCandidatePushPrompt,1800)}catch(e){authError.textContent=e.message}}
 async function auth(mode){
  const m=document.getElementById('authModal');
  m.classList.add('show');m.scrollTop=0;m.querySelector('.auth-modal-box').scrollTop=0;m.dataset.mode=mode;m.dataset.method='password';m.dataset.adminChallenge='';m.dataset.adminSignupChallenge='';
@@ -1658,7 +1658,7 @@ async function submitAuth(){try{
  const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});
  if(mode==='admin-register'&&d.created){showToast('Owner account created. Login now with Email + Password + OTP.');const e=adminEmail.value;auth('admin-login');loginEmail.value=e;return}
  if(mode==='admin-login'&&d.user?.role!=='admin')throw Error('This account does not have Admin/Owner access');
- S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();if(S.user.role==='admin')goToRoute('admin');else openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(S.user.role!=='admin')setTimeout(maybeShowCandidatePushPrompt,650);
+ S.token=d.token;S.user=d.user;localStorage.st_token=S.token;localStorage.st_user=JSON.stringify(S.user);closeModal('authModal');layout();if(S.user.role==='admin')goToRoute('admin');else openCandidateHomeAfterLogin();try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}if(S.user.role!=='admin'){sessionStorage.setItem('jp_auth_welcome_seen','1');setTimeout(maybeShowCandidatePushPrompt,1800);}
 }catch(e){document.getElementById('authError').textContent=e.message}}
 
 async function adminSignupPage(){
@@ -1770,11 +1770,27 @@ async function downloadCertificate(id){try{await api('/api/certificates/'+id+'/d
 async function route(){document.body.classList.remove('exam-mode');document.body.classList.remove('jp-home-premium-dark','jp-home-clean-sky');if(location.pathname==='/owner-portal'){if(S.user?.role==='admin'){const r=location.hash.slice(1)||'admin';layout();if(r==='admin')await admin();else if(r==='users')await users();else if(r==='owner')await owner();else if(r==='database')await database();else if(r==='exams')await exams();else if(r==='practice')await practice();else if(r==='learning')await learning();else if(r==='certificates')await myCertificates();else if(r==='owner-certificates')await ownerCertificates();else if(r==='live')await liveTests();else if(r==='history')await history();else if(r==='leaderboard')await leaderboard();else if(r==='gallery')await gallery();else if(r==='dashboard')await admin();else if(r==='notifications')await notificationsPage();else if(r==='doubts')await doubtsPage();else if(r==='pricing')await pricing();else await admin();return}ownerLoginPage();return}const saved=localStorage.getItem('st_sidebar_collapsed')!=='0';setDesktopSidebar(saved,false);layout();const r=location.hash.slice(1)||'home';if(r==='login'){location.hash='#home';home();setTimeout(()=>auth('login'),80);return}if(r==='owner-access'||r==='owner-login'){location.hash='#home';home();return}if(r==='owner-signup'&&!S.user){home();setTimeout(()=>auth('admin-register'),120);return}const publicSections=['home','about','how','motivation','login','gallery','information'];if(!S.user&&!publicSections.includes(r)){location.hash='#home';home();setTimeout(()=>auth('login'),120);return}if(r==='gallery')await gallery();else if(r==='information')await informationCentre();else if(publicSections.includes(r)){home();if(r!=='home')setTimeout(()=>document.getElementById(r)?.scrollIntoView({behavior:'smooth'}),60)}else if(r==='live')liveTests();else if(r==='exams')exams();else if(r==='practice')practice();else if(r==='learning')learning();else if(r==='certificates')myCertificates();else if(r==='owner-certificates')ownerCertificates();else if(r==='pricing')pricing();else if(r==='leaderboard')leaderboard();else if(r==='dashboard')dashboard();else if(r==='history')history();else if(r==='notifications')notificationsPage();else if(r==='doubts')doubtsPage();else if(r==='admin')admin();else if(r==='users')users();else if(r==='owner')owner();else if(r==='admin-signup')adminSignupPage();else if(r==='database')database();else home()}
 async function validateSavedSession(){
  if(!S.token||!S.user){await route();return}
+ // Authenticated candidates arriving at the bare domain land on Dashboard.
+ // Explicit Home navigation and refreshes on other active tabs remain unchanged.
+ if(S.user.role!=='admin'&&!location.hash&&location.pathname!=='/owner-portal'){
+   history.replaceState(null,'',location.pathname+location.search+'#dashboard');
+ }
  try{if(S.user?.role!=='admin'&&performance.getEntriesByType('navigation')[0]?.type==='reload'){
    const last=sessionStorage.getItem('jp_candidate_page');
    const current=location.hash.slice(1);
    if(last&&['home','live','dashboard','exams','practice','learning','gallery','leaderboard','history','notifications','doubts','certificates'].includes(last)&&(!current||current==='home'&&last!=='home'))history.replaceState(null,'',location.pathname+location.search+'#'+last);
-  }if(S.user?.role!=='admin'&&location.hash==='#exams'&&performance.getEntriesByType('navigation')[0]?.type==='reload')window.JP_RESTORE_EXAM_FOLDER=true;await route();const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user)}}
+  }if(S.user?.role!=='admin'&&location.hash==='#exams'&&performance.getEntriesByType('navigation')[0]?.type==='reload')window.JP_RESTORE_EXAM_FOLDER=true;await route();const d=await api('/api/auth/me');if(d?.user){S.user=d.user;localStorage.st_user=JSON.stringify(S.user);if(S.user.role!=='admin'){
+    if(S.user.google_profile_pending)sessionStorage.setItem('st_google_first_setup','1');
+    else sessionStorage.removeItem('st_google_first_setup');
+    if(!sessionStorage.getItem('jp_auth_welcome_seen')){
+      sessionStorage.setItem('jp_auth_welcome_seen','1');
+      try{showLoginCelebration(S.user)}catch(err){console.warn('Welcome animation:',err)}
+      setTimeout(maybeShowCandidatePushPrompt,1800);
+    }else if(S.user.google_profile_pending){
+      // The user may have refreshed/closed the tab before finishing the first Google setup.
+      setTimeout(()=>{if(S.user?.google_profile_pending&&!document.getElementById('googleMobileStage'))showGoogleMobileCapture()},350);
+    }else setTimeout(maybeShowCandidatePushPrompt,350);
+  }}}
  catch(e){if(S.token)showToast(e.message);else route()}
 }
 
@@ -1934,7 +1950,7 @@ ownerTab = function(tab,btn){
   return ownerTabBeforeFolders(tab,btn);
 }
 
-function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');dashboard()}
+function openCandidateHomeAfterLogin(){sessionStorage.setItem('jp_candidate_page','dashboard');sessionStorage.removeItem('jp_practice_folder');history.replaceState(null,'',location.pathname+location.search+'#dashboard');return route()}
 function goToRoute(name){const next='#'+name;if(location.hash===next){route();return}location.hash=next}
 document.addEventListener('click',event=>{const link=event.target.closest('a[data-route][href^="#"]');if(link&&link.hash===location.hash){event.preventDefault();route()} });
 window.addEventListener('hashchange',route);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal('authModal');closeModal('examModal');closeModal('userModal');closeModal('passageModal');closeModal('dbModal')}});
@@ -3247,7 +3263,7 @@ showLoginCelebration=function(user){
   window.logout=function(){
     const u=S?.user?{...S.user}:null;
     if(!u||String(u.role||'').toLowerCase()==='admin')return previousLogout();
-    localStorage.removeItem('st_token');localStorage.removeItem('st_user');S.token='';S.user=null;layout();location.hash='#home';
+    localStorage.removeItem('st_token');localStorage.removeItem('st_user');sessionStorage.removeItem('jp_auth_welcome_seen');S.token='';S.user=null;layout();location.hash='#home';
     showCustomWelcome('logout',u);
   };
 
@@ -4819,7 +4835,9 @@ body.jp-home-premium-dark:not(.exam-mode) .topbar .topnav a.active:visited{color
 (function(){
  window.showGoogleMobileCapture=function(){
    if(!S?.user||String(S.user.role||'').toLowerCase()==='admin')return;
-   document.getElementById('googleMobileStage')?.remove();
+   // A completed account must never be asked to create another password.
+   if(!S.user.google_profile_pending&&sessionStorage.getItem('st_google_first_setup')!=='1')return;
+   if(document.getElementById('googleMobileStage'))return;
    const st=document.createElement('div');st.id='googleMobileStage';st.className='google-mobile-stage';
    st.innerHTML=`<div class="google-mobile-card"><div class="google-mobile-icon">👤</div><h2>Google Account Setup</h2><p>पहली बार Google से login करने के लिए अपनी Candidate details पूरी करें। इसके बाद Mobile Number + Password से भी login कर सकेंगे।</p><input id="googleFullNameInput" class="google-mobile-input" autocomplete="name" maxlength="80" placeholder="Full Name" value="${esc(S.user.name||'')}"><input id="googleMobileInput" class="google-mobile-input" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="10-digit Mobile Number"><input id="googlePasswordInput" class="google-mobile-input" type="password" autocomplete="new-password" maxlength="200" placeholder="Create Password (minimum 8 characters)"><button id="googleMobileSave" class="google-mobile-save">Save & Continue</button><div id="googleMobileError" class="google-mobile-error"></div><p class="google-mobile-note">अगली बार Login ID = आपका Mobile Number और Password = अभी बनाया गया password होगा। Google Login भी चालू रहेगा।</p></div>`;
    document.body.appendChild(st);const name=st.querySelector('#googleFullNameInput'),inp=st.querySelector('#googleMobileInput'),pass=st.querySelector('#googlePasswordInput'),btn=st.querySelector('#googleMobileSave'),err=st.querySelector('#googleMobileError');name.focus();
@@ -4827,7 +4845,7 @@ body.jp-home-premium-dark:not(.exam-mode) .topbar .topnav a.active:visited{color
    btn.onclick=async()=>{const fullName=name.value.trim(),phone=inp.value.trim(),password=pass.value;if(fullName.length<2){err.textContent='अपना Full Name दर्ज करें।';return}if(!/^[6-9]\d{9}$/.test(phone)){err.textContent='सही 10-digit Indian mobile number दर्ज करें।';return}if(password.length<8){err.textContent='Password कम से कम 8 characters का रखें।';return}btn.disabled=true;btn.textContent='Saving…';try{const d=await api('/api/me/google-first-profile',{method:'PATCH',body:JSON.stringify({name:fullName,phone,password})});S.user=d.user;localStorage.st_user=JSON.stringify(S.user);sessionStorage.removeItem('st_google_first_setup');st.remove();showToast('Account ready · अब Mobile + Password से भी login कर सकते हैं');setTimeout(maybeShowCandidatePushPrompt,180)}catch(e){err.textContent=e.message||'Details save नहीं हुईं।';btn.disabled=false;btn.textContent='Save & Continue'}};
  };
  const oldWelcome=window.showCustomWelcome;
- if(typeof oldWelcome==='function')window.showCustomWelcome=function(type,user,onDone){const firstGoogle=sessionStorage.getItem('st_google_first_setup')==='1';return oldWelcome(type,user,function(){if(firstGoogle)setTimeout(showGoogleMobileCapture,60);if(typeof onDone==='function')onDone()})};
+ if(typeof oldWelcome==='function')window.showCustomWelcome=function(type,user,onDone){const firstGoogle=(type==='first'||type==='return')&&(S.user?.google_profile_pending||sessionStorage.getItem('st_google_first_setup')==='1');return oldWelcome(type,user,function(){if(firstGoogle)setTimeout(showGoogleMobileCapture,60);if(typeof onDone==='function')onDone()})};
 })();
 </script>
 
@@ -6641,7 +6659,7 @@ if(!window.__jpNotifPoll){window.__jpNotifPoll=setInterval(()=>{if(S?.user)refre
 <script id="jp-push-optin-logic">
 function candidatePushChoiceKey(){return 'jp_push_prompt_choice_'+String(S.user?.id||'')}
 async function maybeShowCandidatePushPrompt(){
- if(sessionStorage.getItem('st_google_first_setup')==='1'||document.getElementById('googleMobileStage'))return;
+ if(sessionStorage.getItem('st_google_first_setup')==='1'||S.user?.google_profile_pending||document.getElementById('googleMobileStage')||document.getElementById('customWelcomeStage'))return;
  if(!S.user||S.user.role==='admin'||!S.user.id||!('Notification'in window)||!('serviceWorker'in navigator)||!('PushManager'in window)||!window.isSecureContext)return;
  if(Notification.permission==='denied'||localStorage.getItem(candidatePushChoiceKey()))return;
  try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg&&await reg.pushManager.getSubscription())return}catch(e){}
