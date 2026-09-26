@@ -2572,14 +2572,31 @@ if(!jpDoubtCols.includes('owner_seen_at')){
 
 
 async function emailSiteNotification(row){
- if(!smtpReady())return {sent:false,reason:'SMTP not configured'};
- const recipients=db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>'' AND (? IS NULL OR id=?)").all(row.created_at,row.target_user_id,row.target_user_id).map(x=>x.email).filter(Boolean);
+ const resendKey=String(process.env.RESEND_API_KEY||'').trim();
+ const resendFrom=String(process.env.RESEND_FROM_EMAIL||'').trim();
+ const hasResend=!!(resendKey&&resendFrom);
+ if(!hasResend&&!smtpReady())return {sent:false,reason:'Resend or SMTP not configured'};
+ const recipients=[...new Set(db.prepare("SELECT email FROM users WHERE role='student' AND active=1 AND datetime(created_at)<=datetime(?) AND email IS NOT NULL AND email<>'' AND (? IS NULL OR id=?)").all(row.created_at,row.target_user_id,row.target_user_id).map(x=>String(x.email||'').trim()).filter(Boolean))];
  if(!recipients.length)return {sent:true,count:0};
- const tr=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
- const from=process.env.SMTP_FROM||process.env.SMTP_USER;let count=0;
+ const subject=`Shivjee's Typing — ${row.title}`;
+ const text=`${row.title}\n\n${row.message}\n\n— Shivjee's Typing`;
  const safe=v=>String(v||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
- for(let i=0;i<recipients.length;i+=80){const batch=recipients.slice(i,i+80);await tr.sendMail({from,to:from,bcc:batch,subject:`Shivjee's Typing — ${row.title}`,text:`${row.title}\n\n${row.message}\n\n— Shivjee's Typing`,html:`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`});count+=batch.length}
- db.prepare('UPDATE site_notifications SET last_emailed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);return {sent:true,count};
+ const html=`<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto"><h2>${safe(row.title)}</h2><div style="white-space:pre-wrap;line-height:1.7">${safe(row.message)}</div><hr><small>Shivjee's Typing Notification</small></div>`;
+ let count=0;
+ if(hasResend){
+   // Send individually to avoid exposing candidate emails to other recipients.
+   for(const to of recipients){
+     const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+resendKey,'Content-Type':'application/json'},body:JSON.stringify({from:resendFrom,to:[to],subject,text,html})});
+     if(!response.ok)throw Error('Notification email: Resend HTTP '+response.status+'; accepted '+count+' of '+recipients.length);
+     count++;
+   }
+ }else{
+   const tr=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'').toLowerCase()==='true'||Number(process.env.SMTP_PORT)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
+   const from=process.env.SMTP_FROM||process.env.SMTP_USER;
+   for(let i=0;i<recipients.length;i+=80){const batch=recipients.slice(i,i+80);await tr.sendMail({from,to:from,bcc:batch,subject,text,html});count+=batch.length}
+ }
+ db.prepare('UPDATE site_notifications SET last_emailed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);
+ return {sent:true,count};
 }
 function notificationJoinDate(userId){return db.prepare('SELECT created_at FROM users WHERE id=?').get(userId)?.created_at||'1970-01-01 00:00:00'}
 app.get('/api/push/public-key',auth,(req,res)=>res.json({publicKey:pushKeys.publicKey}));
