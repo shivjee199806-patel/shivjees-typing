@@ -1087,8 +1087,10 @@ body.public-landing .jp-motivation-lines span:nth-child(2){animation-delay:5s}bo
 @media(max-width:600px){body.public-landing .public-hero>.jp-motivation-rotator{height:85px;margin-bottom:0}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines{height:75px}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span{font-size:19px}}
 @media(prefers-reduced-motion:reduce){body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span{animation:none;opacity:0;transform:none}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span:first-child{opacity:1}}
 /* Show one rotating sentence at a time, even when other theme rules affect opacity. */
-body.public-landing .jp-motivation-lines span{display:none!important;animation:none!important;opacity:1!important;transform:none!important}
+body.public-landing .jp-motivation-lines span{display:none!important;animation:none!important;opacity:0!important;transform:none!important;transition:opacity 1.1s ease!important}
 body.public-landing .jp-motivation-lines span.jp-motivation-current{display:flex!important}
+body.public-landing .jp-motivation-lines span.jp-motivation-current.jp-motivation-shown{opacity:1!important}
+body.jp-home-clean-sky.public-landing .jp-motivation-lines span{background:linear-gradient(95deg,#a43608 8%,#92400e 42%,#075985 88%)!important;background-clip:text!important;-webkit-background-clip:text!important;filter:none!important}
 </style>
 </head>
 
@@ -6790,19 +6792,37 @@ body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].
 .footer .footer-main>.social-footer .social-logo:after{bottom:52px!important}
 @media(max-width:520px){.footer .footer-main>.social-footer .social-row{gap:7px!important}.footer .footer-main>.social-footer .social-logo{width:38px!important;height:38px!important;min-width:38px!important;flex-basis:38px!important}.footer .footer-main>.social-footer .social-logo:after{bottom:46px!important}}
 </style>
+<style id="jp-footer-brand-card-left-space-hover">
+@media(min-width:1300px){.footer .footer-main>div:first-child{margin-left:-48px;width:calc(100% + 48px)}}
+.footer .footer-main>div:first-child{transition:transform .28s ease,filter .28s ease,box-shadow .28s ease}
+.footer .footer-main>div:first-child:hover{z-index:2;transform:scale(1.025);filter:brightness(1.12);box-shadow:0 18px 38px rgba(0,0,0,.3)}
+.footer .footer-main>div:first-child .footer-badge{transition:background-color .25s ease,border-color .25s ease,color .25s ease,box-shadow .25s ease,transform .25s ease}
+.footer .footer-main>div:first-child .footer-badge:hover{background:#f97316!important;border-color:#ffd089!important;color:#fff!important;box-shadow:0 4px 14px rgba(249,115,22,.42);transform:translateY(-2px)}
+</style>
 <script id="jp-one-motivation-line-at-a-time">
 (()=>{
- let group=null,index=0;
+ let group=null,index=0,changing=false;
  function showLine(advance){
   const next=document.querySelector('.jp-motivation-lines');
   if(!next)return;
-  if(next!==group){group=next;index=0}
-  else if(advance)index=(index+1)%group.children.length;
-  [...group.children].forEach((line,i)=>line.classList.toggle('jp-motivation-current',i===index));
+  if(next!==group){group=next;index=0;changing=false;
+   [...group.children].forEach((line,i)=>{line.classList.toggle('jp-motivation-current',i===0);line.classList.toggle('jp-motivation-shown',i===0)});
+   return;
+  }
+  if(!advance||changing||group.children.length<2)return;
+  changing=true;
+  group.children[index].classList.remove('jp-motivation-shown');
+  setTimeout(()=>{
+   if(document.querySelector('.jp-motivation-lines')!==group){changing=false;return}
+   group.children[index].classList.remove('jp-motivation-current');
+   index=(index+1)%group.children.length;
+   const line=group.children[index];line.classList.add('jp-motivation-current');
+   requestAnimationFrame(()=>requestAnimationFrame(()=>{line.classList.add('jp-motivation-shown');changing=false}));
+  },1150);
  }
  new MutationObserver(()=>showLine(false)).observe(document.getElementById('app'),{childList:true});
  showLine(false);
- setInterval(()=>showLine(true),5000);
+ setInterval(()=>showLine(true),6800);
 })();
 </script>
 </body>
