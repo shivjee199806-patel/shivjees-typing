@@ -1087,9 +1087,9 @@ body.public-landing .jp-motivation-lines span:nth-child(2){animation-delay:5s}bo
 @media(max-width:600px){body.public-landing .public-hero>.jp-motivation-rotator{height:85px;margin-bottom:0}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines{height:75px}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span{font-size:19px}}
 @media(prefers-reduced-motion:reduce){body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span{animation:none;opacity:0;transform:none}body.public-landing .public-hero>.jp-motivation-rotator .jp-motivation-lines span:first-child{opacity:1}}
 /* Show one rotating sentence at a time, even when other theme rules affect opacity. */
-body.public-landing .jp-motivation-lines span{display:none!important;animation:none!important;opacity:0!important;transform:none!important;transition:opacity 1.1s ease!important}
+body.public-landing .jp-motivation-lines span{display:none!important;animation:none!important;opacity:0!important;transform:translateY(-26px)!important;transition:opacity 1.15s ease,transform 1.4s cubic-bezier(.2,.75,.25,1)!important}
 body.public-landing .jp-motivation-lines span.jp-motivation-current{display:flex!important}
-body.public-landing .jp-motivation-lines span.jp-motivation-current.jp-motivation-shown{opacity:1!important}
+body.public-landing .jp-motivation-lines span.jp-motivation-current.jp-motivation-shown{opacity:1!important;transform:translateY(0)!important}
 body.jp-home-clean-sky.public-landing .jp-motivation-lines span{background:linear-gradient(95deg,#a43608 8%,#92400e 42%,#075985 88%)!important;background-clip:text!important;-webkit-background-clip:text!important;filter:none!important}
 </style>
 </head>
@@ -5121,13 +5121,13 @@ function learnerStages(lang,track){
  const hi=lang==='Hindi', lay=track?.name||'English QWERTY';
  const legacy=hi&&(/^(krutidev|devlys|chanakya)/.test(track?.id||''));
  const handDrills=legacy?{
-  homeLeft:'asdf',homeRight:';lkj',topLeft:'qwert',topRight:'poiuy',bottomLeft:'zxcvb',bottomRight:'/.,mn'
+  homeLeft:'asdfg',homeRight:';lkjh',homeMiddle:'gh',topLeft:'qwert',topRight:'poiuy',topMiddle:'ty',bottomLeft:'zxcvb',bottomRight:'/.,mn',bottomMiddle:'bn'
  }:track?.id==='remington-gail'?{
-  homeLeft:'कंकेकि',homeRight:'यसर',topLeft:'मतज',topRight:'चवपनल',bottomLeft:'गबटठ',bottomRight:'णएडद'
+  homeLeft:'कंकेकिह',homeRight:'यसारी',homeMiddle:'ही',topLeft:'फॅमतज',topRight:'चवपनल',topMiddle:'जल',bottomLeft:'र्गबटठ',bottomRight:'ध्णएडद',bottomMiddle:'ठद'
  }:{
-  homeLeft:'ओएअइ',homeRight:'चतकर',topLeft:'औऐआईऊ',topRight:'झधघङभ',bottomLeft:'मनव',bottomRight:'य।षसल'
+  homeLeft:'ओएअइउ',homeRight:'चतकरप',homeMiddle:'उप',topLeft:'औऐआईऊ',topRight:'झधघङभ',topMiddle:'ऊभ',bottomLeft:'एँमनव',bottomRight:'य।षसल',bottomMiddle:'वल'
  };
- const alternateHands=(left,right)=>`${left} ${right} ${left} ${right} ${left} ${right}`;
+ const alternateHands=(left,right,middle)=>`${left} ${right} ${middle} ${left} ${right} ${middle} ${left} ${right}`;
  const hp=legacy?[
   'd d f f j j k k l l ; ;','d f j k l ; d f j k l ;','df jk kl fd kj lj','qwer uiop qwer uiop','zxcv nm,. zxcv nm,.',
   `d f g h j k l ; x c v b n m`,`dk fd dh dq dw ds dS dkS dks d`,`Hkkjr ljdkj dk;kZy; vH;FkhZ ijh{kk dEI;wVj izf'k{k.k`,
@@ -5143,12 +5143,10 @@ function learnerStages(lang,track){
   'प्र क्र त्र श्र क्ष ज्ञ कार्यालय क्रमांक प्रशिक्षण अभ्यर्थी','परीक्षा के दौरान शांत रहें, मूल पाठ को ध्यान से पढ़ें, शब्द क्रम और विराम चिह्न सुरक्षित रखें तथा अनावश्यक सुधार से बचें।'
  ];
  const stages=hi?[
-  ['01','Home Row — Left, then Right','Basic','बाएँ हाथ की पूरी sequence → Space → दाएँ हाथ की पूरी sequence → Space; इसी क्रम में दोहराएँ। Layout: '+lay,alternateHands(handDrills.homeLeft,handDrills.homeRight)],
-  ['02','Home Row — Hand Switching','Basic','बायाँ पूरा → Space → दायाँ पूरा → Space; हर बार home position पर लौटें।',alternateHands(handDrills.homeLeft,handDrills.homeRight)],
-  ['03','Home Row — Rhythm','Basic','पहले पूरा बायाँ हाथ, फिर पूरा दायाँ हाथ; बीच में एक Space रखें।',alternateHands(handDrills.homeLeft,handDrills.homeRight)],
-  ['04','Top Row — Left, then Right','Basic','ऊपरी row बाएँ से दाएँ पूरी करें, Space दें; फिर दाएँ से बाएँ पूरी करें।',alternateHands(handDrills.topLeft,handDrills.topRight)],
-  ['05','Bottom Row — Left, then Right','Basic','निचली row बाएँ से दाएँ पूरी करें, Space दें; फिर दाएँ से बाएँ पूरी करें।',alternateHands(handDrills.bottomLeft,handDrills.bottomRight)],
-  ['06','Number Row — Left, then Right','Basic','1 से 5 पूरी करें → Space → 0 से 6 पूरी करें → Space; फिर बायाँ हाथ।',alternateHands('12345','09876')],
+  ['03','Home Row — Both Hands','Basic','बायाँ समूह → Space → दायाँ समूह → Space → बीच की जोड़ी; फिर दोहराएँ। Layout: '+lay,alternateHands(handDrills.homeLeft,handDrills.homeRight,handDrills.homeMiddle)],
+  ['04','Top Row — Left, then Right','Basic','ऊपरी row के दोनों हाथों के बाद बीच की दो keys का अलग अभ्यास करें।',alternateHands(handDrills.topLeft,handDrills.topRight,handDrills.topMiddle)],
+  ['05','Bottom Row — Left, then Right','Basic','निचली row के दोनों हाथों के बाद बीच की दो keys का अलग अभ्यास करें।',alternateHands(handDrills.bottomLeft,handDrills.bottomRight,handDrills.bottomMiddle)],
+  ['06','Number Row — Left, then Right','Basic','1 से 5 → Space → 0 से 6 → Space → बीच के 5 और 6; फिर दोहराएँ।',alternateHands('12345','09876','56')],
   ['07','Matra Practice','Intermediate','मात्राओं को सही अक्षर के साथ टाइप करें और गलत key-combination दोहराएँ।',hp[6]],
   ['08','Words & Conjuncts','Intermediate','संयुक्त अक्षर, आधे अक्षर और सामान्य शब्दों का अभ्यास करें।',hp[7]],
   ['09','Numbers & Punctuation','Intermediate','अंक, तिथि, प्रतिशत, कोष्ठक और विराम चिह्न का अभ्यास करें।',hp[8]],
@@ -5158,12 +5156,10 @@ function learnerStages(lang,track){
   ['13','Error Correction Drill','Advanced','अपनी repeated errors पहचानें और उन्हीं key combinations का targeted drill करें।',hp[12]],
   ['14','Exam Ready Mock','Exam Ready','पूरा passage बिना keyboard देखे, निर्धारित समय और exam-like discipline में टाइप करें।',hp[13]]
  ]:[
-  ['01','Home Row — Left Hand','Basic','Move left to right: A S D F, then press Space with the left thumb.','a s d f asdf asdf'],
-  ['02','Home Row — Right Hand','Basic','Move right to left: ; L K J, then press Space with the right thumb.','; l k j ;lkj ;lkj'],
-  ['03','Home Row — Both Hands','Basic','Practise the left-hand group first, then the right-hand group.','asdf ;lkj asdf ;lkj'],
-  ['04','Top Row — Left, then Right','Basic','Move left to right on Q W E R T, then right to left on P O I U Y.','q w e r t p o i u y qwert poiuy'],
-  ['05','Bottom Row — Left, then Right','Basic','Move left to right on Z X C V B, then right to left on / . , M N.','z x c v b / . , m n zxcvb /.,mn'],
-  ['06','Number Row — Left, then Right','Basic','Type 1 to 5 with the left hand, then 0 to 6 with the right hand.','1 2 3 4 5 0 9 8 7 6 12345 09876'],
+  ['03','Home Row — Both Hands','Basic','Complete A S D F G, Space, ; L K J H, Space, then practise the middle G H pair.','asdfg ;lkjh gh asdfg ;lkjh gh asdfg ;lkjh'],
+  ['04','Top Row — Left, then Right','Basic','Complete Q W E R T, Space, P O I U Y, Space, then practise the middle T Y pair.','qwert poiuy ty qwert poiuy ty qwert poiuy'],
+  ['05','Bottom Row — Left, then Right','Basic','Complete Z X C V B, Space, / . , M N, Space, then practise the middle B N pair.','zxcvb /.,mn bn zxcvb /.,mn bn zxcvb /.,mn'],
+  ['06','Number Row — Left, then Right','Basic','Complete 1 to 5, Space, 0 to 6, Space, then practise the middle 5 6 pair.','12345 09876 56 12345 09876 56 12345 09876'],
   ['07','Shift & Capitals','Intermediate','Use the opposite Shift key for capitals and symbols.','India Computer Operator Delhi Police Railway'],
   ['08','Common Words','Intermediate','Build automatic movement with common exam and office vocabulary.','government computer operator examination administration digital records'],
   ['09','Punctuation Control','Intermediate','Type commas, full stops, colons, semicolons and brackets without breaking rhythm.','Date: 12-09-2026; Ref. No. 245/CO/26. Status: Approved.'],
@@ -5225,9 +5221,26 @@ window.savePurchaseV3=async function(id){try{await api('/api/admin/overall-payme
   {title:'Typing Stamina',level:'Advanced',instruction:'Maintain posture, concentration and steady pace through longer passages.',text:'Long typing sessions require relaxed hands, steady rhythm, focus, and disciplined correction.'},
   {title:'Final Exam Simulation',level:'Exam Ready',instruction:'Apply the complete course in an exam-style timed typing simulation.',text:'Type the given matter exactly, maintain accuracy and pace, and continue calmly until the test ends.'}
  ]; return a.concat(extra.map((x,i)=>({...x,key:`v4-${lang.toLowerCase()}-${track?.id||'qwerty'}-${15+i}`,day:String(15+i).padStart(2,'0'),lang,track:track?.id||'qwerty',layout:track?.layout||'QWERTY'})))};
- window.learning=async function(){if(!S.user){auth('login');return}activeNav('learning');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Practice / Typing Learning</div><h1>Typing Learning Path</h1><p>Zero knowledge → Basic → Intermediate → Advanced → Exam Ready.</p></div></div><div class="learn-track-grid"><button class="card learn-track" onclick="openLearningFolderV3('English')"><span class="badge">English</span><h2>English Learning</h2><p>QWERTY · hand/finger positioning · 20-stage guided course</p></button><button class="card learn-track" onclick="openLearningFolderV3('Hindi')"><span class="badge">Hindi</span><h2>Hindi Learning</h2><p>5 separate layouts · each with a 20-stage guided course</p></button></div><div class="kids-entry-main"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><div style="font-size:38px">🎮🧒</div><h2 style="margin:4px 0">Kids Typing Games · Age 5–12</h2><p style="margin:0">6 voice-guided typing games · English + Hindi · play while learning.</p></div><button class="btn btn-primary" onclick="openKidsTypingGames()">Play & Learn →</button></div></div><div id="learningFolder" style="margin-top:18px"></div></div>`)};
+ window.learning=async function(){if(!S.user){auth('login');return}activeNav('learning');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Practice / Typing Learning</div><h1>Typing Learning Path</h1><p>Zero knowledge → Basic → Intermediate → Advanced → Exam Ready.</p></div></div><div class="learn-track-grid"><button class="card learn-track" onclick="openLearningFolderV3('English')"><span class="badge">English</span><h2>English Learning</h2><p>QWERTY · hand/finger positioning · 18-stage guided course</p></button><button class="card learn-track" onclick="openLearningFolderV3('Hindi')"><span class="badge">Hindi</span><h2>Hindi Learning</h2><p>5 separate layouts · each with a 18-stage guided course</p></button></div><div class="kids-entry-main"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><div style="font-size:38px">🎮🧒</div><h2 style="margin:4px 0">Kids Typing Games · Age 5–12</h2><p style="margin:0">6 voice-guided typing games · English + Hindi · play while learning.</p></div><button class="btn btn-primary" onclick="openKidsTypingGames()">Play & Learn →</button></div></div><div id="learningFolder" style="margin-top:18px"></div></div>`)};
  const oldRender=renderLearningCourseV3;
- window.renderLearningCourseV3=function(lang,trackId){oldRender(lang,trackId);const box=document.getElementById('learningFolder');if(box){box.querySelectorAll('.muted').forEach(x=>{if(x.textContent.includes('14-stage'))x.textContent=x.textContent.replace('14-stage','20-stage')})}};
+ window.renderLearningCourseV3=async function(lang,trackId){
+  oldRender(lang,trackId);
+  const box=document.getElementById('learningFolder');if(!box)return;
+  box.querySelectorAll('.muted').forEach(x=>{if(x.textContent.includes('14-stage'))x.textContent=x.textContent.replace('14-stage','18-stage')});
+  const holder=document.createElement('section');holder.className='card';holder.style.cssText='padding:20px;margin-top:18px';holder.innerHTML='<h2>📚 मेरी Learning History</h2><p class="muted">आपकी अभ्यास history आपके login account में सुरक्षित रहती है।</p><p class="muted">History लोड हो रही है…</p>';box.appendChild(holder);
+  try{
+   const [progress,history]=await Promise.all([api('/api/learning/progress'),api('/api/learning/history?limit=200')]);
+   if(!holder.isConnected)return;
+   const prefix=lang==='Hindi'?'hindi':'english',course='-'+prefix+'-'+trackId+'-';
+   const stages=learnerStages(lang,lang==='Hindi'?HINDI_LEARNING_TRACKS.find(t=>t.id===trackId):{id:'qwerty'});
+   const rows=(progress.rows||[]).filter(x=>String(x.lesson_key).includes(course));
+   const attempts=(history||[]).filter(x=>String(x.lesson_key).includes(course));
+   const completed=stages.filter(l=>rows.some(x=>x.lesson_key===l.key&&Number(x.best_score)>=100)).length;
+   holder.innerHTML=`<h2>📚 मेरी Learning History</h2><p class="muted">${esc(lang)} · ${esc(trackId)} का रिकॉर्ड आपके login account में सुरक्षित रहता है।</p><div class="metrics" style="margin-bottom:16px"><div class="metric"><small>पूरे stages</small><b>${completed}/${stages.length}</b></div><div class="metric"><small>अभ्यास किए stages</small><b>${rows.length}</b></div><div class="metric"><small>कुल attempts</small><b>${rows.reduce((n,x)=>n+Number(x.attempts||0),0)}</b></div></div>${attempts.length?`<div class="table-wrap"><table class="table"><thead><tr><th>तारीख</th><th>Stage</th><th>कितना किया</th><th>Accuracy</th></tr></thead><tbody>${attempts.map(x=>`<tr><td>${esc(new Date(x.created_at).toLocaleString())}</td><td>${esc(x.lesson_title)}</td><td>${Number(x.score||0)}%</td><td>${Number(x.accuracy||0).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">अभी कोई अभ्यास save नहीं हुआ है।</p>'}`;
+   box.querySelectorAll('.learn-stage-list .lesson-card').forEach((card,i)=>{const row=rows.find(x=>x.lesson_key===stages[i]?.key);if(!row)return;const info=document.createElement('div');info.className='muted';info.style.marginBottom='10px';info.textContent=`${Number(row.best_score)>=100?'पूरा हुआ':'अभ्यास जारी'} · ${Number(row.best_score)||0}% best · ${row.attempts} attempts`;card.querySelector('button')?.before(info)});
+  }catch(e){if(holder.isConnected)holder.innerHTML='<h2>📚 मेरी Learning History</h2><p class="muted">History अभी नहीं खुल सकी: '+esc(e.message)+'</p>'}
+ };
+
  const oldStart=startGuidedLessonV3;
  window.startGuidedLessonV3=function(lang,trackId,index){oldStart(lang,trackId,index);const actions=document.querySelector('.guide-actions');if(!actions)return;const panel=document.createElement('div');panel.className='voice-teacher-settings';panel.innerHTML=`<label>Teacher Language<select id="teacherLang" class="select"><option value="auto">Lesson Language</option><option value="Hindi">Hindi</option><option value="English">English</option></select></label><label>Teacher Voice<select id="teacherGender" class="select"><option value="female">Lady</option><option value="male">Male</option></select></label><label>Speaking Speed<select id="teacherRate" class="select"><option value="0.72">Slow</option><option value="0.86" selected>Clear / Normal</option><option value="1">Normal</option></select></label><label>Available Voice<select id="teacherVoice" class="select"><option value="">Best Natural Voice</option></select></label>`;actions.parentNode.insertBefore(panel,actions);loadTeacherVoices(lang)};
  function loadTeacherVoices(lang){const sel=document.getElementById('teacherVoice');if(!sel||!('speechSynthesis'in window))return;const fill=()=>{const target=(document.getElementById('teacherLang')?.value||'auto')==='auto'?lang:document.getElementById('teacherLang').value;const code=target==='Hindi'?'hi':'en';const vs=speechSynthesis.getVoices().filter(v=>String(v.lang).toLowerCase().startsWith(code));sel.innerHTML='<option value="">Best Natural Voice</option>'+vs.map((v,i)=>`<option value="${esc(v.name)}">${esc(v.name)} · ${esc(v.lang)}</option>`).join('')};fill();speechSynthesis.onvoiceschanged=fill;document.getElementById('teacherLang')?.addEventListener('change',fill)}
@@ -5551,6 +5564,58 @@ pre,code,.analysis-text,.learning-prompt,.passage-box{max-width:100%;overflow-wr
  .learning-folder-grid-final,.learning-grid,.learn-track-grid,.learn-stage-list{grid-template-columns:1fr!important}
 }
 @media (max-width:360px){.owner-full-page .owner-control-tabs{grid-template-columns:1fr 1fr!important}.top-actions .btn{padding:8px!important;font-size:11px!important}.brand strong{font-size:12px!important}.page{padding-left:8px!important;padding-right:8px!important}}
+/* Practice choices and exam directory cards. */
+.page > .grid2 > button.exam-card,
+.exam-directory .browse-exam-card,
+.exam-directory .exam-card{
+ border-color:color-mix(in srgb,var(--blue,#2875d0) 32%,var(--border,#d9e2ec));
+ background:linear-gradient(135deg,color-mix(in srgb,var(--card,#fff) 92%,var(--blue,#2875d0) 8%),var(--card,#fff));
+ box-shadow:0 6px 18px rgba(24,83,150,.12);
+ transition:transform .32s ease,box-shadow .32s ease,border-color .32s ease,background .32s ease;
+ transform-origin:center;position:relative;z-index:0;
+}
+@media (hover:hover) and (pointer:fine){
+ .page > .grid2 > button.exam-card:hover,
+ .exam-directory .browse-exam-card:hover,
+ .exam-directory .exam-card:hover{
+  transform:scale(1.025);z-index:1;border-color:var(--blue,#2875d0);
+  box-shadow:0 14px 30px rgba(24,83,150,.23);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--card,#fff) 82%,var(--blue,#2875d0) 18%),var(--card,#fff));
+ }
+}
+.page > .grid2 > button.exam-card:focus,
+.page > .grid2 > button.exam-card:active,
+.exam-directory .browse-exam-card:focus,
+.exam-directory .browse-exam-card:active,
+.exam-directory .exam-card:focus,
+.exam-directory .exam-card:active{
+ outline:2px solid var(--blue,#2875d0);outline-offset:2px;border-color:var(--blue,#2875d0);
+ box-shadow:0 0 0 5px rgba(40,117,208,.18),0 14px 30px rgba(24,83,150,.22);
+}
+.page > .grid2 > button.exam-card:active,.exam-directory .browse-exam-card:active,.exam-directory .exam-card:active{transform:scale(1.012)}
+/* Learning landing: English and Hindi choice cards only. */
+.page > .learn-track-grid > button.learn-track{
+ border:1.5px solid color-mix(in srgb,var(--blue,#2875d0) 30%,var(--border,#d9e2ec));
+ background:linear-gradient(135deg,color-mix(in srgb,var(--card,#fff) 92%,var(--blue,#2875d0) 8%),var(--card,#fff));
+ box-shadow:0 6px 18px rgba(24,83,150,.12);
+ transition:transform .32s ease,box-shadow .32s ease,border-color .32s ease,background .32s ease;
+ transform-origin:center;position:relative;z-index:0;
+}
+@media (hover:hover) and (pointer:fine){
+ .page > .learn-track-grid > button.learn-track:hover{
+  transform:scale(1.025);z-index:1;
+  border-color:var(--blue,#2875d0);
+  box-shadow:0 14px 30px rgba(24,83,150,.23);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--card,#fff) 82%,var(--blue,#2875d0) 18%),var(--card,#fff));
+ }
+}
+.page > .learn-track-grid > button.learn-track:focus-visible,
+.page > .learn-track-grid > button.learn-track:active{
+ outline:2px solid var(--blue,#2875d0);outline-offset:2px;
+ border-color:var(--blue,#2875d0);
+ box-shadow:0 0 0 5px rgba(40,117,208,.18),0 14px 30px rgba(24,83,150,.22);
+}
+.page > .learn-track-grid > button.learn-track:active{transform:scale(1.012)}
 </style>
 <script id="mobileNavigationHardFix20260913">
 (function(){
