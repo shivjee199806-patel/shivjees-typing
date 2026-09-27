@@ -6793,8 +6793,10 @@ body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].
 @media(max-width:520px){.footer .footer-main>.social-footer .social-row{gap:7px!important}.footer .footer-main>.social-footer .social-logo{width:38px!important;height:38px!important;min-width:38px!important;flex-basis:38px!important}.footer .footer-main>.social-footer .social-logo:after{bottom:46px!important}}
 </style>
 <style id="jp-footer-brand-card-left-space-hover">
-@media(min-width:1000px){.footer .footer-main>div:first-child{margin-left:-min(36px,3vw);width:304px;max-width:calc(100% + 48px)}}
-@media(min-width:1300px){.footer .footer-main>div:first-child{margin-left:-min(150px,calc((100vw - 1260px)/2 + 25px));width:min(420px,calc(100% + min(150px,calc((100vw - 1260px)/2 + 25px))));max-width:none}}
+@media(min-width:781px){
+ .footer .footer-main{max-width:none;grid-template-columns:minmax(0,min(342px,28vw)) minmax(0,.8fr) minmax(0,.85fr) minmax(0,.9fr) minmax(0,1.2fr);column-gap:26px;padding-left:28px!important;padding-right:28px!important}
+ .footer .footer-main>div:first-child{width:100%;max-width:100%;margin-left:0;min-width:0;box-sizing:border-box}
+}
 .footer .footer-main>div:first-child{transition:transform .28s ease,filter .28s ease,box-shadow .28s ease}
 .footer .footer-main>div:first-child:hover{z-index:2;transform:scale(1.025);filter:brightness(1.12);box-shadow:0 18px 38px rgba(0,0,0,.3)}
 .footer .footer-main>div:first-child .footer-badge{transition:background-color .25s ease,border-color .25s ease,color .25s ease,box-shadow .25s ease,transform .25s ease}
