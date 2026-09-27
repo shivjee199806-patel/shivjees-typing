@@ -1291,7 +1291,7 @@ function renderPrePractice(){S.practiceLeft=120;const txt=randomPracticeText();s
 function practiceCompleteWarning(){clearInterval(S.practiceTimer);setApp(`<div class="exam-warning-modal"><div class="exam-warning-card"><h2>⚠️ Main Exam Entry</h2><p>Practice समाप्त हो गई है। <b>Enter Main Exam</b> दबाते ही exam Full Screen में खुलेगा, cursor typing pane में रहेगा और actual timer तुरंत शुरू हो जाएगा.</p><p>Keyboard/input तैयार रखें। Sound/Zoom timer चलते समय manage होंगे; Theme बदलते समय ही timer temporarily pause होगा.</p><button class="btn btn-primary" onclick="beginMainExam()">Enter Main Exam →</button></div></div>`)}
 function beginMainExam(){S.left=S.total;S.started=false;S.done=false;S.submitting=false;S.backspaces=0;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest(true);requestExamFullscreen();const el=document.getElementById('typing');el?.focus();S.started=true;S.startTime=Date.now();S.deadline=S.startTime+S.total*1000;clearInterval(S.timer);S.timer=setInterval(timerTick,250);timerTick()}
 async function startExam(){if(!S.user){auth('login');return}if(!S.exam)return;openPassagePicker()}
-function practice(){activeNav('practice');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1><p>English और Hindi practice अलग folders में। Daily Auto ON होने पर हर भाषा में रोज़ 4 नए passages जुड़ते हैं: 1 Easy, 1 Medium, 1 Moderate to Hard, 1 Hard.</p></div></div><div class="grid2 jp-practice-choice-grid" style="margin-bottom:18px"><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('English')"><div class="topline"><span class="badge">English</span></div><h3>English Practice</h3><p>Unique English typing matters</p></button><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('Hindi')"><div class="topline"><span class="badge">Hindi</span></div><h3>Hindi Practice</h3><p>Unique Hindi typing matters</p></button></div><div id="practiceFolder"></div></div>`);const folder=sessionStorage.getItem('jp_practice_folder');if(['English','Hindi'].includes(folder))openPracticeFolder(folder)}
+function practice(){activeNav('practice');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1></div></div><div class="grid2 jp-practice-choice-grid" style="margin-bottom:18px"><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('English')"><div class="topline"><span class="badge">English</span></div><h3>English Practice</h3><p>Unique English typing matters</p></button><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('Hindi')"><div class="topline"><span class="badge">Hindi</span></div><h3>Hindi Practice</h3><p>Unique Hindi typing matters</p></button></div><div id="practiceFolder"></div></div>`);const folder=sessionStorage.getItem('jp_practice_folder');if(['English','Hindi'].includes(folder))openPracticeFolder(folder)}
 function openPracticeFolder(lang){S.practiceFolder=lang;sessionStorage.setItem('jp_practice_folder',lang);document.getElementById('practiceFolder').innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="S.practiceFolder=null;sessionStorage.removeItem('jp_practice_folder');practice()">← Back</button><b>${esc(lang)} Practice</b><select id="pdiff" class="select"><option value="">All Levels</option><option>Easy</option><option>Medium</option><option>Moderate to Hard</option><option>Hard</option></select><select id="pmins" class="select"><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1200">20 min</option><option value="1500">25 min</option><option value="1800">30 min</option></select><label class="opt" style="display:flex;align-items:center;gap:6px"><input id="practiceHighlight" type="checkbox" ${S.practiceHighlight?'checked':''} onchange="S.practiceHighlight=this.checked"> Highlight</label></div><div id="pp" class="grid3"></div>`;pmins.value=sessionStorage.getItem('jp_practice_minutes')||'300';pdiff.onchange=loadPractice;pmins.onchange=()=>{sessionStorage.setItem('jp_practice_minutes',pmins.value);loadPractice()};loadPractice()}
 function practiceWordsNeeded(lang,seconds){
  const language=String(lang||'').toLowerCase()==='hindi'?'Hindi':'English';
@@ -6929,9 +6929,44 @@ body.jp-owner-session:not(.exam-mode) .topbar .topnav a[data-route="dashboard"].
  window.ownerTab=function(name,btn){if(name!=='herolines')return previousTab(name,btn);if(btn){document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.toggle('active',x===btn))}const pane=document.getElementById('ownerPane');if(!pane)return;pane.innerHTML='<div class="card" style="padding:20px"><h2>✨ Home Hero Lines</h2><p class="muted">Home के ऊपर एक-एक करके चलने वाली पाँच पंक्तियाँ यहाँ बदलें।</p><div id="jpHeroLineFields">लोड हो रहा है…</div><button class="btn btn-primary" id="jpSaveHeroLines" style="margin-top:16px">पंक्तियाँ Save करें</button></div>';const fields=document.getElementById('jpHeroLineFields'),save=document.getElementById('jpSaveHeroLines');api('/api/admin/settings').then(settings=>{let lines=defaults;try{const stored=JSON.parse(settings.hero_lines);if(Array.isArray(stored)&&stored.length===5)lines=stored}catch{}if(!fields.isConnected)return;fields.replaceChildren(...lines.map((value,i)=>{const label=document.createElement('label');label.style.cssText='display:block;font-weight:700;margin-top:12px';label.textContent=`पंक्ति ${i+1}`;const input=document.createElement('input');input.className='input jp-hero-line-input';input.maxLength=160;input.style.cssText='width:100%;margin-top:6px';input.value=value;label.appendChild(input);return label}));}).catch(e=>{fields.textContent=e.message});save.onclick=async()=>{const lines=[...fields.querySelectorAll('.jp-hero-line-input')].map(x=>x.value.trim());if(lines.length!==5||lines.some(x=>!x))return showToast('सभी पाँच पंक्तियाँ भरें।');save.disabled=true;try{await api('/api/admin/hero-lines',{method:'PUT',body:JSON.stringify({lines})});showToast('Home की पाँच पंक्तियाँ save हो गईं।')}catch(e){showToast(e.message)}finally{save.disabled=false}}};
 })();
 </script>
+<style id="jp-theme-candidate-cards-20260927">
+/* Candidate-facing Learning tracks, guided stages, Practice passages and Exam folders. */
+body:not(.public-landing) .learn-track-grid .learn-track,
+body:not(.public-landing) .learn-stage-list .lesson-card,
+body:not(.public-landing) #pp .exam-card,
+body:not(.public-landing) .exam-directory .browse-exam-card,
+body:not(.public-landing) .picker-wrap .browse-exam-card{
+ background:color-mix(in srgb,var(--card,#fff) 93%,var(--blue,#2875d0) 7%)!important;
+ border-color:color-mix(in srgb,var(--line,#d9e2ec) 67%,var(--blue,#2875d0) 33%)!important;
+ box-shadow:0 5px 15px color-mix(in srgb,var(--blue,#2875d0) 12%,transparent)!important;
+ transition:transform .32s ease,background .32s ease,border-color .32s ease,box-shadow .32s ease;
+ position:relative;z-index:0;
+}
+@media (hover:hover) and (pointer:fine){
+ body:not(.public-landing) .learn-track-grid .learn-track:hover,
+ body:not(.public-landing) .learn-stage-list .lesson-card:hover,
+ body:not(.public-landing) #pp .exam-card:hover,
+ body:not(.public-landing) .exam-directory .browse-exam-card:hover,
+ body:not(.public-landing) .picker-wrap .browse-exam-card:hover{
+  background:color-mix(in srgb,var(--card,#fff) 84%,var(--blue,#2875d0) 16%)!important;
+  border-color:var(--blue,#2875d0)!important;
+  box-shadow:0 12px 25px color-mix(in srgb,var(--blue,#2875d0) 22%,transparent)!important;
+  transform:translateY(-3px) scale(1.012);z-index:2;
+ }
+}
+body:not(.public-landing) .learn-track-grid .learn-track:is(:focus,:active,.jp-choice-active),
+body:not(.public-landing) .learn-stage-list .lesson-card:is(:focus-within,:active,.jp-choice-active),
+body:not(.public-landing) #pp .exam-card:is(:focus-within,:active,.jp-choice-active),
+body:not(.public-landing) .exam-directory .browse-exam-card:is(:focus,:active,.jp-choice-active),
+body:not(.public-landing) .picker-wrap .browse-exam-card:is(:focus,:active,.jp-choice-active){
+ background:color-mix(in srgb,var(--card,#fff) 82%,var(--blue,#2875d0) 18%)!important;
+ border-color:var(--blue,#2875d0)!important;
+ box-shadow:0 0 0 3px color-mix(in srgb,var(--blue,#2875d0) 17%,transparent),0 12px 25px color-mix(in srgb,var(--blue,#2875d0) 18%,transparent)!important;
+}
+</style>
 <script id="jp-choice-card-selection-20260927">
 document.addEventListener('click',event=>{
- const card=event.target.closest('.page > .jp-practice-choice-grid > button.exam-card,.page > .learn-track-grid > button.learn-track,.exam-directory .browse-exam-card,.exam-directory .exam-card');
+ const card=event.target.closest('.page > .jp-practice-choice-grid > button.exam-card,.learn-track-grid .learn-track,.learn-stage-list .lesson-card,#pp .exam-card,.exam-directory .browse-exam-card,.exam-directory .exam-card,.picker-wrap .browse-exam-card');
  if(!card)return;
  const group=card.parentElement;
  group.querySelectorAll('.jp-choice-active').forEach(x=>x.classList.remove('jp-choice-active'));
