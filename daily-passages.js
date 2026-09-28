@@ -1026,7 +1026,7 @@ function createService(db,{setting,indiaDateParts,onChange}){
   const slotInsert=db.prepare('INSERT INTO daily_auto_slots(slot,queue_id,passage_id,content_hash) VALUES(?,?,?,?)');
   let created=0,published=0;const tx=db.transaction(()=>{for(const t of targets){let qn=100;for(let l=0;l<LEVELS.length;l++)for(let n=1;n<=t.counts[l];n++){
    qn++;const difficulty=LEVELS[l],slot=[date,t.type,t.sharedExam?'ALL':t.exam.id,t.language,difficulty,n].join('|');if(findSlot.get(slot))continue;
-   let content,contentHash,meta=null;const attempts=t.type==='live'?40:240;for(let attempt=0;attempt<attempts;attempt++){const out=composeDetailed({language:t.language,difficulty,date,targetType:t.type,exam:t.exam,serial:n,attempt});content=out.content;contentHash=hash(content);const duplicateSlot=existsHash.get(contentHash),duplicateStored=knownHashes.has(contentHash),duplicateTopic=out.topicSignature&&existsTopic.get(out.topicSignature),recentSubject=out.baseSubject&&out.baseSubject!=='legacy'&&out.baseSubject!=='live'&&recentBase.get(out.baseSubject);if(!duplicateSlot&&!duplicateStored&&!duplicateTopic&&!recentSubject){meta=out;break}content=null;meta=null}if(!content)throw Error('Fresh passage unavailable');
+   let content,contentHash,meta=null;const attempts=t.type==='live'?40:240;for(let attempt=0;attempt<attempts;attempt++){const out=composeDetailed({language:t.language,difficulty,date,targetType:t.type,exam:t.exam,serial:n,attempt});content=out.content;contentHash=hash(content);const duplicateSlot=existsHash.get(contentHash),duplicateStored=knownHashes.has(contentHash),duplicateTopic=out.topicSignature&&existsTopic.get(out.topicSignature),recentSubject=out.baseSubject&&out.baseSubject!=='legacy'&&out.baseSubject!=='live'&&recentBase.get(out.baseSubject);const relaxTopicCooldown=attempt>=Math.floor(attempts*0.6);if(!duplicateSlot&&!duplicateStored&&(relaxTopicCooldown||(!duplicateTopic&&!recentSubject))){meta=out;break}content=null;meta=null}if(!content)throw Error('Fresh passage unavailable');
    const title=meta?.topicTitle?`${date} • ${meta.topicTitle} • ${difficulty} • ${n}`:`${date} • ${t.exam.name} • ${t.language} • ${difficulty} • ${n}`;
    // Every automatic matter stays only in Daily Matter Queue until the Owner edits/reviews it.
    // Nothing is inserted into Exam/Practice passage folders during generation.
@@ -1228,7 +1228,108 @@ function createService(db,{setting,indiaDateParts,onChange}){
   return {max_date:maxDate,updated,replaced_for_history:replacedForHistory,extras_archived:extrasArchived,owner_edited:ownerEdited,skipped};
  }
 
+
+ // Repair already-existing Daily Queue text without changing unrelated site data.
+ // Auto untouched Hindi rows are regenerated from the Hindi composer instead of merely
+ // spelling Roman words in Devanagari. Owner-edited/manual rows keep their wording and
+ // only receive the no-Latin + balanced density cleanup.
+ function refreshExistingDailyQueueMatter(){
+  const rows=db.prepare(`SELECT * FROM daily_passage_queue ORDER BY queue_date,id`).all();
+  if(!rows.length)return {scanned:0,queue_updated:0,passages_updated:0,history_replacements:0,skipped:0};
+  const examById=db.prepare('SELECT * FROM exams WHERE id=?');
+  const pubLinks=db.prepare('SELECT queue_id,passage_id,exam_id FROM daily_queue_publications WHERE queue_id=? ORDER BY passage_id');
+  const getPassage=db.prepare('SELECT * FROM passages WHERE id=?');
+  const resultCount=db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?');
+  const updateQueue=db.prepare('UPDATE daily_passage_queue SET title=?,content=? WHERE id=?');
+  const updatePassage=db.prepare('UPDATE passages SET title=?,content=?,difficulty=? WHERE id=?');
+  const archivePassage=db.prepare('UPDATE passages SET active=0 WHERE id=?');
+  const deleteLink=db.prepare('DELETE FROM daily_queue_publications WHERE queue_id=? AND passage_id=?');
+  const addLink=db.prepare('INSERT OR IGNORE INTO daily_queue_publications(queue_id,passage_id,exam_id) VALUES(?,?,?)');
+  const updatePrimary=db.prepare('UPDATE daily_passage_queue SET published_passage_id=? WHERE id=?');
+  const insertPassage=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,1,?,?,?,?,?)');
+  const updateSlot=db.prepare('UPDATE daily_auto_slots SET content_hash=?,passage_id=COALESCE(?,passage_id) WHERE queue_id=?');
+
+  const usedHashes=new Set();
+  for(const r of db.prepare('SELECT content FROM passages WHERE content IS NOT NULL').all())usedHashes.add(hash(r.content));
+  for(const r of rows)usedHashes.add(hash(r.content));
+
+  let queueUpdated=0,passagesUpdated=0,historyReplacements=0,skipped=0;
+  const tx=db.transaction(()=>{for(const q of rows){
+   const language=String(q.language||'');
+   if(!['English','Hindi'].includes(language)){skipped++;continue}
+   const difficulty=LEVELS.includes(q.difficulty)?q.difficulty:'Medium';
+   const targetType=['exam','practice','live'].includes(q.target_type)?q.target_type:'exam';
+   let nextContent='',nextTitle=String(q.title||'');
+
+   // Genuine Hindi rewrite for untouched automatic Hindi rows.
+   if(language==='Hindi' && Number(q.manual||0)===0 && Number(q.owner_edited||0)===0){
+    let exam;
+    if(targetType==='exam'){
+      exam=Number(q.exam_id)>0?examById.get(Number(q.exam_id)):null;
+      if(!exam)exam={id:0,name:'All Exam Folders',slug:'daily-shared-all-exams',language:'Hindi',layout:'Unicode / Mangal',duration:30,min_words:PRACTICE_30_MIN_WORDS.Hindi,required_wpm:0};
+    }else{
+      exam={id:0,name:targetType==='practice'?'Typing Practice':'Live Typing',language:'Hindi',layout:'Unicode / Mangal'};
+    }
+    const serial=Math.max(1,Number(q.queue_no||101)-100);
+    let made=null;
+    for(let attempt=0;attempt<80;attempt++){
+      const out=composeDetailed({language:'Hindi',difficulty,date:String(q.queue_date||indiaDateParts().date),targetType,exam,serial,attempt:attempt+Number(q.id||0)});
+      const h=hash(out.content);
+      if(h===hash(q.content)||usedHashes.has(h))continue;
+      made=out;usedHashes.add(h);break;
+    }
+    if(made){
+      nextContent=normalizeDailyMatter(made.content,'Hindi',difficulty);
+      nextTitle=`${q.queue_date} • ${cleanUnicodeHindiMatter(made.topicTitle||'दैनिक टाइपिंग अभ्यास')} • ${difficulty} • ${serial}`;
+    }else{
+      nextContent=normalizeDailyMatter(q.content,'Hindi',difficulty);
+      nextTitle=cleanUnicodeHindiMatter(nextTitle);
+    }
+   }else{
+    // English, manual rows and owner-edited Hindi keep their wording; only rebalance/clean.
+    nextContent=normalizeDailyMatter(q.content,language,difficulty);
+    if(language==='Hindi')nextTitle=cleanUnicodeHindiMatter(nextTitle);
+   }
+
+   if(!nextContent)nextContent=normalizeDailyMatter(q.content,language,difficulty);
+   const changedText=nextContent!==String(q.content||'')||nextTitle!==String(q.title||'');
+   if(!changedText)continue;
+
+   updateQueue.run(nextTitle,nextContent,q.id);queueUpdated++;
+
+   const links=pubLinks.all(q.id);
+   const seen=new Set();
+   if(q.published_passage_id)links.push({queue_id:q.id,passage_id:q.published_passage_id,exam_id:null});
+   let newPrimary=null;
+   for(const l of links){
+    const pid=Number(l.passage_id||0);if(!pid||seen.has(pid))continue;seen.add(pid);
+    const p=getPassage.get(pid);if(!p)continue;
+    const used=Number(resultCount.get(pid)?.c||0)>0;
+    if(!used){
+      passagesUpdated+=updatePassage.run(nextTitle,nextContent,difficulty,pid).changes;
+      if(!newPrimary)newPrimary=pid;
+      continue;
+    }
+    // Keep the exact old passage for past result/history, hide it from new candidate lists,
+    // and create a corrected replacement with the same folder behaviour/settings.
+    archivePassage.run(pid);
+    const npid=insertPassage.run(
+      nextTitle,language,p.layout||(language==='Hindi'?'Unicode / Mangal':'QWERTY'),difficulty,nextContent,
+      p.highlight_mode||'current_char',p.exam_id??l.exam_id??null,Number(p.auto_scroll??1),p.result_count_mode||'word'
+    ).lastInsertRowid;
+    deleteLink.run(q.id,pid);addLink.run(q.id,npid,p.exam_id??l.exam_id??null);
+    historyReplacements++;passagesUpdated++;
+    if(Number(q.published_passage_id)===pid||!newPrimary)newPrimary=npid;
+   }
+   if(newPrimary && Number(q.published_passage_id||0)!==Number(newPrimary))updatePrimary.run(newPrimary,q.id);
+   updateSlot.run(hash(nextContent),newPrimary||null,q.id);
+  }});
+  tx();
+  if(queueUpdated||passagesUpdated||historyReplacements)changed();
+  return {scanned:rows.length,queue_updated:queueUpdated,passages_updated:passagesUpdated,history_replacements:historyReplacements,skipped};
+ }
+
  let lastKey='';function tick(now=new Date()){const ip=indiaDateParts(now),c=controls(),key=[ip.date,c.enabled,c.exam_enabled,c.practice_enabled,setting('live_daily_enabled')].join('|');if(ip.hour<10||!c.enabled||key===lastKey)return {created:0};const result=run(ip.date);lastKey=key;return result}
  function start(){const safe=()=>{try{tick()}catch(e){console.warn('Daily passages:',e.message)}};safe();const timer=setInterval(safe,60000);timer.unref?.();return timer}
- return {controls,setControls,run,refreshDate,refreshExistingPracticeMatter,refreshHistoricalExamMatter,tick,start};
+ return {controls,setControls,run,refreshDate,refreshExistingPracticeMatter,refreshHistoricalExamMatter,refreshExistingDailyQueueMatter,tick,start};
 }

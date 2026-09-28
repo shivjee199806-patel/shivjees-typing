@@ -290,6 +290,27 @@ db.exec(`CREATE TABLE IF NOT EXISTS daily_queue_publications(
 );
 CREATE INDEX IF NOT EXISTS idx_daily_queue_publications_queue ON daily_queue_publications(queue_id);`);
 
+// Chhota Bhai Exam publish groups: one matter may be copied to many exam/sub-folders.
+// Group tracking allows a single "Delete All Copies" action.
+db.exec(`CREATE TABLE IF NOT EXISTS brother_exam_groups(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ title TEXT NOT NULL,
+ language TEXT NOT NULL,
+ content_hash TEXT NOT NULL,
+ content TEXT NOT NULL,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ deleted_at TEXT
+);
+CREATE TABLE IF NOT EXISTS brother_exam_publications(
+ group_id INTEGER NOT NULL,
+ passage_id INTEGER NOT NULL UNIQUE,
+ exam_id INTEGER,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(group_id,passage_id)
+);
+CREATE INDEX IF NOT EXISTS idx_brother_exam_publications_group ON brother_exam_publications(group_id);
+CREATE INDEX IF NOT EXISTS idx_brother_exam_groups_created ON brother_exam_groups(created_at);`);
+
 // Public Gallery + Information Centre managed entirely from Owner Control.
 db.exec(`CREATE TABLE IF NOT EXISTS gallery_items(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1780,6 +1801,62 @@ app.delete('/api/admin/practice-matters/:id',auth,admin,(req,res)=>{const id=Num
 
 app.get('/api/practice-folders',(req,res)=>res.json(db.prepare("SELECT id,parent_name,name,folder_key FROM owner_content_folders WHERE area='practice' AND active=1 ORDER BY id DESC").all()));
 app.get('/api/practice-folders/:id/passages',(req,res)=>res.json(db.prepare(`SELECT p.* FROM passages p JOIN owner_practice_folder_passages l ON l.passage_id=p.id WHERE l.folder_id=? AND p.active=1 ORDER BY p.id DESC`).all(Number(req.params.id))));
+
+function ensureBrotherExamHistoryGroups(){
+ const known=new Set(db.prepare('SELECT passage_id FROM brother_exam_publications').all().map(x=>Number(x.passage_id)));
+ const auditIds=db.prepare("SELECT DISTINCT CAST(entity_id AS INTEGER) id FROM audit_logs WHERE entity='brother_exam_matter' AND action='CREATE' AND CAST(entity_id AS INTEGER)>0 ORDER BY id").all();
+ const grouped=new Map();
+ for(const row of auditIds){
+  const pid=Number(row.id);if(!pid||known.has(pid))continue;
+  const p=db.prepare('SELECT * FROM passages WHERE id=?').get(pid);if(!p||!p.exam_id)continue;
+  const key=[p.language||'',String(p.title||'').trim(),normalizeMatterForDuplicateCheck(p.content||'')].join('|');
+  if(!grouped.has(key))grouped.set(key,{title:p.title||'Prepared Typing Matter',language:p.language||'English',content:p.content||'',rows:[]});
+  grouped.get(key).rows.push(p);
+ }
+ if(!grouped.size)return;
+ const insGroup=db.prepare('INSERT INTO brother_exam_groups(title,language,content_hash,content) VALUES(?,?,?,?)');
+ const insPub=db.prepare('INSERT OR IGNORE INTO brother_exam_publications(group_id,passage_id,exam_id) VALUES(?,?,?)');
+ db.transaction(()=>{for(const g of grouped.values()){
+  const gid=insGroup.run(g.title,g.language,hash(g.content),g.content).lastInsertRowid;
+  for(const p of g.rows)insPub.run(gid,p.id,p.exam_id);
+ }})();
+}
+
+app.get('/api/admin/brother/exam-groups',auth,admin,(req,res)=>{try{
+ ensureBrotherExamHistoryGroups();
+ const rows=db.prepare(`SELECT g.id,g.title,g.language,g.created_at,
+  COUNT(bp.passage_id) copy_count,
+  SUM(CASE WHEN p.active=1 THEN 1 ELSE 0 END) active_count
+  FROM brother_exam_groups g
+  LEFT JOIN brother_exam_publications bp ON bp.group_id=g.id
+  LEFT JOIN passages p ON p.id=bp.passage_id
+  WHERE g.deleted_at IS NULL
+  GROUP BY g.id ORDER BY g.id DESC LIMIT 200`).all();
+ res.set('Cache-Control','no-store');res.json(rows);
+ }catch(e){res.status(400).json({error:e.message||'Could not load Chhota Bhai sent matters'})}
+});
+
+app.delete('/api/admin/brother/exam-groups/:id',auth,admin,(req,res)=>{try{
+ ensureBrotherExamHistoryGroups();
+ const id=Number(req.params.id),g=db.prepare('SELECT * FROM brother_exam_groups WHERE id=? AND deleted_at IS NULL').get(id);
+ if(!g)return res.status(404).json({error:'Chhota Bhai matter group not found'});
+ const links=db.prepare('SELECT passage_id FROM brother_exam_publications WHERE group_id=?').all(id);
+ const hasResults=db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?');
+ const removePassage=db.prepare('DELETE FROM passages WHERE id=?');
+ const archivePassage=db.prepare('UPDATE passages SET active=0 WHERE id=?');
+ let deleted=0,archived=0;
+ db.transaction(()=>{for(const x of links){
+  const pid=Number(x.passage_id);if(!pid)continue;
+  if(Number(hasResults.get(pid)?.c||0)>0){archivePassage.run(pid);archived++}
+  else{removePassage.run(pid);deleted++}
+ }
+ db.prepare('UPDATE brother_exam_groups SET deleted_at=CURRENT_TIMESTAMP WHERE id=?').run(id);
+ })();
+ audit(req,'DELETE_ALL','brother_exam_group',id,`Removed all copies: deleted ${deleted}, archived ${archived}`);
+ scheduleRemoteSqliteMirror();res.json({ok:true,deleted,archived,total:deleted+archived});
+ }catch(e){res.status(400).json({error:e.message||'Could not delete Chhota Bhai matter'})}
+});
+
 app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
  const b=req.body||{},area=String(b.area||'').toLowerCase(),title=String(b.title||'').trim().slice(0,160),content=String(b.content||'').trim();
  if(!title||!content)return res.status(400).json({error:'Title and matter required'});
@@ -1792,17 +1869,20 @@ app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
   if(!exams.length)return res.status(400).json({error:'Matching active exam folder नहीं मिला'});
   const cross=crossModeExactPassage(content,exams[0].id);if(cross)return res.status(409).json({error:'यह matter Practice में पहले से है; Exam और Practice matter अलग रखें।'});
   const insert=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,qualification_method,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-  const created=[],skipped=[];
+  const created=[],skipped=[];let groupId=null;
   db.transaction(()=>{
+   groupId=db.prepare('INSERT INTO brother_exam_groups(title,language,content_hash,content) VALUES(?,?,?,?)').run(title,language,hash(content),content).lastInsertRowid;
+   const linkGroup=db.prepare('INSERT OR IGNORE INTO brother_exam_publications(group_id,passage_id,exam_id) VALUES(?,?,?)');
    for(const exam of exams){
     const same=db.prepare('SELECT id,content FROM passages WHERE active=1 AND exam_id=?').all(exam.id).find(x=>normalizeMatterForDuplicateCheck(x.content)===normalizeMatterForDuplicateCheck(content));
     if(same){skipped.push({exam_id:exam.id,id:same.id});continue}
     const resultCountMode=exam.default_result_count_mode||'word';
     const id=insert.run(title,exam.language||language,exam.layout||(language==='Hindi'?'Unicode / Mangal':'QWERTY'),String(b.difficulty||'Medium').slice(0,30),content,1,exam.highlight_mode||'current_char',exam.id,null,null,null,null,null,'',exam.qualification_method||'all',1,resultCountMode).lastInsertRowid;
-    created.push({exam_id:exam.id,id});audit(req,'CREATE','brother_exam_matter',id,`${exam.name}: ${title}`);
+    created.push({exam_id:exam.id,id});linkGroup.run(groupId,id,exam.id);audit(req,'CREATE','brother_exam_matter',id,`${exam.name}: ${title}`);
    }
+   if(!created.length)db.prepare('DELETE FROM brother_exam_groups WHERE id=?').run(groupId);
   })();
-  return res.json({ok:true,created:created.length,skipped:skipped.length,ids:created.map(x=>x.id)});
+  return res.json({ok:true,created:created.length,skipped:skipped.length,ids:created.map(x=>x.id),group_id:created.length?groupId:null});
  }
  if(area==='practice'){
   const fid=Number(b.folder_id),f=db.prepare("SELECT * FROM owner_content_folders WHERE id=? AND area='practice' AND active=1").get(fid);if(!f)return res.status(400).json({error:'Practice folder not found'});
@@ -2231,11 +2311,36 @@ async function runDeferredMatterMaintenance(){
    console.log('Daily Queue Hindi/date/currency/punctuation cleanup applied:',{queueUpdated,passagesUpdated});
   }
  }catch(error){console.error('Daily Queue text cleanup skipped:',error.message)}
+
+ // 2026-09-28 v2: repair already-existing Daily Queue matter after the first cleanup marker may
+ // already have been stored. Untouched auto Hindi matter is regenerated as genuine Hindi;
+ // both languages are normalized again for balanced dates/currency/punctuation.
+ // Historical result passage ids are preserved: used passages are archived and replaced.
+ try{
+  const marker='daily_queue_existing_matter_repair_20260928_v2';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const repaired=dailyPassages.refreshExistingDailyQueueMatter();
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify(repaired));
+   if(repaired.queue_updated||repaired.passages_updated||repaired.history_replacements)scheduleRemoteSqliteMirror();
+   console.log('Existing Daily Queue matter repaired v2:',repaired);
+  }
+ }catch(error){console.error('Existing Daily Queue matter repair v2 skipped:',error.message)}
 }
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
- const q=String(req.query.q||'').trim(),like='%'+q+'%';
- const rows=db.prepare(`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?) AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,q,like,like,q,q,limit,offset);
+ const q=String(req.query.q||'').trim(),like='%'+q+'%',language=['English','Hindi'].includes(String(req.query.language||''))?String(req.query.language):'';
+ const base=`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?)`;
+ let rows;
+ if(language){
+  rows=db.prepare(base+` AND q.language=? AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,language,q,like,like,q,q,limit,offset);
+ }else if(!q&&offset===0&&limit>=2){
+  const each=Math.floor(limit/2),extra=limit-each*2;
+  const byLang=db.prepare(base+` AND q.language=? ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ?`);
+  const en=byLang.all(status,status,'English',each+extra),hi=byLang.all(status,status,'Hindi',each);
+  rows=[...en,...hi].sort((a,b)=>String(b.queue_date).localeCompare(String(a.queue_date))||Number(b.id)-Number(a.id)).slice(0,limit);
+ }else{
+  rows=db.prepare(base+` AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,q,like,like,q,q,limit,offset);
+ }
  res.set('Cache-Control','no-store');res.json(rows);
 });
 app.get('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>res.json(dailyPassages.controls()));
@@ -2280,6 +2385,30 @@ app.put('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{
 });
 
 app.delete('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM daily_passage_queue WHERE id=? AND status=?').run(id,'pending');audit(req,'DELETE','daily_passage_queue',id,'Draft deleted');res.json({ok:true})});
+
+app.delete('/api/admin/daily-passage-queue/:id/published-all',auth,admin,(req,res)=>{try{
+ const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);
+ if(!q)return res.status(404).json({error:'Daily Queue matter not found'});
+ if(q.status!=='published')return res.status(400).json({error:'यह matter अभी published नहीं है'});
+ const linked=new Set(db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(id).map(x=>Number(x.passage_id)).filter(Boolean));
+ if(q.published_passage_id)linked.add(Number(q.published_passage_id));
+ const hasResults=db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?');
+ const removePassage=db.prepare('DELETE FROM passages WHERE id=?');
+ const archivePassage=db.prepare('UPDATE passages SET active=0 WHERE id=?');
+ let deleted=0,archived=0;
+ db.transaction(()=>{for(const pid of linked){
+  if(Number(hasResults.get(pid)?.c||0)>0){archivePassage.run(pid);archived++}
+  else{removePassage.run(pid);deleted++}
+ }
+ db.prepare('DELETE FROM daily_queue_publications WHERE queue_id=?').run(id);
+ db.prepare("UPDATE daily_passage_queue SET status='deleted',published_passage_id=NULL WHERE id=?").run(id);
+ db.prepare('UPDATE daily_auto_slots SET passage_id=NULL WHERE queue_id=?').run(id);
+ })();
+ audit(req,'DELETE_ALL','daily_passage_queue',id,`Removed all linked copies: deleted ${deleted}, archived ${archived}`);
+ scheduleRemoteSqliteMirror();res.json({ok:true,deleted,archived,total:deleted+archived});
+ }catch(e){res.status(400).json({error:e.message||'Could not delete published matter'})}
+});
+
 app.post('/api/admin/daily-passage-queue/:id/publish',auth,admin,(req,res)=>{
  const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!q)return res.status(404).json({error:'Draft not found'});if(q.status==='published'){const count=Number(db.prepare('SELECT COUNT(*) c FROM daily_queue_publications WHERE queue_id=?').get(id)?.c||0);return res.json({ok:true,passage_id:q.published_passage_id,published_count:count||1,duplicate:true})}if(!Number(q.owner_edited||0))return res.status(400).json({error:'पहले Edit & Review करके matter save करें. उसके बाद ही publish किया जा सकता है.'});if(q.language==='Hindi'&&/[A-Za-z]/.test(q.content))return res.status(400).json({error:'Hindi Unicode/Mangal matter में English letters हैं. पहले edit करके हटाएँ.'});
  const duplicatePublished=db.prepare('SELECT id,content FROM passages').all().some(x=>normalizeMatterForDuplicateCheck(x.content)===normalizeMatterForDuplicateCheck(q.content));
