@@ -553,10 +553,10 @@ input,select,textarea,button{max-width:100%}
    const render=()=>{
     const q=String(search.value||'').trim().toLowerCase(),all=window.STRICT_EXAM_TREE||[];
     const matches=all.filter(p=>!q||String(p.name||'').toLowerCase().includes(q)||(p.exams||[]).some(e=>String(e.name||'').toLowerCase().includes(q)));
-    const rows=q?matches:(selected?matches.filter(p=>p.key===selected):(allOpen?matches:[]));
+    const rows=q?matches:(selected?matches.filter(p=>p.key===selected):(allOpen?matches:matches.slice(0,4)));
     tabs.querySelectorAll('.jp-exam-tab').forEach(b=>b.classList.toggle('active',b.dataset.key===selected&&!allOpen));
-    toggle.classList.toggle('open',allOpen);toggle.setAttribute('aria-expanded',String(allOpen));toggle.title=allOpen?'Hide all exam folders':'Show all exam folders';
-    count.textContent=q?`${rows.length} matching main exam folders found`:(selected?`${rows.length} selected exam folder`:(allOpen?`${rows.length} main exam folders found`:`${all.length} main exam folders • exam tab चुनें या arrow खोलें`));
+    toggle.classList.toggle('open',allOpen);toggle.setAttribute('aria-expanded',String(allOpen));toggle.title=allOpen?'Show only first 4 exam folders':'Show all exam folders';
+    count.textContent=q?`${rows.length} matching main exam folders found`:(selected?`${rows.length} selected exam folder`:(allOpen?`${rows.length} main exam folders found`:(all.length>4?`4 of ${all.length} main exam folders`:`${all.length} main exam folders`)));
     grid.innerHTML=rows.map(p=>`<div class="browse-exam-card jp-main-folder-card" data-key="${esc(p.key)}"><div class="meta"><span>MAIN FOLDER</span><span>${variantCount(p)} subfolders</span></div><h3>📁 ${esc(p.name)}</h3><p>${(p.exams||[]).slice(0,3).map(e=>esc(String(e.name||'').replace(String(p.name||'')+' - ',''))).join(' • ')}${(p.exams||[]).length>3?' …':''}</p><div class="bottom"><span class="count">Open folder</span><button class="open-btn" type="button">Open Folder →</button></div></div>`).join('')||`<div class="jp-exam-collapsed-note">${q?'No exam found.':''}</div>`;
     grid.querySelectorAll('.jp-main-folder-card').forEach(card=>{const open=()=>openStrictMainFolder(card.dataset.key);card.onclick=open;card.querySelector('.open-btn').onclick=e=>{e.stopPropagation();open()}});
    };
@@ -1292,7 +1292,7 @@ function practiceCompleteWarning(){clearInterval(S.practiceTimer);setApp(`<div c
 function beginMainExam(){S.left=S.total;S.started=false;S.done=false;S.submitting=false;S.backspaces=0;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderTest(true);requestExamFullscreen();const el=document.getElementById('typing');el?.focus();S.started=true;S.startTime=Date.now();S.deadline=S.startTime+S.total*1000;clearInterval(S.timer);S.timer=setInterval(timerTick,250);timerTick()}
 async function startExam(){if(!S.user){auth('login');return}if(!S.exam)return;openPassagePicker()}
 function practice(){activeNav('practice');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Home / Practice</div><h1>Free Typing Practice</h1></div></div><div class="grid2 jp-practice-choice-grid" style="margin-bottom:18px"><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('English')"><div class="topline"><span class="badge">English</span></div><h3>English Practice</h3><p>Unique English typing matters</p></button><button class="card exam-card" style="text-align:left;cursor:pointer" onclick="openPracticeFolder('Hindi')"><div class="topline"><span class="badge">Hindi</span></div><h3>Hindi Practice</h3><p>Unique Hindi typing matters</p></button></div><div id="practiceFolder"></div></div>`);const folder=sessionStorage.getItem('jp_practice_folder');if(['English','Hindi'].includes(folder))openPracticeFolder(folder)}
-function openPracticeFolder(lang){S.practiceFolder=lang;sessionStorage.setItem('jp_practice_folder',lang);document.getElementById('practiceFolder').innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="S.practiceFolder=null;sessionStorage.removeItem('jp_practice_folder');practice()">← Back</button><b>${esc(lang)} Practice</b><select id="pdiff" class="select"><option value="">All Levels</option><option>Easy</option><option>Medium</option><option>Moderate to Hard</option><option>Hard</option></select><select id="pmins" class="select"><option value="120">2 min</option><option value="180">3 min</option><option value="300">5 min</option></select><label class="opt" style="display:flex;align-items:center;gap:6px"><input id="practiceHighlight" type="checkbox" ${S.practiceHighlight?'checked':''} onchange="S.practiceHighlight=this.checked"> Highlight</label></div><div id="pp" class="grid3"></div>`;const savedPracticeMinutes=sessionStorage.getItem('jp_practice_minutes');pmins.value=['120','180','300'].includes(savedPracticeMinutes)?savedPracticeMinutes:'300';if(!['120','180','300'].includes(savedPracticeMinutes||''))sessionStorage.setItem('jp_practice_minutes',pmins.value);pdiff.onchange=loadPractice;pmins.onchange=()=>{sessionStorage.setItem('jp_practice_minutes',pmins.value);loadPractice()};loadPractice()}
+function openPracticeFolder(lang){S.practiceFolder=lang;sessionStorage.setItem('jp_practice_folder',lang);document.getElementById('practiceFolder').innerHTML=`<div class="toolbar"><button class="btn btn-white" onclick="S.practiceFolder=null;sessionStorage.removeItem('jp_practice_folder');practice()">← Back</button><b>${esc(lang)} Practice</b><select id="pdiff" class="select"><option value="">All Levels</option><option>Easy</option><option>Medium</option></select><select id="pmins" class="select"><option value="120">2 min</option><option value="180">3 min</option><option value="300">5 min</option></select><label class="opt" style="display:flex;align-items:center;gap:6px"><input id="practiceHighlight" type="checkbox" ${S.practiceHighlight?'checked':''} onchange="S.practiceHighlight=this.checked"> Highlight</label></div><div id="pp" class="grid3"></div>`;const savedPracticeMinutes=sessionStorage.getItem('jp_practice_minutes');pmins.value=['120','180','300'].includes(savedPracticeMinutes)?savedPracticeMinutes:'300';if(!['120','180','300'].includes(savedPracticeMinutes||''))sessionStorage.setItem('jp_practice_minutes',pmins.value);pdiff.onchange=loadPractice;pmins.onchange=()=>{sessionStorage.setItem('jp_practice_minutes',pmins.value);loadPractice()};loadPractice()}
 function practiceWordsNeeded(lang,seconds){
  const language=String(lang||'').toLowerCase()==='hindi'?'Hindi':'English';
  const sourceWords=language==='Hindi'?1080:1350;
@@ -3244,6 +3244,7 @@ function qCard(prefix,ex,label){
       <label>Minimum Accuracy %<input id="${prefix}Acc" class="input" type="number" min="0" max="100" step="0.1" style="width:100%;margin-top:5px" value="${Number(ex?.required_accuracy||0)}"></label>
       <label>Minimum Typed Words<input id="${prefix}Words" class="input" type="number" min="0" style="width:100%;margin-top:5px" value="${Number(ex?.min_words||0)}"></label>
       <label>Minimum Characters<input id="${prefix}Chars" class="input" type="number" min="0" style="width:100%;margin-top:5px" value="${Number(ex?.min_chars||0)}"></label>
+      <label>Auto Scroll<select id="${prefix}AutoScroll" class="select" style="width:100%;margin-top:5px"><option value="1" ${Number(ex?.auto_scroll??1)===1?'selected':''}>ON</option><option value="0" ${Number(ex?.auto_scroll??1)===0?'selected':''}>OFF</option></select></label>
     </div>
     <div style="margin-top:10px"><b>Duration → Matter Words</b><div class="duration-map-grid">
       ${[5,10,15,20,30].map(m=>`<label>${m} min<input id="${prefix}Map${m}" class="input" type="number" min="1" style="width:100%;margin-top:4px" value="${Number(map[String(m)]||'')}"></label>`).join('')}
@@ -3275,7 +3276,8 @@ async function saveLanguageExamRules(key){
       const min_chars=Math.max(0,Math.floor(Number(get('Chars')?.value||0)));
       const duration_word_map={}; [5,10,15,20,30].forEach(m=>{const v=Math.max(0,Math.floor(Number(get('Map'+m)?.value||0)));if(v)duration_word_map[String(m)]=v});
       const qualification_note=String(get('Note')?.value||'').trim();
-      await api('/api/admin/exams/'+ex.id,{method:'PUT',body:JSON.stringify({...ex,required_wpm,required_accuracy,min_words,min_chars,qualification_method:'all',active:!!ex.active,backspace_allowed:!!ex.backspace_allowed})});
+      const auto_scroll=get('AutoScroll')?.value!=='0';
+      await api('/api/admin/exams/'+ex.id,{method:'PUT',body:JSON.stringify({...ex,required_wpm,required_accuracy,min_words,min_chars,qualification_method:'all',auto_scroll,apply_auto_scroll_to_passages:true,active:!!ex.active,backspace_allowed:!!ex.backspace_allowed})});
       await api('/api/admin/exam-rule-extra/'+ex.id,{method:'PUT',body:JSON.stringify({duration_word_map,qualification_note})});
     }
     window.OWNER.e=await api('/api/admin/exams?ts='+Date.now());
@@ -3367,9 +3369,9 @@ startLiveTest=async function(id){
   try{
     const x=await api('/api/live-tests/'+id);
     S.liveTest=x;
-    S.exam={id:x.exam_id,name:x.exam_name,slug:x.exam_slug||'',language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.exam_highlight_mode||'none',highlight_user_change_allowed:x.highlight_user_change_allowed??1,duration_word_map:x.duration_word_map||'{}',qualification_note:x.qualification_note||'',passages:[]};
+    S.exam={id:x.exam_id,name:x.exam_name,slug:x.exam_slug||'',language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.exam_highlight_mode||'none',highlight_user_change_allowed:x.highlight_user_change_allowed??1,auto_scroll:Number(x.exam_auto_scroll??1),duration_word_map:x.duration_word_map||'{}',qualification_note:x.qualification_note||'',passages:[]};
     const mins=Math.max(1,Number(x.duration||10)),limit=requiredMatterWords(S.exam,mins);
-    S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:cleanTrimWords(x.content,limit),highlight_mode:S.exam.highlight_mode,auto_scroll:Number(x.auto_scroll??1),result_count_mode:x.result_count_mode||'word'};
+    S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:cleanTrimWords(x.content,limit),highlight_mode:S.exam.highlight_mode,auto_scroll:Number(S.exam.auto_scroll??1),result_count_mode:x.result_count_mode||'word'};
     S.total=mins*60;S.left=S.total;S.started=false;S.done=false;S.mode='live';S.backspaces=0;{const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}S.attemptHighlightMode=S.exam.highlight_mode;S.submitting=false;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));renderInstructions();
   }catch(e){showToast(e.message||'Live test could not start')}
 }
@@ -3538,7 +3540,7 @@ showLoginCelebration=function(user){
  window.jpSearchDailyRows=function(){clearTimeout(jpDailySearchTimer);jpDailySearchVersion++;jpDailySearchTimer=setTimeout(()=>jpLoadDailyRows(false),250)};
  window.jpLoadDailyRows=async function(more=false){const q=document.getElementById('dailyQueueSearch')?.value||'',version=jpDailySearchVersion,lang=window.DAILY_QUEUE_LANGUAGE||'all';try{const rows=await api('/api/admin/daily-passage-queue?status=all&limit=200&offset='+(more?(window.DAILY_QUEUE_ROWS||[]).length:0)+'&q='+encodeURIComponent(q)+(lang==='all'?'':'&language='+encodeURIComponent(lang)));if(version!==jpDailySearchVersion||!document.getElementById('dailyQueueBody'))return;window.DAILY_QUEUE_ROWS=more?[...(window.DAILY_QUEUE_ROWS||[]),...rows]:rows;filterDailyQueueRows();const b=document.getElementById('jpDailyMore');if(b)b.disabled=rows.length<200}catch(e){showToast(e.message)}};
  window.generateDailyQueueNow=async()=>{try{const r=await api('/api/admin/daily-passage-queue/generate',{method:'POST',body:'{}'});showToast(r.created?`${r.created} नए matters Daily Queue में आए`:r.skipped?'Daily Auto OFF है — पहले ON करें':'आज का batch पहले से queue में है');window.DAILY_QUEUE_VIEW='pending';renderDailyQueue()}catch(e){showToast(e.message)}};
- window.editDailyDraft=async function(id){try{const x=(window.DAILY_QUEUE_ROWS||[]).find(y=>+y.id===+id);if(!x)return;let exams=window.OWNER?.e||window.ADMIN_EXAMS;if(!exams)exams=await api('/api/admin/exams');const compatible=exams.filter(e=>e.active&&e.language===x.language);const dqLevels=x.target_type==='practice'?['Easy','Medium','Hard']:['Easy','Medium','Moderate to Hard','Hard'];document.getElementById('passageModalTitle').textContent='Daily Matter — Edit & Review';document.getElementById('passageModalBody').innerHTML=`<div class="notice" style="margin-bottom:12px">यह matter अभी Daily Queue में है। Save करने से <b>Reviewed</b> होगा; folder में तब भी नहीं जाएगा। बाद में अलग <b>Send to Folder</b> button दबाना होगा.</div><div class="form-grid"><label>Destination<select id="dqTarget" class="select" style="width:100%;margin-top:5px" disabled><option value="exam" ${x.target_type==='exam'?'selected':''}>Exam Folder</option><option value="practice" ${x.target_type==='practice'?'selected':''}>Practice Library</option><option value="live" ${x.target_type==='live'?'selected':''}>Live Typing</option></select></label><label id="dqExamWrap">Exam / Sub-folder<select id="dqExam" class="select" style="width:100%;margin-top:5px"><option value="">Select destination exam</option>${compatible.map(e=>`<option value="${e.id}" ${+x.exam_id===+e.id?'selected':''}>${esc(e.name)} · ${esc(e.language)}</option>`).join('')}</select></label><label>Difficulty<select id="dqDifficulty" class="select" style="width:100%;margin-top:5px">${dqLevels.map(d=>`<option ${x.difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label><label>Language<input class="input" style="width:100%;margin-top:5px" value="${esc(x.language)}" disabled></label></div><label style="display:block;margin-top:12px">Title<input id="dqTitle" class="input" style="width:100%;margin-top:5px" value="${esc(x.title)}"></label><label style="display:block;margin-top:12px">Full Matter<textarea id="dqContent" class="input" rows="18" spellcheck="false" style="width:100%;margin-top:5px;line-height:1.6" oninput="dqMatterStats()">${esc(x.content||'')}</textarea></label><div id="dqStats" class="badge" style="margin-top:8px"></div>${x.language==='Hindi'?'<div class="notice" style="margin-top:10px">Hindi Unicode/Mangal में English A-Z letters save नहीं होंगे।</div>':''}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="saveDailyDraftReview(${x.id})">Save Review</button><button class="btn btn-white" onclick="closeModal('passageModal')">Cancel</button></div>`;document.getElementById('passageModal').classList.add('show');dqTargetChanged();dqMatterStats()}catch(e){showToast(e.message)}};
+ window.editDailyDraft=async function(id){try{const x=(window.DAILY_QUEUE_ROWS||[]).find(y=>+y.id===+id);if(!x)return;let exams=window.OWNER?.e||window.ADMIN_EXAMS;if(!exams)exams=await api('/api/admin/exams');const compatible=exams.filter(e=>e.active&&e.language===x.language);const dqLevels=x.target_type==='practice'?['Easy','Medium']:['Easy','Medium','Moderate to Hard','Hard'];document.getElementById('passageModalTitle').textContent='Daily Matter — Edit & Review';document.getElementById('passageModalBody').innerHTML=`<div class="notice" style="margin-bottom:12px">यह matter अभी Daily Queue में है। Save करने से <b>Reviewed</b> होगा; folder में तब भी नहीं जाएगा। बाद में अलग <b>Send to Folder</b> button दबाना होगा.</div><div class="form-grid"><label>Destination<select id="dqTarget" class="select" style="width:100%;margin-top:5px" disabled><option value="exam" ${x.target_type==='exam'?'selected':''}>Exam Folder</option><option value="practice" ${x.target_type==='practice'?'selected':''}>Practice Library</option><option value="live" ${x.target_type==='live'?'selected':''}>Live Typing</option></select></label><label id="dqExamWrap">Exam / Sub-folder<select id="dqExam" class="select" style="width:100%;margin-top:5px"><option value="">Select destination exam</option>${compatible.map(e=>`<option value="${e.id}" ${+x.exam_id===+e.id?'selected':''}>${esc(e.name)} · ${esc(e.language)}</option>`).join('')}</select></label><label>Difficulty<select id="dqDifficulty" class="select" style="width:100%;margin-top:5px">${dqLevels.map(d=>`<option ${x.difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label><label>Language<input class="input" style="width:100%;margin-top:5px" value="${esc(x.language)}" disabled></label></div><label style="display:block;margin-top:12px">Title<input id="dqTitle" class="input" style="width:100%;margin-top:5px" value="${esc(x.title)}"></label><label style="display:block;margin-top:12px">Full Matter<textarea id="dqContent" class="input" rows="18" spellcheck="false" style="width:100%;margin-top:5px;line-height:1.6" oninput="dqMatterStats()">${esc(x.content||'')}</textarea></label><div id="dqStats" class="badge" style="margin-top:8px"></div>${x.language==='Hindi'?'<div class="notice" style="margin-top:10px">Hindi Unicode/Mangal में English A-Z letters save नहीं होंगे।</div>':''}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="saveDailyDraftReview(${x.id})">Save Review</button><button class="btn btn-white" onclick="closeModal('passageModal')">Cancel</button></div>`;document.getElementById('passageModal').classList.add('show');dqTargetChanged();dqMatterStats()}catch(e){showToast(e.message)}};
  window.dqTargetChanged=function(){const t=document.getElementById('dqTarget')?.value,w=document.getElementById('dqExamWrap');if(w)w.style.display=t==='exam'?'block':'none'};
  window.dqMatterStats=function(){const t=document.getElementById('dqContent')?.value||'',el=document.getElementById('dqStats');if(el)el.textContent=`${wordCount(t)} words · ${t.length} characters${/[A-Za-z]/.test(t)?' · English letters found':''}`};
  window.saveDailyDraftReview=async function(id){try{const row=(window.DAILY_QUEUE_ROWS||[]).find(y=>+y.id===+id);const target_type=row?.target_type||dqTarget.value,exam_id=null,content=dqContent.value.trim();if(!content)throw Error('Matter खाली नहीं हो सकता');await api('/api/admin/daily-passage-queue/'+id,{method:'PUT',body:JSON.stringify({title:dqTitle.value,content,difficulty:dqDifficulty.value,target_type,exam_id})});closeModal('passageModal');showToast('Review saved — अब Send to Folder control खुल गया');window.DAILY_QUEUE_VIEW='pending';renderDailyQueue()}catch(e){showToast(e.message)}};
@@ -6661,7 +6663,7 @@ body:not(.public-landing)[data-theme="dark"] .table td{background:#111b2d!import
   const previousPickerRender=window.renderPassagePicker;
   if(typeof previousPickerRender==='function')window.renderPassagePicker=function(...args){const keepH=S?.__jpAttemptHighlightChoice,keepB=S?.__jpAttemptBackspaceChoice?{...S.__jpAttemptBackspaceChoice}:null;const out=previousPickerRender.apply(this,args);if(keepH)S.__jpAttemptHighlightChoice=keepH;if(keepB)S.__jpAttemptBackspaceChoice=keepB;queueMicrotask(bindPickerToAttemptState);return out};
   const previousPrepare=window.prepareSelectedPassage;
-  if(typeof previousPrepare==='function')window.prepareSelectedPassage=async function(id){const finalH=S?.__jpAttemptHighlightChoice||examHighlightDefault(),finalB=S?.__jpAttemptBackspaceChoice||examBackspaceDefault();const out=await previousPrepare.call(this,id);setAttemptHighlight(finalH);setAttemptBackspace(finalB);if(S.passage)S.passage.highlight_mode=S.attemptHighlightMode;return out};
+  if(typeof previousPrepare==='function')window.prepareSelectedPassage=async function(id){const finalH=S?.__jpAttemptHighlightChoice||examHighlightDefault(),finalB=S?.__jpAttemptBackspaceChoice||examBackspaceDefault();const out=await previousPrepare.call(this,id);setAttemptHighlight(finalH);setAttemptBackspace(finalB);if(S.passage){S.passage.highlight_mode=S.attemptHighlightMode;S.passage.auto_scroll=Number(S.exam?.auto_scroll??S.passage.auto_scroll??1)===1?1:0}return out};
   window.updatePassage=function(t){
     if(!S?.passage)return;const spans=document.querySelectorAll('#passage .tc'),p=String(S.passage.content||''),mode=HIGHLIGHT_MODES.includes(S.passage.highlight_mode)?S.passage.highlight_mode:'none',a=resyncAlign(p,t);let cur=null;
     spans.forEach(sp=>sp.classList.remove('typed-correct','typed-wrong','current','current-word'));
@@ -7062,6 +7064,245 @@ document.addEventListener('click',event=>{
  card.classList.add('jp-choice-active');
 });
 </script>
+
+<style id="jp-all-tabs-light-active-hover-20260928">
+/* Unified light-theme hover + active state for tab-style controls only. */
+.tabs .tab,
+.owner-control-tabs .tab,
+button[data-dq-view],
+button[data-dq-lang],
+.jp-exam-tab{
+ transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease!important;
+}
+.tabs .tab:hover,.tabs .tab:focus-visible,
+.owner-control-tabs .tab:hover,.owner-control-tabs .tab:focus-visible,
+button[data-dq-view]:hover,button[data-dq-view]:focus-visible,
+button[data-dq-lang]:hover,button[data-dq-lang]:focus-visible,
+.jp-exam-tab:hover,.jp-exam-tab:focus-visible{
+ background:#eef8ff!important;
+ color:#155e75!important;
+ border-color:#8bd3e6!important;
+ box-shadow:0 5px 14px rgba(14,116,144,.13)!important;
+ transform:translateY(-1px)!important;
+}
+.tabs .tab.active,
+.owner-control-tabs .tab.active,
+button[data-dq-view].active,
+button[data-dq-lang].active,
+.jp-exam-tab.active{
+ background:#e8f8ee!important;
+ color:#087443!important;
+ border-color:#9fdab7!important;
+ box-shadow:0 4px 12px rgba(8,116,67,.11)!important;
+ transform:none!important;
+}
+.tabs .tab.active:hover,
+.owner-control-tabs .tab.active:hover,
+button[data-dq-view].active:hover,
+button[data-dq-lang].active:hover,
+.jp-exam-tab.active:hover{
+ background:#dcf4e5!important;
+ color:#065f36!important;
+ border-color:#82cba0!important;
+}
+</style>
+
+<style id="jp-owner-table-card-polish-20260928">
+/* Visual-only polish requested by owner. No click/navigation behavior is changed. */
+
+/* Daily Matter Queue: keep columns closer, compact and readable inside the table area. */
+.daily-queue-table-wrap{
+ overflow-x:auto;
+ border:1px solid #dbe7e1;
+ border-radius:14px;
+ background:#fff;
+}
+.daily-queue-table{
+ width:100%!important;
+ min-width:1120px!important;
+ table-layout:fixed!important;
+}
+.daily-queue-table th,
+.daily-queue-table td{
+ padding:10px 8px!important;
+ vertical-align:top!important;
+ line-height:1.35!important;
+}
+.daily-queue-table th{
+ font-size:10px!important;
+ letter-spacing:.02em;
+}
+.daily-queue-table .queue-col-date{width:100px!important}
+.daily-queue-table .queue-col-type{width:78px!important}
+.daily-queue-table .queue-col-destination{width:190px!important;min-width:0!important}
+.daily-queue-table .queue-col-language{width:80px!important;min-width:0!important}
+.daily-queue-table .queue-col-level{width:112px!important;min-width:0!important}
+.daily-queue-table .queue-col-matter{width:365px!important;min-width:0!important}
+.daily-queue-table .queue-col-status{width:120px!important;min-width:0!important}
+.daily-queue-table .queue-col-action{width:225px!important;min-width:0!important}
+.daily-queue-table .queue-col-destination,
+.daily-queue-table .queue-col-matter,
+.daily-queue-table .queue-col-status,
+.daily-queue-table .queue-col-action{
+ white-space:normal!important;
+ overflow-wrap:anywhere;
+}
+.daily-queue-table .queue-actions{gap:5px!important}
+.daily-queue-table .queue-actions .btn{padding:8px 10px!important;font-size:11px!important}
+
+/* Owner Control cards: light decorated cards, same behavior/click handlers. */
+.owner-control-tabs{
+ gap:8px!important;
+}
+.owner-control-tabs .tab{
+ min-height:64px;
+ padding:10px 12px!important;
+ border-radius:12px!important;
+ border:1px solid #d8e4df!important;
+ background:linear-gradient(180deg,#ffffff 0%,#f7fbf9 100%)!important;
+ box-shadow:0 3px 10px rgba(24,62,48,.055)!important;
+ font-weight:800!important;
+ line-height:1.18;
+ color:#172033!important;
+}
+.owner-control-tabs .tab:hover,
+.owner-control-tabs .tab:focus-visible{
+ background:linear-gradient(180deg,#f0fbf6 0%,#e8f7f0 100%)!important;
+ border-color:#9ed8bd!important;
+ color:#0b6b43!important;
+ box-shadow:0 7px 18px rgba(18,113,72,.12)!important;
+ transform:translateY(-2px)!important;
+}
+.owner-control-tabs .tab.active{
+ background:linear-gradient(180deg,#1aa56d 0%,#11875a 100%)!important;
+ color:#fff!important;
+ border-color:#0e7b50!important;
+ box-shadow:0 7px 18px rgba(17,135,90,.22)!important;
+}
+.owner-control-tabs .tab.active:hover{
+ background:linear-gradient(180deg,#18a268 0%,#0f7d53 100%)!important;
+ color:#fff!important;
+}
+
+@media(max-width:780px){
+ .daily-queue-table{min-width:1040px!important}
+ .owner-control-tabs .tab{min-height:56px}
+}
+</style>
+
+<style id="jp-theme-aware-dashboard-polish-20260928">
+/* Theme-aware visual polish only: no navigation, click or data behavior changes. */
+
+/* Owner Control: active/hover follows the current site theme, not fixed green. */
+.owner-control-tabs .tab:hover,
+.owner-control-tabs .tab:focus-visible{
+ background:var(--soft)!important;
+ color:var(--blue)!important;
+ border-color:var(--line)!important;
+ box-shadow:0 7px 18px color-mix(in srgb,var(--blue) 14%,transparent)!important;
+ transform:translateY(-2px)!important;
+}
+.owner-control-tabs .tab.active,
+.owner-control-tabs .tab.active:hover{
+ background:var(--blue)!important;
+ color:#fff!important;
+ border-color:var(--blue)!important;
+ box-shadow:0 8px 20px color-mix(in srgb,var(--blue) 24%,transparent)!important;
+}
+
+/* Candidate dashboard cards. */
+.dashboard-welcome.card{
+ border:1px solid color-mix(in srgb,var(--blue) 28%,var(--line))!important;
+ border-radius:18px!important;
+ background:linear-gradient(135deg,var(--blue) 0%,var(--blue2) 72%,color-mix(in srgb,var(--blue) 78%,#fff) 100%)!important;
+ box-shadow:0 12px 30px color-mix(in srgb,var(--blue) 18%,transparent)!important;
+}
+.dashboard-welcome.card .btn{
+ border-radius:11px!important;
+ box-shadow:0 5px 14px rgba(0,0,0,.09)!important;
+}
+
+.dashboard-stat.card{
+ border:1px solid var(--line)!important;
+ border-top:3px solid var(--blue)!important;
+ border-radius:15px!important;
+ background:linear-gradient(180deg,#fff 0%,color-mix(in srgb,var(--soft) 42%,#fff) 100%)!important;
+ box-shadow:0 7px 18px color-mix(in srgb,var(--blue) 8%,transparent)!important;
+ transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important;
+}
+.dashboard-stat.card:hover{
+ transform:translateY(-2px);
+ border-color:color-mix(in srgb,var(--blue) 34%,var(--line))!important;
+ box-shadow:0 10px 24px color-mix(in srgb,var(--blue) 13%,transparent)!important;
+}
+.dashboard-stat .stat-icon{
+ background:var(--soft)!important;
+ color:var(--blue)!important;
+ border:1px solid color-mix(in srgb,var(--blue) 18%,var(--line))!important;
+ box-shadow:0 4px 10px color-mix(in srgb,var(--blue) 8%,transparent)!important;
+}
+
+/* Main dashboard panels. */
+.dashboard-grid > .card,
+.dashboard-grid > .table-wrap.card,
+.page .card.table-wrap:has(.panel-head){
+ border:1px solid var(--line)!important;
+ border-radius:16px!important;
+ background:linear-gradient(180deg,#fff 0%,color-mix(in srgb,var(--soft) 22%,#fff) 100%)!important;
+ box-shadow:0 7px 20px color-mix(in srgb,var(--blue) 7%,transparent)!important;
+ overflow:hidden;
+}
+.dashboard-grid > .card .panel-head,
+.page .card.table-wrap:has(.panel-head) .panel-head{
+ padding-bottom:12px!important;
+ border-bottom:1px solid color-mix(in srgb,var(--line) 78%,transparent);
+ background:linear-gradient(90deg,color-mix(in srgb,var(--soft) 58%,#fff),#fff);
+}
+.panel-head h2{color:var(--ink)!important}
+.panel-head a{color:var(--blue)!important}
+
+/* Quick action mini-cards. */
+.quick-action{
+ border:1px solid var(--line)!important;
+ border-radius:13px!important;
+ background:#fff!important;
+ box-shadow:0 4px 12px color-mix(in srgb,var(--blue) 5%,transparent)!important;
+}
+.quick-action:hover{
+ border-color:color-mix(in srgb,var(--blue) 40%,var(--line))!important;
+ background:var(--soft)!important;
+ color:var(--blue)!important;
+ box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 12%,transparent)!important;
+}
+
+/* Recommended exams and dashboard tables. */
+.exam-mini{
+ background:#fff;
+ transition:background .16s ease,transform .16s ease;
+}
+.exam-mini:hover{
+ background:var(--soft);
+}
+.dashboard-grid .table tbody tr,
+.page .card.table-wrap:has(.panel-head) .table tbody tr{
+ transition:background .16s ease;
+}
+.dashboard-grid .table tbody tr:hover,
+.page .card.table-wrap:has(.panel-head) .table tbody tr:hover{
+ background:var(--soft)!important;
+}
+.dashboard-grid .table thead th,
+.page .card.table-wrap:has(.panel-head) .table thead th{
+ background:color-mix(in srgb,var(--soft) 72%,#fff)!important;
+ color:var(--ink)!important;
+}
+
+/* Chart bars follow the selected theme. */
+.chart .bar{
+ background:linear-gradient(180deg,color-mix(in srgb,var(--blue) 72%,#fff),var(--blue))!important;
+ box-shadow:0 4px 10px color-mix(in srgb,var(--blue) 14%,transparent);
+}
+</style>
 </body>
 </html>
 <style id="jp-leaderboard-light-result-cards-20260928">

@@ -11,7 +11,7 @@ const crypto=require('crypto');
 const legacyDaily=require('./daily-passages-legacy');
 const LEVELS=['Easy','Medium','Moderate to Hard','Hard'];
 const EXAM_COUNTS=[1,1,1,1];
-const PRACTICE_COUNTS=[1,1,0,1]; // Daily Practice: Easy + Medium + Hard only. 'Moderate to Hard' is intentionally excluded.
+const PRACTICE_COUNTS=[1,1,0,0]; // Daily Practice: only Easy + Medium.
 const PRACTICE_30_MIN_WORDS={English:1350,Hindi:1080};
 const PRACTICE_5_MIN_WORDS={English:225,Hindi:180}; // Daily Practice matter is sized for the maximum 5-minute Practice test.
 
@@ -924,6 +924,33 @@ function devanagariRomanToken(token){
 }
 function cleanUnicodeHindiMatter(text){return String(text||'').replace(/[A-Za-z]+/g,devanagariRomanToken)}
 
+function shortDailyTitle(topicTitle,language,difficulty,targetType='exam'){
+ const lang=String(language||'English'),level=String(difficulty||'Medium');
+ let topic=String(topicTitle||'').trim();
+ if(lang==='Hindi'){
+  topic=cleanUnicodeHindiMatter(topic)
+   .replace(/[,;:()]+/g,' ')
+   .replace(/\s+/g,' ').trim();
+ }else{
+  topic=topic
+   .replace(/\s+with a focus on\s+.*$/i,'')
+   .replace(/[,;:()]+/g,' ')
+   .replace(/\s+/g,' ').trim();
+ }
+ let words=topic.split(/\s+/).filter(Boolean);
+ if(words.length>7)words=words.slice(0,7);
+ if(words.length<4){
+  const fallback=lang==='Hindi'
+   ?(targetType==='practice'?['दैनिक','टाइपिंग','अभ्यास','विषय']:targetType==='live'?['लाइव','टाइपिंग','अभ्यास','विषय']:['परीक्षा','टाइपिंग','अभ्यास','विषय'])
+   :(targetType==='practice'?['Daily','Typing','Practice','Topic']:targetType==='live'?['Live','Typing','Practice','Topic']:['Exam','Typing','Practice','Topic']);
+  for(const w of fallback){if(words.length>=4)break;if(!words.includes(w))words.push(w)}
+ }
+ const levelLabel=lang==='Hindi'
+  ?({Easy:'आसान',Medium:'मध्यम','Moderate to Hard':'मध्यम से कठिन',Hard:'कठिन'}[level]||cleanUnicodeHindiMatter(level))
+  :level;
+ return `${words.join(' ')} (${levelLabel})`;
+}
+
 // Daily Queue matter should stay exam-like without being overloaded by dates, money or punctuation.
 // Requested balance for BOTH English and Hindi:
 // - Easy/Medium/Moderate-to-Hard: no more than 3 full numeric dates in one passage.
@@ -1027,7 +1054,7 @@ function createService(db,{setting,indiaDateParts,onChange}){
   let created=0,published=0;const tx=db.transaction(()=>{for(const t of targets){let qn=100;for(let l=0;l<LEVELS.length;l++)for(let n=1;n<=t.counts[l];n++){
    qn++;const difficulty=LEVELS[l],slot=[date,t.type,t.sharedExam?'ALL':t.exam.id,t.language,difficulty,n].join('|');if(findSlot.get(slot))continue;
    let content,contentHash,meta=null;const attempts=t.type==='live'?40:240;for(let attempt=0;attempt<attempts;attempt++){const out=composeDetailed({language:t.language,difficulty,date,targetType:t.type,exam:t.exam,serial:n,attempt});content=out.content;contentHash=hash(content);const duplicateSlot=existsHash.get(contentHash),duplicateStored=knownHashes.has(contentHash),duplicateTopic=out.topicSignature&&existsTopic.get(out.topicSignature),recentSubject=out.baseSubject&&out.baseSubject!=='legacy'&&out.baseSubject!=='live'&&recentBase.get(out.baseSubject);const relaxTopicCooldown=attempt>=Math.floor(attempts*0.6);if(!duplicateSlot&&!duplicateStored&&(relaxTopicCooldown||(!duplicateTopic&&!recentSubject))){meta=out;break}content=null;meta=null}if(!content)throw Error('Fresh passage unavailable');
-   const title=meta?.topicTitle?`${date} • ${meta.topicTitle} • ${difficulty} • ${n}`:`${date} • ${t.exam.name} • ${t.language} • ${difficulty} • ${n}`;
+   const title=shortDailyTitle(meta?.topicTitle||t.exam.name,t.language,difficulty,t.type);
    // Every automatic matter stays only in Daily Matter Queue until the Owner edits/reviews it.
    // Nothing is inserted into Exam/Practice passage folders during generation.
    const pid=null;
