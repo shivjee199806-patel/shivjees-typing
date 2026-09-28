@@ -1783,6 +1783,27 @@ app.get('/api/practice-folders/:id/passages',(req,res)=>res.json(db.prepare(`SEL
 app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
  const b=req.body||{},area=String(b.area||'').toLowerCase(),title=String(b.title||'').trim().slice(0,160),content=String(b.content||'').trim();
  if(!title||!content)return res.status(400).json({error:'Title and matter required'});
+ if(area==='exam'){
+  const language=/hindi/i.test(String(b.language||''))?'Hindi':'English';
+  const requested=Array.isArray(b.exam_ids)?[...new Set(b.exam_ids.map(Number).filter(Number.isFinite))]:[];
+  if(!requested.length)return res.status(400).json({error:'Exam folder/sub-folder select करें'});
+  const placeholders=requested.map(()=>'?').join(',');
+  const exams=db.prepare(`SELECT * FROM exams WHERE active=1 AND language=? AND id IN (${placeholders}) ORDER BY id`).all(language,...requested);
+  if(!exams.length)return res.status(400).json({error:'Matching active exam folder नहीं मिला'});
+  const cross=crossModeExactPassage(content,exams[0].id);if(cross)return res.status(409).json({error:'यह matter Practice में पहले से है; Exam और Practice matter अलग रखें।'});
+  const insert=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,qualification_method,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+  const created=[],skipped=[];
+  db.transaction(()=>{
+   for(const exam of exams){
+    const same=db.prepare('SELECT id,content FROM passages WHERE active=1 AND exam_id=?').all(exam.id).find(x=>normalizeMatterForDuplicateCheck(x.content)===normalizeMatterForDuplicateCheck(content));
+    if(same){skipped.push({exam_id:exam.id,id:same.id});continue}
+    const resultCountMode=exam.default_result_count_mode||'word';
+    const id=insert.run(title,exam.language||language,exam.layout||(language==='Hindi'?'Unicode / Mangal':'QWERTY'),String(b.difficulty||'Medium').slice(0,30),content,1,exam.highlight_mode||'current_char',exam.id,null,null,null,null,null,'',exam.qualification_method||'all',1,resultCountMode).lastInsertRowid;
+    created.push({exam_id:exam.id,id});audit(req,'CREATE','brother_exam_matter',id,`${exam.name}: ${title}`);
+   }
+  })();
+  return res.json({ok:true,created:created.length,skipped:skipped.length,ids:created.map(x=>x.id)});
+ }
  if(area==='practice'){
   const fid=Number(b.folder_id),f=db.prepare("SELECT * FROM owner_content_folders WHERE id=? AND area='practice' AND active=1").get(fid);if(!f)return res.status(400).json({error:'Practice folder not found'});
   const language=String(b.language||'English').match(/hindi/i)?'Hindi':'English',layout=language==='Hindi'?'Unicode / Mangal':'QWERTY';
@@ -2178,6 +2199,38 @@ async function runDeferredMatterMaintenance(){
    console.log('Daily Queue final 28-Sep rules applied:',{practiceDeactivated,pendingRemoved,hardUpdated});
   }
  }catch(error){console.error('Daily Queue final 28-Sep rules skipped:',error.message)}
+
+ // 2026-09-28 Daily Queue text cleanup requested by owner.
+ // Applies only to matter connected with Daily Matter Queue and keeps every passage/result id unchanged.
+ // Existing Hindi queue matter is converted to Devanagari-only text; both languages get balanced dates,
+ // currency and punctuation. Future auto matter uses the same rules inside daily-passages.js.
+ try{
+  const marker='daily_queue_text_balance_hindi_cleanup_20260928_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const {normalizeDailyMatter}=require('./daily-passages');
+   let queueUpdated=0,passagesUpdated=0;
+   const rows=db.prepare("SELECT id,language,difficulty,content,published_passage_id FROM daily_passage_queue ORDER BY id").all();
+   db.transaction(()=>{
+    const updateQueue=db.prepare('UPDATE daily_passage_queue SET content=? WHERE id=?');
+    const updatePassage=db.prepare('UPDATE passages SET content=? WHERE id=?');
+    const linked=db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?');
+    const updateHash=db.prepare('UPDATE daily_auto_slots SET content_hash=? WHERE queue_id=?');
+    for(const q of rows){
+     const next=normalizeDailyMatter(q.content,q.language,q.difficulty||'Medium');
+     if(next===String(q.content||''))continue;
+     updateQueue.run(next,q.id);queueUpdated++;
+     const ids=new Set(linked.all(q.id).map(x=>Number(x.passage_id)).filter(Boolean));
+     if(q.published_passage_id)ids.add(Number(q.published_passage_id));
+     for(const pid of ids)passagesUpdated+=updatePassage.run(next,pid).changes;
+     const h=crypto.createHash('sha256').update(String(next).replace(/\s+/g,' ').trim()).digest('hex');
+     updateHash.run(h,q.id);
+    }
+    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({queueUpdated,passagesUpdated}));
+   })();
+   if(queueUpdated||passagesUpdated)scheduleRemoteSqliteMirror();
+   console.log('Daily Queue Hindi/date/currency/punctuation cleanup applied:',{queueUpdated,passagesUpdated});
+  }
+ }catch(error){console.error('Daily Queue text cleanup skipped:',error.message)}
 }
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);

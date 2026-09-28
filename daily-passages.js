@@ -2,9 +2,9 @@
 // JP_DYNAMIC_MATTER_UNIVERSE_V8_EXAM_DIFFICULTY_ONLY_20260923
 // Daily passage composer v5: dynamic broad-topic, bilingual, difficulty-graded long-source passages.
 // Design goals:
-// 1) stored source matter is long enough for a 30-minute selection,
-// 2) exam UI can trim that source to the selected exam/time rule,
-// 3) Practice rules stay unchanged; Exam mode alone gets a stronger Medium-to-Hard numeric/punctuation progression,
+// 1) Exam/Live keep their existing source sizing; Daily Practice is sized for its maximum 5-minute test,
+// 2) exam UI can trim the Exam source to the selected exam/time rule,
+// 3) Practice difficulty rules remain unchanged; only Daily Practice source length is capped to 5 minutes,
 // 4) Exam + Practice draw from a broad procedural topic universe instead of a short fixed list,
 // 5) exact full passages and exact topic-angle signatures never repeat; recent base subjects also cool down.
 const crypto=require('crypto');
@@ -13,6 +13,7 @@ const LEVELS=['Easy','Medium','Moderate to Hard','Hard'];
 const EXAM_COUNTS=[1,1,1,1];
 const PRACTICE_COUNTS=[1,1,0,1]; // Daily Practice: Easy + Medium + Hard only. 'Moderate to Hard' is intentionally excluded.
 const PRACTICE_30_MIN_WORDS={English:1350,Hindi:1080};
+const PRACTICE_5_MIN_WORDS={English:225,Hindi:180}; // Daily Practice matter is sized for the maximum 5-minute Practice test.
 
 function rng(seed){let n=crypto.createHash('sha256').update(String(seed)).digest().readUInt32LE();return ()=>{n+=0x6D2B79F5;let t=n;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
 function wordCount(s){return (String(s||'').trim().match(/\S+/g)||[]).length}
@@ -29,7 +30,10 @@ function matterWordsForExam(ex,minutes){
  return Math.max(1,Math.round(minimum>0?(minimum/baseMinutes)*mins:(wpm||30)*mins));
 }
 function sourceTargetWords(language,targetType,exam,difficulty='Medium'){
- if(targetType==='practice'||targetType==='live')return PRACTICE_30_MIN_WORDS[language]||900;
+ // Practice is capped at 2/3/5 minutes in the UI, so Daily Practice matter only needs a full 5-minute source.
+ if(targetType==='practice')return PRACTICE_5_MIN_WORDS[language]||180;
+ // Live matter keeps its existing long-source behaviour.
+ if(targetType==='live')return PRACTICE_30_MIN_WORDS[language]||900;
  // Keep every existing Exam setting untouched. Only the generated Hard Exam source is kept in the requested character band.
  if(targetType==='exam'&&difficulty==='Hard')return language==='Hindi'?760:610;
  // Other Exam levels continue to use the existing exam/time settings.
@@ -920,27 +924,59 @@ function devanagariRomanToken(token){
 }
 function cleanUnicodeHindiMatter(text){return String(text||'').replace(/[A-Za-z]+/g,devanagariRomanToken)}
 
-// Daily Hard matter should be challenging, but not overloaded with numeric notation.
-// Rules requested for BOTH English and Hindi Daily matter:
-// - currency values are kept to 3-4 digits,
-// - at most four full dates remain in one matter,
-// - at most four parenthesised groups remain; later groups keep their text without brackets.
-function softenHardNumericDensity(text,language){
- let out=String(text||'');
- out=out.replace(/(Rs\.\s*|₹\s*)([0-9][0-9,]*)(\.[0-9]{1,2})?/gi,(m,prefix,num,dec)=>{
-   const n=Number(String(num).replace(/,/g,''))||1000;
-   const compact=1000+(Math.abs(n)%9000);
+// Daily Queue matter should stay exam-like without being overloaded by dates, money or punctuation.
+// Requested balance for BOTH English and Hindi:
+// - Easy/Medium/Moderate-to-Hard: no more than 3 full numeric dates in one passage.
+// - Hard: no more than 6 full numeric dates in one passage.
+// - Currency amounts stay compact (3-4 digits) and are not repeated too often.
+// - Brackets, commas and hyphens are kept at an average density instead of appearing everywhere.
+// - Unicode/Mangal Hindi contains no Roman/English A-Z letters.
+function normalizeDailyMatter(text,language,difficulty='Medium'){
+ let out=String(text||''),lang=String(language||''),level=String(difficulty||'Medium');
+ const hard=level==='Hard',moderate=level==='Moderate to Hard',easy=level==='Easy';
+ const dateLimit=hard?6:3;
+ const currencyLimit=hard?3:(easy?1:2);
+ // Medium target is roughly 5-7 visible punctuation extras across a passage; Hard may be a little denser.
+ const specialLimit=hard?12:(moderate?9:(easy?4:7));
+ let usedSpecial=0;
+
+ // Keep full numeric dates limited. Extra dates become a normal word so the passage stays readable.
+ let dateCount=0;
+ out=out.replace(/\b(?:[0-3]?\d[.\/-][01]?\d[.\/-](?:20)?\d{2}|20\d{2}[.\/-][01]?\d[.\/-][0-3]?\d)\b/g,m=>{
+   dateCount++; if(dateCount<=dateLimit){usedSpecial++;return m}
+   return lang==='Hindi'?'तिथि':'date';
+ });
+
+ // Keep ₹ / Rs. amounts compact and only a few times in the whole passage.
+ let currencyCount=0;
+ out=out.replace(/(?:Rs\.?|INR|₹)\s*([0-9][0-9,]*)(\.[0-9]{1,2})?/gi,(m,num,dec)=>{
+   currencyCount++;
+   if(currencyCount>currencyLimit)return lang==='Hindi'?'राशि':'amount';
+   const n=Math.abs(Number(String(num).replace(/,/g,''))||1000);
+   const compact=100+(n%9900); // always 3-4 digits
+   usedSpecial++;
+   const prefix=lang==='Hindi'?'₹':(/^₹/.test(m)?'₹':'Rs. ');
    return `${prefix}${compact}${dec||''}`;
  });
- let dateCount=0;
- out=out.replace(/\b(?:[0-3]?\d[.\/-][01]?\d[.\/-](?:20)?\d{2}|20\d{2}[.\/-][01]?\d[.\/-][0-3]?\d)\b/g,m=>{dateCount++;return dateCount<=4?m:(language==='Hindi'?'तिथि':'date')});
- let parenCount=0;
- out=out.replace(/\(([^()]{1,60})\)/g,(m,inner)=>{parenCount++;return parenCount<=4?m:inner});
- return out.replace(/\s+/g,' ').trim();
+
+ // Parenthesised groups count as one extra. Later brackets are removed but their words remain.
+ out=out.replace(/\(([^()]{1,80})\)/g,(m,inner)=>{
+   if(usedSpecial<specialLimit){usedSpecial++;return m}
+   return inner;
+ });
+
+ // Keep only a moderate number of commas and hyphens after dates/currency/brackets have used part of the budget.
+ out=out.replace(/,/g,()=>{if(usedSpecial<specialLimit){usedSpecial++;return ','}return ' '});
+ out=out.replace(/\s[-–—]\s|(?<=\w)-(?!\s)/g,m=>{if(usedSpecial<specialLimit){usedSpecial++;return m}return ' '});
+
+ out=out.replace(/\s+([,.;:!?])/g,'$1').replace(/\s{2,}/g,' ').trim();
+ if(lang==='Hindi')out=cleanUnicodeHindiMatter(out);
+ return out;
 }
+// Backward-compatible helper name used by the earlier 28-Sep migration.
+function softenHardNumericDensity(text,language){return normalizeDailyMatter(text,language,'Hard')}
 function cleanHindiResult(result,args){
- let content=String(result?.content||'');
- if(String(args?.difficulty)==='Hard'&&(String(args?.targetType)==='exam'||String(args?.targetType)==='practice'))content=softenHardNumericDensity(content,String(args?.language||''));
+ let content=normalizeDailyMatter(String(result?.content||''),String(args?.language||''),String(args?.difficulty||'Medium'));
  if(String(args?.language)!=='Hindi'||/kruti|devlys|chanakya/i.test(String(args?.exam?.layout||'')))return {...result,content};
  return {...result,content:cleanUnicodeHindiMatter(content),topicTitle:cleanUnicodeHindiMatter(result.topicTitle||'')};
 }
@@ -954,7 +990,7 @@ function composeDetailed(args){
  return cleanHindiResult({content:legacyDaily.compose(args),topicTitle:null,topicSignature:null,topicFamily:'live',baseSubject:'live'},args);
 }
 function compose(args){return composeDetailed(args).content}
-module.exports={compose,composeDetailed,softenHardNumericDensity,LEVELS,EXAM_COUNTS,PRACTICE_COUNTS,PRACTICE_30_MIN_WORDS,matterWordsForExam,createService};
+module.exports={compose,composeDetailed,normalizeDailyMatter,softenHardNumericDensity,LEVELS,EXAM_COUNTS,PRACTICE_COUNTS,PRACTICE_30_MIN_WORDS,PRACTICE_5_MIN_WORDS,matterWordsForExam,createService};
 function createService(db,{setting,indiaDateParts,onChange}){
  const changed=typeof onChange==='function'?onChange:()=>{};
  db.exec(`CREATE TABLE IF NOT EXISTS daily_auto_slots(slot TEXT PRIMARY KEY,queue_id INTEGER,passage_id INTEGER,content_hash TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
