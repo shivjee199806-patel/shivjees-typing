@@ -279,6 +279,16 @@ CREATE INDEX IF NOT EXISTS idx_daily_queue_status_date ON daily_passage_queue(st
 CREATE INDEX IF NOT EXISTS idx_daily_queue_exam ON daily_passage_queue(exam_id,language,difficulty);`);
 const dailyQueueCols=db.prepare("PRAGMA table_info(daily_passage_queue)").all().map(x=>x.name);
 if(!dailyQueueCols.includes('manual')) db.exec("ALTER TABLE daily_passage_queue ADD COLUMN manual INTEGER NOT NULL DEFAULT 0");
+if(!dailyQueueCols.includes('owner_edited')) db.exec("ALTER TABLE daily_passage_queue ADD COLUMN owner_edited INTEGER NOT NULL DEFAULT 0");
+// Tracks every passage created when one shared Daily Exam matter is published to all exam/sub-folders.
+db.exec(`CREATE TABLE IF NOT EXISTS daily_queue_publications(
+ queue_id INTEGER NOT NULL,
+ passage_id INTEGER NOT NULL UNIQUE,
+ exam_id INTEGER,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(queue_id,passage_id)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_queue_publications_queue ON daily_queue_publications(queue_id);`);
 
 // Public Gallery + Information Centre managed entirely from Owner Control.
 db.exec(`CREATE TABLE IF NOT EXISTS gallery_items(
@@ -1983,6 +1993,82 @@ dailyPassages=require('./daily-passages').createService(db,{setting,indiaDatePar
 // Scope remains unchanged: Learning and exam settings are untouched; Practice/Live only get the
 // one-time legacy restoration that undoes the earlier accidental experiment.
 async function runDeferredMatterMaintenance(){
+ // 2026-09-28 shared Daily Exam Queue migration: collapse old per-exam pending auto drafts.
+ // Only Daily Queue rows/slots are touched; exams, settings, results and non-daily passages stay unchanged.
+ try{
+  const marker='daily_queue_shared_exam_once_20260928_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const from='2026-09-28';let removed=0;
+   db.transaction(()=>{const rows=db.prepare("SELECT id FROM daily_passage_queue WHERE queue_date>=? AND target_type='exam' AND status='pending' AND COALESCE(manual,0)=0 AND exam_id IS NOT NULL").all(from);for(const r of rows){db.prepare('DELETE FROM daily_auto_slots WHERE queue_id=?').run(r.id);removed+=db.prepare('DELETE FROM daily_passage_queue WHERE id=?').run(r.id).changes}db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({from,removed}))})();
+   if(removed)scheduleRemoteSqliteMirror();console.log('Daily Queue shared-exam migration:',{removed});
+  }
+ }catch(e){console.warn('Daily Queue shared-exam migration skipped:',e.message)}
+ // 2026-09-28 review-first migration: today's untouched automatic Exam/Practice matters
+ // are pulled back out of passage folders and returned to the Daily Matter Queue.
+ // Any passage that already has a result/live reference is preserved to protect user history.
+ try{
+  const marker='daily_queue_review_first_20260928_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const today=indiaDateParts().date;let moved=0,preserved=0;
+   const rows=db.prepare("SELECT q.id,q.published_passage_id FROM daily_passage_queue q WHERE q.queue_date>=? AND q.status='published' AND COALESCE(q.manual,0)=0 AND q.target_type IN ('exam','practice') AND q.published_passage_id IS NOT NULL").all('2026-09-28');
+   const tx=db.transaction(()=>{for(const row of rows){
+    const refs=Number(db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?').get(row.published_passage_id)?.c||0)+Number(db.prepare('SELECT COUNT(*) c FROM live_tests WHERE passage_id=?').get(row.published_passage_id)?.c||0);
+    if(refs){preserved++;continue}
+    db.prepare('DELETE FROM passages WHERE id=?').run(row.published_passage_id);
+    db.prepare("UPDATE daily_passage_queue SET status='pending',published_passage_id=NULL,reviewed_at=NULL,owner_edited=0 WHERE id=?").run(row.id);
+    db.prepare('UPDATE daily_auto_slots SET passage_id=NULL WHERE queue_id=?').run(row.id);moved++;
+   }db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({today,moved,preserved}))});tx();
+   if(moved)scheduleRemoteSqliteMirror();console.log('Daily Queue review-first migration:',{moved,preserved});
+  }
+ }catch(e){console.warn('Daily Queue review-first migration skipped:',e.message)}
+ // 2026-09-28 existing Exam matter consolidation: older Daily Queue versions may already
+ // have published one different automatic matter per exam/sub-folder. Convert only those
+ // Daily Queue-owned rows into one shared row per date/language/level, while keeping every
+ // existing passage id so candidate/result references remain valid. From then on one edit
+ // of the shared Sent Matter updates every linked exam/sub-folder copy together.
+ try{
+  const marker='daily_queue_existing_exam_shared_once_20260928_v2';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const from='2026-09-28';let groups=0,linked=0,removedRows=0,createdCopies=0;
+   const hashText=s=>require('crypto').createHash('sha256').update(String(s||'').replace(/\s+/g,' ').trim()).digest('hex');
+   const source=db.prepare(`SELECT q.* FROM daily_passage_queue q
+    WHERE q.queue_date>=? AND q.target_type='exam' AND q.status='published'
+      AND COALESCE(q.manual,0)=0 AND q.exam_id IS NOT NULL AND q.published_passage_id IS NOT NULL
+    ORDER BY q.queue_date,q.language,q.difficulty,q.owner_edited DESC,q.id`).all(from);
+   const grouped=new Map();for(const r of source){const k=[r.queue_date,r.language,r.difficulty,r.queue_no].join('|');if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(r)}
+   const getPassage=db.prepare('SELECT * FROM passages WHERE id=?');
+   const updatePassage=db.prepare('UPDATE passages SET title=?,content=?,difficulty=?,language=? WHERE id=?');
+   const linkPub=db.prepare('INSERT OR IGNORE INTO daily_queue_publications(queue_id,passage_id,exam_id) VALUES(?,?,?)');
+   const deletePub=db.prepare('DELETE FROM daily_queue_publications WHERE queue_id=?');
+   const deleteSlotByQueue=db.prepare('DELETE FROM daily_auto_slots WHERE queue_id=?');
+   const deleteQueue=db.prepare('DELETE FROM daily_passage_queue WHERE id=?');
+   const insertPassage=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,1,?,?,1,?)');
+   const activeExams=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id");
+   const tx=db.transaction(()=>{for(const rows of grouped.values()){
+    if(!rows.length)continue;
+    const canonical=rows[0],title=String(canonical.title||'').trim(),content=String(canonical.content||'').trim();if(!content)continue;
+    const passageByExam=new Map();
+    for(const r of rows){const p=getPassage.get(r.published_passage_id);if(!p)continue;updatePassage.run(title,content,canonical.difficulty,canonical.language,p.id);passageByExam.set(Number(p.exam_id),Number(p.id))}
+    // Convert the chosen queue row to the shared owner row and attach every existing passage copy.
+    deletePub.run(canonical.id);
+    for(const [examId,pid] of passageByExam) {linkPub.run(canonical.id,pid,examId);linked++}
+    // If an active folder did not have a copy yet, add the same shared matter there now.
+    for(const ex of activeExams.all(canonical.language)){if(passageByExam.has(Number(ex.id)))continue;const pid=insertPassage.run(title,canonical.language,ex.layout||(canonical.language==='Hindi'?'Unicode / Mangal':'QWERTY'),canonical.difficulty,content,ex.highlight_mode||'current_char',ex.id,ex.default_result_count_mode||'word').lastInsertRowid;linkPub.run(canonical.id,pid,ex.id);passageByExam.set(Number(ex.id),Number(pid));createdCopies++;linked++}
+    const firstPid=passageByExam.values().next().value||canonical.published_passage_id;
+    db.prepare("UPDATE daily_passage_queue SET exam_id=NULL,exam_name='All Exam Folders',title=?,content=?,published_passage_id=?,reviewed_at=COALESCE(reviewed_at,CURRENT_TIMESTAMP) WHERE id=?").run(title,content,firstPid,canonical.id);
+    // Replace old per-exam auto slots with exactly one shared slot for this queue item.
+    for(const r of rows)deleteSlotByQueue.run(r.id);
+    const serial=Math.max(1,Number(canonical.queue_no||101)-100),slot=[canonical.queue_date,'exam','ALL',canonical.language,canonical.difficulty,serial].join('|');
+    db.prepare('DELETE FROM daily_auto_slots WHERE slot=? OR content_hash=?').run(slot,hashText(content));
+    db.prepare('INSERT INTO daily_auto_slots(slot,queue_id,passage_id,content_hash) VALUES(?,?,?,?)').run(slot,canonical.id,firstPid,hashText(content));
+    // Remove only redundant automatic Daily Queue rows; passage ids remain and are linked above.
+    for(const r of rows.slice(1)){deletePub.run(r.id);removedRows+=deleteQueue.run(r.id).changes}
+    groups++;
+   }});tx();
+   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({from,groups,linked,removedRows,createdCopies}));
+   if(groups||createdCopies)scheduleRemoteSqliteMirror();console.log('Existing Daily Exam matter consolidated to shared queue:',{groups,linked,removedRows,createdCopies});
+  }
+ }catch(e){console.warn('Existing Daily Exam shared consolidation skipped:',e.message)}
  try{
   const marker='practice_matter_duration_20260926_v1';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
@@ -2054,11 +2140,49 @@ async function runDeferredMatterMaintenance(){
    console.log('Existing auto Practice matter refreshed to full 30-minute sources:',result);
   }
  }catch(error){console.error('Practice-only source renewal skipped:',error.message)}
+
+ // 2026-09-28 Daily Queue-only final rules:
+ // (1) Practice keeps Easy + Medium + Hard only; auto-generated Moderate-to-Hard Practice is removed from active Practice.
+ // (2) Existing Daily Hard matter is softened for numeric density (3-4 digit currency, max four full dates, fewer bracket groups).
+ // This does NOT change Exam settings/behaviour. Each published Exam copy keeps its own exam_id and therefore uses that folder's
+ // duration, backspace, highlight, qualification and other exam rules at run time; only the shared matter text is common.
+ try{
+  const marker='daily_queue_practice_3_levels_hard_density_20260928_v1';
+  if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
+   const {softenHardNumericDensity}=require('./daily-passages');
+   let practiceDeactivated=0,pendingRemoved=0,hardUpdated=0;
+   db.transaction(()=>{
+    const modRows=db.prepare("SELECT id,published_passage_id,status FROM daily_passage_queue WHERE target_type='practice' AND difficulty='Moderate to Hard' AND COALESCE(manual,0)=0").all();
+    for(const q of modRows){
+     const links=db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(q.id);
+     const ids=new Set(links.map(x=>Number(x.passage_id)).filter(Boolean));if(q.published_passage_id)ids.add(Number(q.published_passage_id));
+     for(const pid of ids)practiceDeactivated+=db.prepare('UPDATE passages SET active=0 WHERE id=? AND exam_id IS NULL AND active=1').run(pid).changes;
+     if(q.status==='pending'){
+      db.prepare('DELETE FROM daily_auto_slots WHERE queue_id=?').run(q.id);
+      db.prepare('DELETE FROM daily_queue_publications WHERE queue_id=?').run(q.id);
+      pendingRemoved+=db.prepare('DELETE FROM daily_passage_queue WHERE id=?').run(q.id).changes;
+     }
+    }
+    const hardRows=db.prepare("SELECT * FROM daily_passage_queue WHERE difficulty='Hard' AND target_type IN ('exam','practice')").all();
+    for(const q of hardRows){
+     const next=softenHardNumericDensity(q.content,q.language);if(next===String(q.content||''))continue;
+     db.prepare('UPDATE daily_passage_queue SET content=? WHERE id=?').run(next,q.id);
+     const links=db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(q.id);
+     const ids=new Set(links.map(x=>Number(x.passage_id)).filter(Boolean));if(q.published_passage_id)ids.add(Number(q.published_passage_id));
+     for(const pid of ids)db.prepare('UPDATE passages SET content=? WHERE id=?').run(next,pid);
+     const h=crypto.createHash('sha256').update(next).digest('hex');db.prepare('UPDATE daily_auto_slots SET content_hash=? WHERE queue_id=?').run(h,q.id);hardUpdated++;
+    }
+    db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,JSON.stringify({practiceDeactivated,pendingRemoved,hardUpdated}));
+   })();
+   if(practiceDeactivated||pendingRemoved||hardUpdated)scheduleRemoteSqliteMirror();
+   console.log('Daily Queue final 28-Sep rules applied:',{practiceDeactivated,pendingRemoved,hardUpdated});
+  }
+ }catch(error){console.error('Daily Queue final 28-Sep rules skipped:',error.message)}
 }
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
  const q=String(req.query.q||'').trim(),like='%'+q+'%';
- const rows=db.prepare(`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?) AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,q,like,like,q,q,limit,offset);
+ const rows=db.prepare(`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?) AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,q,like,like,q,q,limit,offset);
  res.set('Cache-Control','no-store');res.json(rows);
 });
 app.get('/api/admin/daily-passage-queue-control',auth,admin,(req,res)=>res.json(dailyPassages.controls()));
@@ -2071,40 +2195,55 @@ app.put('/api/admin/live-daily-control',auth,admin,(req,res)=>{const enabled=!!r
 app.post('/api/admin/daily-passage-queue/generate',auth,admin,(req,res)=>{try{res.json(ensureDailyPassageQueue(indiaDateParts().date))}catch(e){res.status(400).json({error:e.message})}});
 
 app.post('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
- const b=req.body||{},target_type=b.target_type==='live'?'live':'exam',examId=target_type==='exam'?(Number(b.exam_id)||null):null;
- let ex=examId?db.prepare('SELECT * FROM exams WHERE id=?').get(examId):null;if(target_type==='exam'&&!ex)return res.status(400).json({error:'Select exam'});
- const lang=ex?.language||(['Hindi','English'].includes(b.language)?b.language:'English'),diff=['Easy','Medium','Hard'].includes(b.difficulty)?b.difficulty:'Medium',date=String(b.queue_date||indiaDateParts().date);
- const mx=Number(db.prepare('SELECT COALESCE(MAX(queue_no),0) n FROM daily_passage_queue WHERE queue_date=? AND target_type=? AND COALESCE(exam_id,0)=COALESCE(?,0) AND language=? AND difficulty=?').get(date,target_type,examId,lang,diff).n||0)+1;
- const title=String(b.title||`${date} • ${target_type==='live'?'LIVE':ex.name} • ${lang} • ${diff} • Manual ${mx}`).trim(),content=String(b.content||'').trim();if(!content)return res.status(400).json({error:'Matter required'});
+ const b=req.body||{},target_type=['live','practice'].includes(b.target_type)?b.target_type:'exam';
+ // Exam drafts are shared by language: edit once, publish to every active exam/sub-folder of that language.
+ const examId=null,lang=['Hindi','English'].includes(b.language)?b.language:'English',diff=['Easy','Medium','Moderate to Hard','Hard'].includes(b.difficulty)?b.difficulty:'Medium',date=String(b.queue_date||indiaDateParts().date);
+ if(target_type==='practice'&&diff==='Moderate to Hard')return res.status(400).json({error:'Daily Practice में केवल Easy, Medium और Hard levels रखे गए हैं. Moderate to Hard Practice से हटाया गया है.'});
+ if(target_type==='exam'&&!db.prepare("SELECT 1 FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' LIMIT 1").get(lang))return res.status(400).json({error:'इस language का कोई active exam/sub-folder नहीं मिला'});
+ const mx=Number(db.prepare('SELECT COALESCE(MAX(queue_no),0) n FROM daily_passage_queue WHERE queue_date=? AND target_type=? AND COALESCE(exam_id,0)=0 AND language=? AND difficulty=?').get(date,target_type,lang,diff).n||0)+1;
+ const targetName=target_type==='live'?'LIVE':target_type==='practice'?'Typing Practice':'All Exam Folders';const title=String(b.title||`${date} • ${targetName} • ${lang} • ${diff} • Manual ${mx}`).trim(),content=String(b.content||'').trim();if(!content)return res.status(400).json({error:'Matter required'});if(lang==='Hindi'&&/[A-Za-z]/.test(content))return res.status(400).json({error:'Hindi Unicode/Mangal matter में English letters नहीं होने चाहिए. पहले उन्हें हटाएँ या हिन्दी में बदलें.'});
  if(matterExistsAnywhere(content))return res.status(409).json({error:'Duplicate matter rejected. Only unique exam-oriented matter is allowed.'});
- const id=db.prepare("INSERT INTO daily_passage_queue(queue_date,queue_no,target_type,exam_id,exam_name,language,difficulty,title,content,status,manual) VALUES(?,?,?,?,?,?,?,?,?,'pending',1)").run(date,mx,target_type,examId,target_type==='live'?'Live Typing':ex.name,lang,diff,title,content).lastInsertRowid;audit(req,'CREATE','daily_passage_queue',id,title);res.json({id});
+ const id=db.prepare("INSERT INTO daily_passage_queue(queue_date,queue_no,target_type,exam_id,exam_name,language,difficulty,title,content,status,manual) VALUES(?,?,?,?,?,?,?,?,?,'pending',1)").run(date,mx,target_type,null,targetName==='LIVE'?'Live Typing':targetName,lang,diff,title,content).lastInsertRowid;audit(req,'CREATE','daily_passage_queue',id,title);res.json({id});
 });
 
 app.put('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{
  const id=Number(req.params.id),cur=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Passage not found'});
  const b=req.body||{},title=String(b.title??cur.title).trim().slice(0,250),content=String(b.content??cur.content).trim(),difficulty=['Easy','Medium','Moderate to Hard','Hard'].includes(b.difficulty)?b.difficulty:cur.difficulty;
+ const targetType=cur.target_type,examId=targetType==='exam'?null:cur.exam_id,examName=targetType==='exam'?'All Exam Folders':targetType==='practice'?'Typing Practice':targetType==='live'?'Live Typing':cur.exam_name,language=cur.language;
+ if(targetType==='practice'&&difficulty==='Moderate to Hard')return res.status(400).json({error:'Daily Practice में केवल Easy, Medium और Hard levels रखे गए हैं. Moderate to Hard Practice से हटाया गया है.'});
  if(!title||!content||content.length>100000)return res.status(400).json({error:'Title and matter required (maximum 100000 characters)'});
- const normal=normalizeMatterForDuplicateCheck(content);
- const duplicate=db.prepare('SELECT content FROM passages WHERE id<>?').all(cur.published_passage_id||0).some(p=>normalizeMatterForDuplicateCheck(p.content)===normal);
+ if(language==='Hindi'&&/[A-Za-z]/.test(content))return res.status(400).json({error:'Hindi Unicode/Mangal matter में English letters नहीं होने चाहिए. English शब्द/letters हटाकर हिन्दी में लिखें.'});
+ const normal=normalizeMatterForDuplicateCheck(content),linked=new Set(db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(id).map(x=>Number(x.passage_id)));if(cur.published_passage_id)linked.add(Number(cur.published_passage_id));
+ const duplicate=db.prepare('SELECT id,content FROM passages').all().some(p=>!linked.has(Number(p.id))&&normalizeMatterForDuplicateCheck(p.content)===normal);
  if(duplicate)return res.status(409).json({error:'This complete passage already exists. Please use fresh matter.'});
  db.transaction(()=>{
-  db.prepare('UPDATE daily_passage_queue SET title=?,content=?,difficulty=? WHERE id=?').run(title,content,difficulty,id);
-  if(cur.status==='published'&&cur.published_passage_id)db.prepare('UPDATE passages SET title=?,content=?,difficulty=? WHERE id=?').run(title,content,difficulty,cur.published_passage_id);
- })();audit(req,'UPDATE','daily_passage_queue',id,title);res.json({ok:true});
+  db.prepare('UPDATE daily_passage_queue SET title=?,content=?,difficulty=?,target_type=?,exam_id=?,exam_name=?,language=?,owner_edited=1 WHERE id=?').run(title,content,difficulty,targetType,examId,examName,language,id);
+  if(cur.status==='published'){
+   const links=db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(id);
+   if(links.length){const up=db.prepare('UPDATE passages SET title=?,content=?,difficulty=?,language=? WHERE id=?');for(const r of links)up.run(title,content,difficulty,language,r.passage_id)}
+   else if(cur.published_passage_id)db.prepare('UPDATE passages SET title=?,content=?,difficulty=?,language=? WHERE id=?').run(title,content,difficulty,language,cur.published_passage_id);
+  }
+ })();audit(req,'UPDATE','daily_passage_queue',id,title);res.json({ok:true,owner_edited:true,target_type:targetType,exam_id:examId});
 });
+
 app.delete('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{const id=Number(req.params.id);db.prepare('DELETE FROM daily_passage_queue WHERE id=? AND status=?').run(id,'pending');audit(req,'DELETE','daily_passage_queue',id,'Draft deleted');res.json({ok:true})});
 app.post('/api/admin/daily-passage-queue/:id/publish',auth,admin,(req,res)=>{
- const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!q)return res.status(404).json({error:'Draft not found'});if(q.status==='published')return res.json({ok:true,passage_id:q.published_passage_id,duplicate:true});
+ const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!q)return res.status(404).json({error:'Draft not found'});if(q.status==='published'){const count=Number(db.prepare('SELECT COUNT(*) c FROM daily_queue_publications WHERE queue_id=?').get(id)?.c||0);return res.json({ok:true,passage_id:q.published_passage_id,published_count:count||1,duplicate:true})}if(!Number(q.owner_edited||0))return res.status(400).json({error:'पहले Edit & Review करके matter save करें. उसके बाद ही publish किया जा सकता है.'});if(q.language==='Hindi'&&/[A-Za-z]/.test(q.content))return res.status(400).json({error:'Hindi Unicode/Mangal matter में English letters हैं. पहले edit करके हटाएँ.'});
  const duplicatePublished=db.prepare('SELECT id,content FROM passages').all().some(x=>normalizeMatterForDuplicateCheck(x.content)===normalizeMatterForDuplicateCheck(q.content));
  if(duplicatePublished)return res.status(409).json({error:'Duplicate matter rejected. This matter already exists in published passages.'});
- let exam=q.exam_id?db.prepare('SELECT * FROM exams WHERE id=?').get(q.exam_id):null;
- if(q.target_type==='live'&&!exam){exam=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id LIMIT 1").get(q.language)}
- const layout=exam?.layout||(q.language==='Hindi'?'Unicode / Mangal':'QWERTY');
- const pid=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,?,?,1)').run(q.title,q.language,layout,q.difficulty,q.content,exam?.highlight_mode||'current_char',exam?.id||null).lastInsertRowid;
- db.prepare("UPDATE daily_passage_queue SET status='published',published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(pid,id);audit(req,'PUBLISH','daily_passage_queue',id,`Passage ${pid}`);res.json({ok:true,passage_id:pid});
+ if(q.target_type==='exam'){
+  const exams=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id").all(q.language);if(!exams.length)return res.status(400).json({error:'इस language का कोई active exam/sub-folder नहीं मिला'});
+  const insert=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,1,?,?,1,?)'),link=db.prepare('INSERT OR IGNORE INTO daily_queue_publications(queue_id,passage_id,exam_id) VALUES(?,?,?)');let first=null,count=0;
+  db.transaction(()=>{for(const ex of exams){const pid=insert.run(q.title,q.language,ex.layout|| (q.language==='Hindi'?'Unicode / Mangal':'QWERTY'),q.difficulty,q.content,ex.highlight_mode||'current_char',ex.id,ex.default_result_count_mode||'word').lastInsertRowid;link.run(id,pid,ex.id);if(!first)first=pid;count++}db.prepare("UPDATE daily_passage_queue SET status='published',published_passage_id=?,exam_id=NULL,exam_name='All Exam Folders',reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(first,id)})();
+  audit(req,'PUBLISH','daily_passage_queue',id,`Shared matter -> ${count} exam/sub-folders`);return res.json({ok:true,passage_id:first,published_count:count});
+ }
+ let exam=q.exam_id?db.prepare('SELECT * FROM exams WHERE id=?').get(q.exam_id):null;if(q.target_type==='live'&&!exam)exam=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id LIMIT 1").get(q.language);
+ const layout=exam?.layout||(q.language==='Hindi'?'Unicode / Mangal':'QWERTY');const pid=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,1,?,?,1,?)').run(q.title,q.language,layout,q.difficulty,q.content,exam?.highlight_mode||'current_char',q.target_type==='practice'?null:(exam?.id||null),exam?.default_result_count_mode||'word').lastInsertRowid;db.prepare('INSERT OR IGNORE INTO daily_queue_publications(queue_id,passage_id,exam_id) VALUES(?,?,?)').run(id,pid,q.target_type==='practice'?null:(exam?.id||null));
+ db.prepare("UPDATE daily_passage_queue SET status='published',published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(pid,id);audit(req,'PUBLISH','daily_passage_queue',id,`Passage ${pid}`);res.json({ok:true,passage_id:pid,published_count:1});
 });
+
 app.post('/api/admin/daily-passage-queue/:id/schedule-live',auth,admin,(req,res)=>{
- const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!q||q.target_type!=='live')return res.status(404).json({error:'Live draft not found'});
+ const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);if(!q||q.target_type!=='live')return res.status(404).json({error:'Live draft not found'});if(!Number(q.owner_edited||0))return res.status(400).json({error:'पहले Edit & Review करके Live matter save करें.'});if(q.language==='Hindi'&&/[A-Za-z]/.test(q.content))return res.status(400).json({error:'Hindi Live matter में English letters हैं. पहले edit करके हटाएँ.'});
  const start=String(req.body?.start_at||''),end=String(req.body?.end_at||'');if(!start||!end)return res.status(400).json({error:'Start and end time required'});
  let pid=q.published_passage_id;if(!pid){let exam=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id LIMIT 1").get(q.language);if(!exam)return res.status(400).json({error:'No active exam found for language'});pid=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,auto_scroll) VALUES(?,?,?,?,?,1,?,?,1)').run(q.title,q.language,exam.layout,q.difficulty,q.content,exam.highlight_mode||'current_char',exam.id).lastInsertRowid;db.prepare("UPDATE daily_passage_queue SET status='published',published_passage_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").run(pid,id)}
  const p=db.prepare('SELECT exam_id FROM passages WHERE id=?').get(pid),lt=db.prepare('INSERT INTO live_tests(title,exam_id,passage_id,start_at,end_at,active) VALUES(?,?,?,?,?,1)').run(q.title,p.exam_id,pid,start,end).lastInsertRowid;audit(req,'SCHEDULE','live_test',lt,q.title);res.json({ok:true,live_test_id:lt,passage_id:pid});
