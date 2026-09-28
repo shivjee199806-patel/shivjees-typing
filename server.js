@@ -2327,19 +2327,18 @@ async function runDeferredMatterMaintenance(){
   }
  }catch(error){console.error('Existing Daily Queue matter repair v2 skipped:',error.message)}
 
- // 2026-09-28 owner-requested clean restart:
- // Remove untouched AUTO Daily Queue matter only for Exam / Live when it has never been typed. Practice is preserved.
- // Practice, Manual and Chhota Bhai matter are outside this scope. If even one linked passage has a saved result,
- // the whole queue matter is preserved so candidate history cannot break.
- // After cleanup, generate today's Daily Queue again using the latest rules.
+ // 2026-09-28 owner-requested clean restart v2:
+ // Remove ALL untyped AUTO Exam / Live Daily Queue matter, including old Pending/Sent rows
+ // that were created before daily_auto_slots existed. Practice, Manual and Chhota Bhai are preserved.
+ // If any linked passage has a candidate result, that whole queue row is preserved.
+ // Then rebuild today's Exam/Live queue using the latest generation rules.
  try{
-  const marker='daily_queue_unused_auto_full_reset_20260928_v1';
+  const marker='daily_queue_unused_auto_full_reset_20260928_v2_all_rows';
   if(!db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker)){
    let queueDeleted=0,passagesDeleted=0,liveDeleted=0,preservedUsed=0,slotsDeleted=0;
    const autoRows=db.prepare(`
-    SELECT DISTINCT q.*
+    SELECT q.*
     FROM daily_passage_queue q
-    JOIN daily_auto_slots s ON s.queue_id=q.id
     WHERE COALESCE(q.manual,0)=0
       AND q.target_type IN ('exam','live')
     ORDER BY q.id
@@ -2347,7 +2346,6 @@ async function runDeferredMatterMaintenance(){
 
    const pubLinks=db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?');
    const resultCount=db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?');
-   const liveCount=db.prepare('SELECT COUNT(*) c FROM live_tests WHERE passage_id=?');
    const deleteLive=db.prepare('DELETE FROM live_tests WHERE passage_id=?');
    const deletePassage=db.prepare('DELETE FROM passages WHERE id=?');
    const deletePublications=db.prepare('DELETE FROM daily_queue_publications WHERE queue_id=?');
@@ -2359,15 +2357,14 @@ async function runDeferredMatterMaintenance(){
      const ids=new Set(pubLinks.all(q.id).map(x=>Number(x.passage_id)).filter(Boolean));
      if(q.published_passage_id)ids.add(Number(q.published_passage_id));
 
-     // "Untyped" means no saved candidate result on any linked copy.
+     // Any candidate result protects this queue row and all its linked passage copies.
      let used=false;
      for(const pid of ids){
       if(Number(resultCount.get(pid)?.c||0)>0){used=true;break}
      }
      if(used){preservedUsed++;continue}
 
-     // Live auto matter is also removed here. Any scheduled live test using this unused passage
-     // is deleted so the new Daily Live matter can be generated/scheduled fresh.
+     // Untyped auto Exam/Live matter: remove every linked published copy and scheduled live test.
      for(const pid of ids){
       liveDeleted+=deleteLive.run(pid).changes;
       passagesDeleted+=deletePassage.run(pid).changes;
@@ -2382,19 +2379,16 @@ async function runDeferredMatterMaintenance(){
     );
    })();
 
-   // Rebuild TODAY with current rules. Existing Practice slots remain untouched and therefore are not replaced.
-   // Live rows are regenerated too when Live Daily is ON; when OFF they will be generated
-   // normally after the Owner enables Live Daily.
-   let regenerated={created:0};
-   try{regenerated=dailyPassages.run(indiaDateParts().date)||{created:0}}catch(e){console.warn('Fresh Daily Queue regeneration skipped:',e.message)}
-
-   if(queueDeleted||passagesDeleted||liveDeleted||Number(regenerated.created||0))scheduleRemoteSqliteMirror();
-   console.log('Unused auto Daily Queue clean restart:',{
+   // Do NOT immediately regenerate matter during cleanup.
+   // The normal Daily scheduler / Owner Generate action will create fresh matter later
+   // using the current latest rules. Practice rows remain untouched.
+   if(queueDeleted||passagesDeleted||liveDeleted)scheduleRemoteSqliteMirror();
+   console.log('Unused auto Exam/Live full reset v2:',{
     queueDeleted,passagesDeleted,liveDeleted,preservedUsed,slotsDeleted,
-    regenerated:Number(regenerated.created||0)
+    regenerated:0
    });
   }
- }catch(error){console.error('Unused auto Daily Queue clean restart skipped:',error.message)}
+ }catch(error){console.error('Unused auto Exam/Live full reset v2 skipped:',error.message)}
 }
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
