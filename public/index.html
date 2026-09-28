@@ -1702,7 +1702,7 @@ async function viewUser(id){try{const u=await api('/api/admin/users/'+id);docume
 
 async function addPassage(){try{await api('/api/admin/passages',{method:'POST',body:JSON.stringify({exam_id:+pexam.value||null,title:pt.value,language:pl.value,layout:pk.value,difficulty:pd.value,highlight_mode:(phe.checked?ph.value:'none'),required_wpm:prw.value,required_accuracy:pra.value,min_words:pmw.value,min_chars:pmc.value,duration_override:pdo.value,instructions:pins.value,content:pc.value})});showToast('Passage added successfully');admin()}catch(e){showToast(e.message)}}async function delP(id){if(confirm('Delete this passage?')){await api('/api/admin/passages/'+id,{method:'DELETE'});admin()}}
 
-async function owner(){if(!S.user||S.user.role!=='admin'){auth('login');return}activeNav('owner');try{const [s,e,p]=await Promise.all([api('/api/admin/stats'),api('/api/admin/exams'),api('/api/admin/passages?summary=1')]);const r=[],set={},a=[],l=[];setApp(`<div class="page owner-full-page"><div class="page-title"><div><div class="crumb">Owner / Owner Control</div><h1>Owner Control Center</h1><p>Manage the platform like the site owner: exams, passages, results, settings, access and backups.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap">${Number(S.user?.is_owner)===1?`<button class="btn btn-primary" onclick="location.hash='#admin-signup'">➕ Create Sub Admin</button>`:``}<a class="btn btn-primary" href="/owner-practice-reminders.html" style="text-decoration:none">✉ Email Reminder Management</a><button class="btn btn-white" onclick="downloadBackup()">Download DB Backup</button></div></div><div class="metrics"><div class="metric"><small>Students</small><b>${s.users}</b></div><div class="metric"><small>Exams</small><b>${s.exams}</b></div><div class="metric"><small>Passages</small><b>${s.passages}</b></div><div class="metric"><small>Results</small><b>${s.tests}</b></div></div><div style="height:18px"></div><div class="tabs owner-control-tabs"><button class="tab active" onclick="ownerTab('exams',this)">Exams</button><button class="tab" onclick="ownerTab('live',this)">Live Tests</button><button class="tab" onclick="ownerTab('passages',this)">Passages</button><button class="tab" onclick="ownerTab('dailyqueue',this)">Daily Matter Queue</button><button class="tab" onclick="ownerTab('gallery',this)">Gallery</button><button class="tab" onclick="ownerTab('notifications',this)">🔔 Notifications</button><button class="tab" onclick="ownerTab('doubts',this)">💬 Doubt Sessions</button><button class="tab" onclick="ownerTab('aboutimages',this)">About Images</button><button class="tab" onclick="ownerCertificates()">🏅 Certificates</button><button class="tab" onclick="ownerTab('results',this)">Results</button><button class="tab" onclick="ownerTab('paymentmaster',this)">💳 Payment System</button><button class="tab" onclick="ownerTab('payments',this)">Payments</button><button class="tab" onclick="ownerTab('fullaccess',this)">Full Access</button><button class="tab" onclick="ownerTab('learningcontrol',this)">📚 Learning Control</button><button class="tab" onclick="ownerTab('foldercontrol',this)">📁 Folder Control</button><button class="tab" onclick="ownerTab('herolines',this)">✨ Hero Lines</button><button class="tab" onclick="ownerTab('settings',this)">Site Settings</button><button class="tab" onclick="ownerTab('security',this)">Security</button><button class="tab" onclick="ownerTab('audit',this)">Audit Log</button></div><div id="ownerPane"></div></div>`);window.OWNER={e,p,r,set,a,l};ownerTab('exams');Promise.allSettled([api('/api/admin/results?limit=200'),api('/api/admin/settings'),api('/api/admin/audit'),api('/api/admin/live-tests')]).then(v=>{if(!window.OWNER)return;if(v[0].status==='fulfilled')window.OWNER.r=v[0].value;if(v[1].status==='fulfilled')window.OWNER.set=v[1].value;if(v[2].status==='fulfilled')window.OWNER.a=v[2].value;if(v[3].status==='fulfilled')window.OWNER.l=v[3].value})}catch(err){showToast(err.message)}}
+async function owner(){if(!S.user||S.user.role!=='admin'){auth('login');return}activeNav('owner');try{const [s,e,p]=await Promise.all([api('/api/admin/stats'),api('/api/admin/exams'),api('/api/admin/passages?summary=1')]);const r=[],set={},a=[],l=[];setApp(`<div class="page owner-full-page"><div class="page-title"><div><div class="crumb">Owner / Owner Control</div><h1>Owner Control Center</h1><p>Manage the platform like the site owner: exams, passages, results, settings, access and backups.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap">${Number(S.user?.is_owner)===1?`<button class="btn btn-primary" onclick="location.hash='#admin-signup'">➕ Create Sub Admin</button>`:``}<a class="btn btn-primary" href="/owner-practice-reminders.html" style="text-decoration:none">✉ Email Reminder Management</a><button class="btn btn-white" onclick="downloadBackup()">Download DB Backup</button></div></div><div class="metrics"><div class="metric"><small>Students</small><b>${s.users}</b></div><div class="metric"><small>Exams</small><b>${s.exams}</b></div><div class="metric"><small>Passages</small><b>${s.passages}</b></div><div class="metric"><small>Results</small><b>${s.tests}</b></div></div><div style="height:18px"></div><div class="tabs owner-control-tabs"><button class="tab active" onclick="ownerTab('exams',this)">Exams</button><button class="tab" onclick="ownerTab('live',this)">Live Tests</button><button class="tab" onclick="ownerTab('passages',this)">Passages</button><button class="tab" onclick="ownerTab('manualmatter',this)">📝 Manual Matter</button><button class="tab" onclick="ownerTab('dailyqueue',this)">Daily Matter Queue</button><button class="tab" onclick="ownerTab('gallery',this)">Gallery</button><button class="tab" onclick="ownerTab('notifications',this)">🔔 Notifications</button><button class="tab" onclick="ownerTab('doubts',this)">💬 Doubt Sessions</button><button class="tab" onclick="ownerTab('aboutimages',this)">About Images</button><button class="tab" onclick="ownerCertificates()">🏅 Certificates</button><button class="tab" onclick="ownerTab('results',this)">Results</button><button class="tab" onclick="ownerTab('paymentmaster',this)">💳 Payment System</button><button class="tab" onclick="ownerTab('payments',this)">Payments</button><button class="tab" onclick="ownerTab('fullaccess',this)">Full Access</button><button class="tab" onclick="ownerTab('learningcontrol',this)">📚 Learning Control</button><button class="tab" onclick="ownerTab('foldercontrol',this)">📁 Folder Control</button><button class="tab" onclick="ownerTab('herolines',this)">✨ Hero Lines</button><button class="tab" onclick="ownerTab('settings',this)">Site Settings</button><button class="tab" onclick="ownerTab('security',this)">Security</button><button class="tab" onclick="ownerTab('audit',this)">Audit Log</button></div><div id="ownerPane"></div></div>`);window.OWNER={e,p,r,set,a,l};ownerTab('exams');Promise.allSettled([api('/api/admin/results?limit=200'),api('/api/admin/settings'),api('/api/admin/audit'),api('/api/admin/live-tests')]).then(v=>{if(!window.OWNER)return;if(v[0].status==='fulfilled')window.OWNER.r=v[0].value;if(v[1].status==='fulfilled')window.OWNER.set=v[1].value;if(v[2].status==='fulfilled')window.OWNER.a=v[2].value;if(v[3].status==='fulfilled')window.OWNER.l=v[3].value})}catch(err){showToast(err.message)}}
 function ownerTab(tab,btn){if(btn){document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}const O=window.OWNER;if(tab==='gallery'){renderOwnerGallery();return}if(tab==='information'){renderOwnerInformation();return}if(tab==='notifications'){renderOwnerNotifications();return}if(tab==='doubts'){renderOwnerDoubts();return}if(tab==='aboutimages'){renderOwnerAboutImages();return}if(tab==='learningcontrol'){renderOwnerLearningControl();return}if(tab==='paymentmaster'){renderPaymentMasterControl();return}if(tab==='exams')document.getElementById('ownerPane').innerHTML=`<div class="admin-grid"><div class="card" style="padding:20px"><h2 style="margin-top:0">Create Exam</h2><div class="form-grid"><input id="en" class="input" placeholder="Exam name"><input id="es" class="input" placeholder="unique-slug"><select id="el" class="select"><option>English</option><option>Hindi</option></select><input id="ek" class="input" placeholder="Keyboard layout" value="QWERTY"><input id="ed" type="number" class="input" placeholder="Minutes" value="10"><input id="ew" type="number" class="input" placeholder="Required WPM" value="30"><input id="ea" type="number" class="input" placeholder="Accuracy %" value="90"><input id="eminw" type="number" min="0" class="input" placeholder="Minimum Words" value="0"><input id="eminc" type="number" min="0" class="input" placeholder="Minimum Characters" value="0"><select id="eqm" class="select"><option value="all">Qualification: All Conditions</option><option value="wpm">WPM only</option><option value="accuracy">Accuracy only</option><option value="wpm_accuracy">WPM + Accuracy</option><option value="words_wpm_accuracy" selected>Words + WPM + Accuracy</option><option value="chars_wpm_accuracy">Characters + WPM + Accuracy</option></select><label style="display:flex;align-items:center;gap:10px;min-height:46px;padding:0 8px">Speed based on Time Taken <span class="speed-switch"><input id="eSpeedTime" type="checkbox"><span class="speed-slider"></span></span></label><input id="efee" type="number" min="0" class="input" placeholder="Exam Fee ₹" value="0"><input id="evalid" type="number" min="1" class="input" placeholder="Validity days" value="30"><input id="edemo" type="number" min="0" class="input" placeholder="Free demos/day" value="4"><select id="epaid" class="select"><option value="0">Free Exam</option><option value="1">Paid after demos</option></select><select id="eb" class="select"><option value="1">Backspace allowed</option><option value="0">Backspace disabled</option></select><select id="eh" class="select"><option value="current_char">Highlight: Current Character</option><option value="current_word">Highlight: Current Word</option><option value="errors_only">Highlight: Errors Only</option><option value="none">Highlight: Off</option></select></div><textarea id="edes" class="input" rows="4" style="width:100%;margin-top:10px" placeholder="Description"></textarea><button class="btn btn-primary" style="margin-top:10px" onclick="createExam()">Create Exam</button></div><div class="card" style="padding:20px"><h2 style="margin-top:0">Exports & Backup</h2><p class="muted">Keep offline copies of your business data.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-soft" onclick="downloadExport('exams')">Exams CSV</button><button class="btn btn-soft" onclick="downloadExport('users')">Users CSV</button><button class="btn btn-soft" onclick="downloadExport('results')">Results CSV</button><button class="btn btn-soft" onclick="downloadExport('passages')">Passages CSV</button><button class="btn btn-primary" onclick="downloadBackup()">Database Backup</button></div></div></div><div style="height:18px"></div><div class="card table-wrap"><table class="table"><thead><tr><th>Sl.No.</th><th>Name</th><th>Passages</th><th>Language</th><th>Time</th><th>WPM</th><th>Accuracy</th><th>Fee / Demo</th><th>Status</th><th>Action</th></tr></thead><tbody>${O.e.map((x,i)=>`<tr><td><b>${i+1}</b></td><td><b>${esc(x.name)}</b><div class="muted" style="font-size:11px">${esc(x.slug)}</div></td><td><span class="badge">${O.p.filter(p=>+p.exam_id===+x.id).length} passages</span></td><td>${esc(x.language)}</td><td>${x.duration} min</td><td>${x.required_wpm}</td><td>${x.required_accuracy}%</td><td><b>₹${Number(x.fee_amount||0)}</b><div class="muted">${x.paid_enabled?'Paid':'Free'} · ${x.daily_demo_limit??4} demo/day · ${x.validity_days||30} days</div></td><td>${x.active?'<span class="badge green">Active</span>':'<span class="badge amber">Inactive</span>'}</td><td><button class="btn btn-primary" onclick="openOwnerExamPassages(${x.id})">Manage Passages</button> <button class="btn btn-soft" onclick="editExam(${x.id})">Edit</button> <button class="btn btn-white" onclick="toggleExam(${x.id})">${x.active?'Deactivate':'Activate'}</button></td></tr>`).join('')}</tbody></table></div>`;
 else if(tab==='live'){const exams=O.e.filter(x=>x.active),pass=O.p.filter(x=>x.active);document.getElementById('ownerPane').innerHTML=`<div class="admin-grid"><div class="card" style="padding:20px"><h2 style="margin-top:0">Schedule Live Typing Test</h2><div class="form-grid"><input id="ltTitle" class="input" placeholder="Live test title"><select id="ltExam" class="select" onchange="syncLivePassages()"><option value="">Select Exam</option>${exams.map(x=>`<option value="${x.id}" data-lang="${esc(x.language)}">${esc(x.name)}</option>`).join('')}</select><select id="ltPassage" class="select"><option value="">Select Passage</option>${pass.map(x=>`<option value="${x.id}" data-lang="${esc(x.language)}" data-exam="${x.exam_id||''}">${esc(x.title)} · ${esc(x.language)}</option>`).join('')}</select><label>Start<input id="ltStart" type="datetime-local" class="input" style="width:100%;margin-top:5px"></label><label>End<input id="ltEnd" type="datetime-local" class="input" style="width:100%;margin-top:5px"></label></div><button class="btn btn-primary" style="margin-top:12px" onclick="createLiveTest()">Schedule Live Test</button></div><div class="card" style="padding:20px"><h2 style="margin-top:0">How it works</h2><div class="notice">Candidate sees a dedicated <b>Live Test</b> page. The Start button appears only during the scheduled window. Every live attempt is saved in Test History and Owner Results.</div></div></div><div style="height:18px"></div><div class="card table-wrap"><table class="table"><thead><tr><th>Title</th><th>Exam</th><th>Passage</th><th>Matter</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead><tbody>${O.l.map(x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.exam_name)}</td><td>${esc(x.passage_title)}</td><td><div style="max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(x.passage_content||'')}">${esc((x.passage_content||'').slice(0,90))}${(x.passage_content||'').length>90?'…':''}</div><button class="btn btn-soft" style="margin-top:6px;padding:6px 10px" onclick="editLiveMatter(${x.id})">View / Edit Matter</button></td><td>${liveWhen(x.start_at)}</td><td>${liveWhen(x.end_at)}</td><td>${x.active?'<span class="badge green">Active</span>':'<span class="badge amber">Inactive</span>'}</td><td><button class="btn btn-soft" onclick="editLiveTest(${x.id})">Edit</button> <button class="btn btn-danger" onclick="deleteLiveTest(${x.id})">Delete</button></td></tr>`).join('')||'<tr><td colspan="7">No live tests scheduled yet.</td></tr>'}</tbody></table></div>`;setTimeout(syncLivePassages,0)}
 else if(tab==='passages'){const selected=String(window.OWNER_PASS_EXAM||''),selectedExam=O.e.find(e=>String(e.id)===selected);document.getElementById('ownerPane').innerHTML=`<div class="card" style="padding:20px"><h2 style="margin-top:0">Exam-wise Passage Manager</h2><p class="muted">हर exam के passages अलग रहेंगे। Computer Operator में जो passage जोड़ेंगे वह केवल उसी exam में दिखेगा; दूसरे exam का passage उसके अपने filter में जाएगा.</p><div class="toolbar" style="margin-top:12px"><select id="ownerPassExamFilter" class="select" onchange="window.OWNER_PASS_EXAM=this.value;filterOwnerPassages();syncOwnerPassageCreateExam()"><option value="">All Exams</option>${candidateExamList(O.e).map(e=>`<option value="${e.id}" ${String(e.id)===selected?'selected':''}>${esc(e.name)} · ${esc(e.language)}</option>`).join('')}</select><input id="ownerPassSearch" class="input" placeholder="Search passage..." oninput="filterOwnerPassages()"></div></div><div style="height:12px"></div><div class="card" style="padding:20px"><h3 style="margin-top:0">➕ Add Passage ${selectedExam?'to '+esc(selectedExam.name):''}</h3><div class="notice" style="margin-bottom:12px">पहले Exam चुनना जरूरी है। Save होते ही passage उसी exam के अंदर Serial 1, 2, 3... में दिखाई देगा.</div><div class="form-grid"><select id="opExam" class="select" onchange="window.OWNER_PASS_EXAM=this.value;document.getElementById('ownerPassExamFilter').value=this.value;filterOwnerPassages()"><option value="">Select Exam</option>${candidateExamList(O.e).map(e=>`<option value="${e.id}" ${String(e.id)===selected?'selected':''}>${esc(e.name)} · ${esc(e.language)}</option>`).join('')}</select><input id="opTitle" class="input" placeholder="Passage title"><select id="opDifficulty" class="select"><option>Easy</option><option selected>Medium</option><option>Moderate to Hard</option><option>Hard</option></select><select id="opHighlight" class="select"><option value="current_char">Highlight: Current Character</option><option value="current_word">Highlight: Current Word</option><option value="errors_only">Highlight: Errors Only</option><option value="none">Highlight: Off</option></select><select id="opAutoScroll" class="select"><option value="1" selected>Passage Scroll: Auto</option><option value="0">Passage Scroll: Manual</option></select><input id="opWpm" type="number" min="0" step="0.1" class="input" value="30" placeholder="Required WPM"><input id="opAcc" type="number" min="0" max="100" step="0.1" class="input" value="85" placeholder="Required Accuracy %"><select id="opQualMethod" class="select"><option value="all">Qualification: All selected conditions</option><option value="wpm_accuracy" selected>Qualification: WPM + Accuracy</option><option value="words_wpm_accuracy">Qualification: Words + WPM + Accuracy</option><option value="chars_wpm_accuracy">Qualification: Characters + WPM + Accuracy</option><option value="wpm">Qualification: WPM only</option><option value="accuracy">Qualification: Accuracy only</option></select><input id="opMinWords" type="number" class="input" placeholder="Minimum words"><input id="opMinChars" type="number" class="input" placeholder="Minimum characters"><input id="opDuration" type="number" class="input" placeholder="Duration min (optional)"></div><textarea id="opInstructions" class="input" rows="3" style="width:100%;margin-top:10px" placeholder="Passage-specific instructions (optional)"></textarea><textarea id="opContent" class="input" rows="8" style="width:100%;margin-top:10px" placeholder="Type or paste passage text"></textarea><button class="btn btn-primary" style="margin-top:10px" onclick="addOwnerExamPassage()">Add Passage to Selected Exam</button></div><div style="height:12px"></div><div class="card table-wrap"><table class="table"><thead><tr><th>Sl.No.</th><th>Title</th><th>Exam</th><th>Language</th><th>Difficulty</th><th>Highlight</th><th>Length</th><th>Status</th><th>Action</th></tr></thead><tbody id="ownerPassBody">${O.p.map(x=>`<tr data-exam="${x.exam_id||''}" data-search="${esc((x.title+' '+(x.exam_name||'')+' '+x.language).toLowerCase())}"><td class="owner-pass-serial"></td><td><b>${esc(x.title)}</b></td><td>${esc(x.exam_name||'Not assigned')}</td><td>${esc(x.language)}</td><td>${esc(x.difficulty)}</td><td>${x.highlight_mode==='none'?'<span class="badge amber">Off</span>':`<span class="badge green">On · ${esc((x.highlight_mode||'current_char').replaceAll('_',' '))}</span>`}</td><td>${wordCount(x.content)} words</td><td>${x.active?'<span class="badge green">Active</span>':'<span class="badge amber">Inactive</span>'}</td><td><button class="btn btn-primary" onclick="selectPassage(${x.id})">Select / Open</button> <button class="btn btn-white" onclick="togglePassage(${x.id})">${x.active?'Deactivate':'Activate'}</button> <button class="btn btn-danger" onclick="deletePassageOwner(${x.id})">Delete</button> <button class="btn btn-danger" onclick="delP(${x.id});setTimeout(()=>owner(),300)">Delete</button></td></tr>`).join('')}</tbody></table></div>`;setTimeout(filterOwnerPassages,0)}
@@ -7308,84 +7308,187 @@ button[data-dq-lang].active:hover,
 }
 </style>
 
-<style id="jp-daily-queue-hover-active-polish-20260928">
-.daily-queue-note .btn,
-.daily-queue-toolbar .btn{
- cursor:pointer;
- transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
-}
-.daily-queue-note .btn:hover,
-.daily-queue-toolbar .btn:hover,
-.daily-queue-note .btn:focus-visible,
-.daily-queue-toolbar .btn:focus-visible{
- transform:translateY(-1px);
- box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 12%,transparent);
-}
-.daily-queue-note .daily-queue-quick{
- border-radius:12px!important;
- padding:11px 16px!important;
- font-weight:800!important;
-}
-.daily-queue-note .btn.btn-soft.daily-queue-quick{
- background:linear-gradient(180deg,#fff 0%,color-mix(in srgb,var(--soft) 55%,#fff) 100%)!important;
- border:1px solid color-mix(in srgb,var(--line) 88%,transparent)!important;
- color:var(--ink)!important;
-}
-.daily-queue-note .btn.btn-soft.daily-queue-quick:hover{
- background:var(--soft)!important;
- color:var(--blue)!important;
- border-color:color-mix(in srgb,var(--blue) 30%,var(--line))!important;
-}
-.daily-queue-note .btn.active,
-.daily-queue-toolbar .btn.active{
- background:var(--blue)!important;
- color:#fff!important;
- border-color:var(--blue)!important;
- box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 18%,transparent)!important;
-}
-.daily-queue-note .btn.active:hover,
-.daily-queue-toolbar .btn.active:hover{
- background:color-mix(in srgb,var(--blue) 88%,#000)!important;
- color:#fff!important;
-}
-.daily-queue-note .btn.btn-primary.daily-queue-quick,
-.daily-queue-note .btn.btn-danger.daily-queue-quick{
- box-shadow:0 6px 14px color-mix(in srgb,var(--blue) 10%,transparent);
-}
-.daily-queue-note .btn.btn-primary.daily-queue-quick:hover,
-.daily-queue-note .btn.btn-danger.daily-queue-quick:hover{
- filter:saturate(1.05) brightness(1.02);
-}
-.daily-queue-toggle{
- border-radius:999px;
- padding:10px 14px;
- font-weight:800;
- box-shadow:0 4px 12px rgba(0,0,0,.04);
-}
-.daily-queue-toggle.on{
- background:color-mix(in srgb,var(--soft) 74%,#fff);
- border:1px solid color-mix(in srgb,var(--blue) 22%,var(--line));
- color:var(--blue);
-}
-.daily-queue-toggle.off{
- background:color-mix(in srgb,#ffeaea 72%,#fff);
- border:1px solid color-mix(in srgb,#f3a2a2 55%,#fff);
- color:#b24848;
-}
-.daily-queue-toolbar .btn.btn-soft{
- border-radius:12px!important;
- padding:10px 14px!important;
- font-weight:800!important;
- background:linear-gradient(180deg,#fff 0%,color-mix(in srgb,var(--soft) 60%,#fff) 100%)!important;
- border:1px solid color-mix(in srgb,var(--line) 92%,transparent)!important;
- color:var(--ink)!important;
-}
-.daily-queue-toolbar .btn.btn-soft:hover{
- background:var(--soft)!important;
- color:var(--blue)!important;
- border-color:color-mix(in srgb,var(--blue) 28%,var(--line))!important;
-}
+<style id="jp-manual-matter-control-20260929">
+.jp-mm-shell{display:grid;gap:14px}
+.jp-mm-card{padding:18px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#fff 0%,color-mix(in srgb,var(--soft) 22%,#fff) 100%);box-shadow:0 7px 20px color-mix(in srgb,var(--blue) 7%,transparent)}
+.jp-mm-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.jp-mm-head h2,.jp-mm-head h3{margin:0}
+.jp-mm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.jp-mm-grid label{font-size:12px;font-weight:850;color:var(--ink)}
+.jp-mm-grid .input,.jp-mm-grid .select{width:100%;margin-top:6px}
+.jp-mm-span2{grid-column:span 2}.jp-mm-span4{grid-column:1/-1}
+.jp-mm-textarea{min-height:230px;resize:vertical;line-height:1.55}
+.jp-mm-instructions{min-height:90px;resize:vertical}
+.jp-mm-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.jp-mm-list{display:grid;gap:10px}
+.jp-mm-row{display:grid;grid-template-columns:minmax(220px,1.5fr) 110px minmax(190px,1fr) 120px minmax(220px,1.2fr);gap:12px;align-items:center;padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--blue) 5%,transparent)}
+.jp-mm-row:hover{border-color:color-mix(in srgb,var(--blue) 28%,var(--line));box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 9%,transparent)}
+.jp-mm-row-title b{display:block}.jp-mm-row-title small,.jp-mm-meta{color:var(--muted);font-size:11px}
+.jp-mm-row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.jp-mm-badge{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--soft);color:var(--blue);font-weight:850;font-size:11px}
+.jp-mm-copy-note{font-size:11px;color:var(--muted);margin-top:4px}
+@media(max-width:980px){.jp-mm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.jp-mm-span4{grid-column:1/-1}.jp-mm-row{grid-template-columns:1fr 1fr}.jp-mm-row-actions{justify-content:flex-start}}
+@media(max-width:620px){.jp-mm-grid{grid-template-columns:1fr}.jp-mm-span2,.jp-mm-span4{grid-column:auto}.jp-mm-row{grid-template-columns:1fr}.jp-mm-textarea{min-height:190px}}
+/* Daily Queue controls: theme-aware hover/active without changing behavior. */
+.daily-queue-note .btn,.daily-queue-toolbar .btn{cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease,color .16s ease}
+.daily-queue-note .btn:hover,.daily-queue-toolbar .btn:hover,.daily-queue-note .btn:focus-visible,.daily-queue-toolbar .btn:focus-visible{transform:translateY(-1px);box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 12%,transparent)}
+.daily-queue-note .daily-queue-quick{border-radius:12px!important;padding:11px 16px!important;font-weight:800!important}
+.daily-queue-note .btn.active,.daily-queue-toolbar .btn.active{background:var(--blue)!important;color:#fff!important;border-color:var(--blue)!important;box-shadow:0 8px 18px color-mix(in srgb,var(--blue) 18%,transparent)!important}
+.daily-queue-toolbar .btn.btn-soft{border-radius:12px!important;padding:10px 14px!important;font-weight:800!important}
+.daily-queue-toolbar .btn.btn-soft:hover{background:var(--soft)!important;color:var(--blue)!important;border-color:color-mix(in srgb,var(--blue) 28%,var(--line))!important}
 </style>
+<script id="jp-manual-matter-control-script-20260929">
+(()=>{
+ if(window.__jpManualMatterControl20260929)return;
+ window.__jpManualMatterControl20260929=true;
+ let MM_EDIT_ID=null,MM_ROWS=[];
+
+ function mmExams(){return (window.OWNER?.e||[]).filter(x=>Number(x.active)!==0&&!String(x.slug||'').startsWith('live-template-'))}
+ function mmEsc(v){return typeof esc==='function'?esc(v):String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+ function mmVal(id){return document.getElementById(id)?.value??''}
+ function mmNum(id){const v=mmVal(id);return v===''?null:Number(v)}
+ function mmBool(id){return !!document.getElementById(id)?.checked}
+ function mmLanguageChanged(){
+   const lang=mmVal('mmLanguage')||'English',sel=document.getElementById('mmExam');
+   if(!sel)return;
+   const prev=sel.value;
+   const rows=mmExams().filter(x=>x.language===lang);
+   sel.innerHTML=rows.map(x=>`<option value="${x.id}">${mmEsc(x.name)} · ${mmEsc(x.language)}</option>`).join('');
+   if(rows.some(x=>String(x.id)===String(prev)))sel.value=prev;
+   mmDestinationChanged();
+ }
+ function mmDestinationChanged(){
+   const all=mmVal('mmSendMode')==='all',wrap=document.getElementById('mmExamWrap');
+   if(wrap)wrap.style.display=all?'none':'block';
+ }
+ function mmResetForm(){
+   MM_EDIT_ID=null;
+   const form=document.getElementById('mmForm');if(form)form.reset();
+   const lang=document.getElementById('mmLanguage');if(lang)lang.value='English';
+   const sm=document.getElementById('mmSendMode');if(sm)sm.value='selected';
+   const diff=document.getElementById('mmDifficulty');if(diff)diff.value='Medium';
+   const hm=document.getElementById('mmHighlight');if(hm)hm.value='exam_default';
+   const as=document.getElementById('mmAutoScroll');if(as)as.value='exam_default';
+   const rc=document.getElementById('mmResultCount');if(rc)rc.value='exam_default';
+   const qm=document.getElementById('mmQual');if(qm)qm.value='exam_default';
+   const ac=document.getElementById('mmActive');if(ac)ac.checked=true;
+   const save=document.getElementById('mmSave');if(save)save.textContent='➕ Add & Send Matter';
+   const cancel=document.getElementById('mmCancel');if(cancel)cancel.style.display='none';
+   mmLanguageChanged();mmDestinationChanged();
+ }
+ function mmPayload(){
+   return {
+    title:mmVal('mmTitle').trim(),language:mmVal('mmLanguage'),send_mode:mmVal('mmSendMode'),
+    selected_exam_id:mmVal('mmSendMode')==='selected'?(Number(mmVal('mmExam'))||null):null,
+    difficulty:mmVal('mmDifficulty'),highlight_mode:mmVal('mmHighlight'),auto_scroll_mode:mmVal('mmAutoScroll'),
+    result_count_mode:mmVal('mmResultCount'),required_wpm:mmNum('mmWpm'),required_accuracy:mmNum('mmAcc'),
+    min_words:mmNum('mmMinWords'),min_chars:mmNum('mmMinChars'),duration_override:mmNum('mmDuration'),
+    qualification_method:mmVal('mmQual'),instructions:mmVal('mmInstructions'),content:mmVal('mmContent').trim(),
+    active:mmBool('mmActive')
+   };
+ }
+ async function mmLoadRows(){
+   MM_ROWS=await api('/api/admin/manual-matters?_='+Date.now());
+   const list=document.getElementById('mmList');if(!list)return;
+   list.innerHTML=MM_ROWS.length?MM_ROWS.map(x=>{
+    const dest=x.send_mode==='all'?`All ${mmEsc(x.language)} Exam Folders`:`Specific Exam / Subfolder`;
+    return `<div class="jp-mm-row">
+      <div class="jp-mm-row-title"><b>${mmEsc(x.title)}</b><small>${mmEsc(x.difficulty)} · ID ${x.id}</small></div>
+      <div><span class="jp-mm-badge">${mmEsc(x.language)}</span></div>
+      <div><b>${dest}</b><div class="jp-mm-copy-note">${Number(x.publication_count||0)} live copy/copies · ${Number(x.used_copy_count||0)} used</div></div>
+      <div class="jp-mm-meta">Highlight: ${mmEsc(x.highlight_mode)}<br>Scroll: ${mmEsc(x.auto_scroll_mode)}</div>
+      <div class="jp-mm-row-actions"><button class="btn btn-soft btn-mini" onclick="jpEditManualMatter(${x.id})">Edit Full View</button><button class="btn btn-danger btn-mini" onclick="jpDeleteManualMatter(${x.id})">Delete</button></div>
+    </div>`;
+   }).join(''):'<div class="card" style="padding:18px">अभी कोई Manual Matter नहीं है.</div>';
+ }
+ window.jpRenderManualMatter=async function(btn){
+   if(btn){document.querySelectorAll('.owner-control-tabs .tab').forEach(x=>x.classList.toggle('active',x===btn))}
+   const pane=document.getElementById('ownerPane');if(!pane)return;
+   const examOptions=mmExams().filter(x=>x.language==='English').map(x=>`<option value="${x.id}">${mmEsc(x.name)} · ${mmEsc(x.language)}</option>`).join('');
+   pane.innerHTML=`<div class="jp-mm-shell">
+    <div class="jp-mm-card">
+     <div class="jp-mm-head"><div><h2>📝 Manual Matter Control</h2><div class="muted" style="margin-top:4px">English/Hindi matter को specific exam/sub-folder या सभी same-language exam folders में सीधे भेजें.</div></div><span class="jp-mm-badge">Full View</span></div>
+     <form id="mmForm" onsubmit="return false">
+      <div class="jp-mm-grid">
+       <label class="jp-mm-span2">Matter Title *<input id="mmTitle" class="input" maxlength="220" placeholder="Short clear title"></label>
+       <label>Language *<select id="mmLanguage" class="select" onchange="mmLanguageChanged()"><option>English</option><option>Hindi</option></select></label>
+       <label>Difficulty<select id="mmDifficulty" class="select"><option>Easy</option><option selected>Medium</option><option>Moderate to Hard</option><option>Hard</option></select></label>
+
+       <label>Send To *<select id="mmSendMode" class="select" onchange="mmDestinationChanged()"><option value="selected">Specific Exam / Subfolder</option><option value="all">All Exam Folders / Subfolders</option></select></label>
+       <label id="mmExamWrap" class="jp-mm-span2">Exam / Subfolder *<select id="mmExam" class="select">${examOptions}</select></label>
+       <label>Active<select id="mmActiveSelect" class="select" onchange="document.getElementById('mmActive').checked=this.value==='1'"><option value="1">Active</option><option value="0">Inactive</option></select><input id="mmActive" type="checkbox" checked hidden></label>
+
+       <label>Highlight<select id="mmHighlight" class="select"><option value="exam_default">Exam Default</option><option value="none">OFF</option><option value="current_word">Current Word</option><option value="current_char">Current Character</option><option value="errors_only">Errors Only</option></select></label>
+       <label>Auto Scroll<select id="mmAutoScroll" class="select"><option value="exam_default">Exam Default</option><option value="on">ON</option><option value="off">OFF</option></select></label>
+       <label>Result Count<select id="mmResultCount" class="select"><option value="exam_default">Exam Default</option><option value="word">Normal Words</option><option value="character">5 Characters = 1 Word</option></select></label>
+       <label>Qualification<select id="mmQual" class="select"><option value="exam_default">Exam Default</option><option value="all">All Conditions</option><option value="wpm">WPM</option><option value="accuracy">Accuracy</option><option value="wpm_accuracy">WPM + Accuracy</option><option value="words_wpm_accuracy">Words + WPM + Accuracy</option><option value="chars_wpm_accuracy">Characters + WPM + Accuracy</option></select></label>
+
+       <label>Required WPM<input id="mmWpm" class="input" type="number" min="0" step="0.1" placeholder="Exam default if blank"></label>
+       <label>Required Accuracy %<input id="mmAcc" class="input" type="number" min="0" max="100" step="0.1" placeholder="Exam default if blank"></label>
+       <label>Minimum Words<input id="mmMinWords" class="input" type="number" min="0" placeholder="Optional"></label>
+       <label>Minimum Characters<input id="mmMinChars" class="input" type="number" min="0" placeholder="Optional"></label>
+       <label>Duration Override (min)<input id="mmDuration" class="input" type="number" min="1" placeholder="Exam default if blank"></label>
+       <label class="jp-mm-span2">Instructions<textarea id="mmInstructions" class="input jp-mm-instructions" placeholder="Optional exam instructions"></textarea></label>
+
+       <label class="jp-mm-span4">Full Matter *<textarea id="mmContent" class="input jp-mm-textarea" placeholder="पूरा matter यहाँ लिखें / paste करें"></textarea></label>
+       <div class="jp-mm-span4 jp-mm-actions"><button id="mmSave" class="btn btn-primary" type="button" onclick="jpSaveManualMatter()">➕ Add & Send Matter</button><button id="mmCancel" class="btn btn-white" type="button" style="display:none" onclick="mmResetForm()">Cancel Edit</button><span class="muted">All mode में वही matter चुनी language के सभी active exam/sub-folders में जाएगा.</span></div>
+      </div>
+     </form>
+    </div>
+    <div class="jp-mm-card"><div class="jp-mm-head"><h3>Saved Manual Matters</h3><button class="btn btn-soft btn-mini" onclick="mmLoadRows()">↻ Refresh</button></div><div id="mmList" class="jp-mm-list"><div class="muted">Loading…</div></div></div>
+   </div>`;
+   window.mmLanguageChanged=mmLanguageChanged;window.mmDestinationChanged=mmDestinationChanged;window.mmResetForm=mmResetForm;window.mmLoadRows=mmLoadRows;
+   mmResetForm();
+   try{await mmLoadRows()}catch(e){showToast(e.message)}
+ };
+ window.jpSaveManualMatter=async function(){
+   const b=mmPayload();if(!b.title||!b.content)return showToast('Title और Matter जरूरी हैं');
+   const btn=document.getElementById('mmSave');if(btn){btn.disabled=true;btn.textContent='Saving...'}
+   try{
+    const url=MM_EDIT_ID?'/api/admin/manual-matters/'+MM_EDIT_ID:'/api/admin/manual-matters';
+    await api(url,{method:MM_EDIT_ID?'PUT':'POST',body:JSON.stringify(b)});
+    showToast(MM_EDIT_ID?'Manual matter update हो गया':'Manual matter direct भेज दिया गया');
+    mmResetForm();await mmLoadRows();
+   }catch(e){showToast(e.message||'Manual matter save नहीं हुआ')}
+   finally{if(btn){btn.disabled=false;if(!MM_EDIT_ID)btn.textContent='➕ Add & Send Matter'}}
+ };
+ window.jpEditManualMatter=async function(id){
+   try{
+    const x=await api('/api/admin/manual-matters/'+id);MM_EDIT_ID=id;
+    document.getElementById('mmTitle').value=x.title||'';
+    document.getElementById('mmLanguage').value=x.language||'English';mmLanguageChanged();
+    document.getElementById('mmDifficulty').value=x.difficulty||'Medium';
+    document.getElementById('mmSendMode').value=x.send_mode||'selected';mmDestinationChanged();
+    if(x.selected_exam_id)document.getElementById('mmExam').value=String(x.selected_exam_id);
+    document.getElementById('mmHighlight').value=x.highlight_mode||'exam_default';
+    document.getElementById('mmAutoScroll').value=x.auto_scroll_mode||'exam_default';
+    document.getElementById('mmResultCount').value=x.result_count_mode||'exam_default';
+    document.getElementById('mmQual').value=x.qualification_method||'exam_default';
+    document.getElementById('mmWpm').value=x.required_wpm??'';
+    document.getElementById('mmAcc').value=x.required_accuracy??'';
+    document.getElementById('mmMinWords').value=x.min_words??'';
+    document.getElementById('mmMinChars').value=x.min_chars??'';
+    document.getElementById('mmDuration').value=x.duration_override??'';
+    document.getElementById('mmInstructions').value=x.instructions||'';
+    document.getElementById('mmContent').value=x.content||'';
+    document.getElementById('mmActive').checked=Number(x.active)!==0;
+    document.getElementById('mmActiveSelect').value=Number(x.active)!==0?'1':'0';
+    document.getElementById('mmSave').textContent='💾 Update All Linked Copies';
+    document.getElementById('mmCancel').style.display='';
+    document.getElementById('mmTitle').scrollIntoView({behavior:'smooth',block:'center'});
+   }catch(e){showToast(e.message||'Manual matter load नहीं हुआ')}
+ };
+ window.jpDeleteManualMatter=async function(id){
+   if(!confirm('यह Manual Matter और इसकी सभी linked exam copies हटाएँ? Result वाली पुरानी copy history के लिए archive रहेगी.'))return;
+   try{const r=await api('/api/admin/manual-matters/'+id,{method:'DELETE'});showToast(`Deleted ${r.deleted||0}, archived ${r.archived||0}`);if(MM_EDIT_ID===id)mmResetForm();await mmLoadRows()}catch(e){showToast(e.message||'Delete नहीं हुआ')}
+ };
+ const prevOwnerTab=window.ownerTab;
+ window.ownerTab=function(name,btn){
+   if(name==='manualmatter')return window.jpRenderManualMatter(btn);
+   return prevOwnerTab(name,btn);
+ };
+})();
+</script>
 </body>
 </html>
 <style id="jp-leaderboard-light-result-cards-20260928">

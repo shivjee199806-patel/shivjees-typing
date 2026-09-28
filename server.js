@@ -312,6 +312,41 @@ CREATE TABLE IF NOT EXISTS brother_exam_publications(
 CREATE INDEX IF NOT EXISTS idx_brother_exam_publications_group ON brother_exam_publications(group_id);
 CREATE INDEX IF NOT EXISTS idx_brother_exam_groups_created ON brother_exam_groups(created_at);`);
 
+// Manual Matter Control: one owner-created matter can target one exam/sub-folder or all active
+// exam/sub-folders of a language. Publications are tracked so edit/delete works as one unit.
+db.exec(`CREATE TABLE IF NOT EXISTS manual_matter_groups(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ title TEXT NOT NULL,
+ language TEXT NOT NULL,
+ difficulty TEXT NOT NULL DEFAULT 'Medium',
+ content TEXT NOT NULL,
+ send_mode TEXT NOT NULL DEFAULT 'selected',
+ selected_exam_id INTEGER,
+ highlight_mode TEXT NOT NULL DEFAULT 'exam_default',
+ auto_scroll_mode TEXT NOT NULL DEFAULT 'exam_default',
+ result_count_mode TEXT NOT NULL DEFAULT 'exam_default',
+ required_wpm REAL,
+ required_accuracy REAL,
+ min_words INTEGER,
+ min_chars INTEGER,
+ duration_override INTEGER,
+ instructions TEXT NOT NULL DEFAULT '',
+ qualification_method TEXT NOT NULL DEFAULT 'exam_default',
+ active INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ deleted_at TEXT
+);
+CREATE TABLE IF NOT EXISTS manual_matter_publications(
+ group_id INTEGER NOT NULL,
+ passage_id INTEGER NOT NULL UNIQUE,
+ exam_id INTEGER NOT NULL,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(group_id,passage_id)
+);
+CREATE INDEX IF NOT EXISTS idx_manual_matter_publications_group ON manual_matter_publications(group_id);
+CREATE INDEX IF NOT EXISTS idx_manual_matter_groups_created ON manual_matter_groups(created_at);`);
+
 // Public Gallery + Information Centre managed entirely from Owner Control.
 db.exec(`CREATE TABLE IF NOT EXISTS gallery_items(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1576,6 +1611,230 @@ app.post('/api/admin/passages',auth,admin,(req,res)=>{const b=req.body||{},title
 app.put('/api/admin/passages/:id',auth,admin,(req,res)=>{const b=req.body||{},id=Number(req.params.id),cur=db.prepare('SELECT * FROM passages WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Passage not found'});const title=String(b.title??cur.title).trim(),content=String(b.content??cur.content).trim();if(title.length<2||!content)return res.status(400).json({error:'Title and passage content are required'});const examId=b.exam_id===undefined?cur.exam_id:(Number(b.exam_id)||null);let exam=null;if(examId){exam=db.prepare('SELECT * FROM exams WHERE id=?').get(examId);if(!exam)return res.status(400).json({error:'Selected exam not found'})}const language=exam?.language||String(b.language??cur.language).slice(0,40),layout=exam?.layout||String(b.layout??cur.layout).slice(0,80);const nullableNum=(key,curVal,min=0)=>{if(!(key in b))return curVal;const v=b[key];if(v===''||v===null||v===undefined)return null;const n=Number(v);return Number.isFinite(n)?Math.max(min,n):curVal};const reqWpm=nullableNum('required_wpm',cur.required_wpm,0),reqAcc=nullableNum('required_accuracy',cur.required_accuracy,0),minWords=nullableNum('min_words',cur.min_words,0),minChars=nullableNum('min_chars',cur.min_chars,0),durationOverride=nullableNum('duration_override',cur.duration_override,1),instructions=('instructions' in b)?String(b.instructions||'').slice(0,3000):cur.instructions,qualificationMethod=['all','wpm','accuracy','wpm_accuracy','words_wpm_accuracy','chars_wpm_accuracy'].includes(b.qualification_method)?b.qualification_method:(cur.qualification_method||'all'),autoScroll=('auto_scroll' in b)?(b.auto_scroll===false||Number(b.auto_scroll)===0?0:1):Number(cur.auto_scroll??1),resultCountMode=('result_count_mode' in b)?(b.result_count_mode==='character'?'character':'word'):(cur.result_count_mode||'word');db.prepare('UPDATE passages SET title=?,language=?,layout=?,difficulty=?,content=?,active=?,highlight_mode=?,exam_id=?,required_wpm=?,required_accuracy=?,min_words=?,min_chars=?,duration_override=?,instructions=?,qualification_method=?,auto_scroll=?,result_count_mode=? WHERE id=?').run(title,language,layout,String(b.difficulty??cur.difficulty).slice(0,30),content,b.active===undefined?cur.active:(b.active?1:0),['current_char','current_word','errors_only','none'].includes(b.highlight_mode)?b.highlight_mode:(cur.highlight_mode||'current_char'),examId,reqWpm,reqAcc,minWords,minChars,durationOverride,instructions,qualificationMethod,autoScroll,resultCountMode,id);audit(req,'UPDATE','passage',id,title);res.json({ok:true})});
 app.delete('/api/admin/passages/:id',auth,admin,(req,res)=>{const id=Number(req.params.id),cur=db.prepare('SELECT title FROM passages WHERE id=?').get(id);if(!cur)return res.status(404).json({error:'Passage not found'});const tx=db.transaction(()=>{db.prepare('DELETE FROM live_tests WHERE passage_id=?').run(id);db.prepare('DELETE FROM passages WHERE id=?').run(id)});tx();audit(req,'DELETE','passage',id,cur.title);res.json({ok:true})});
 
+
+// ===== Manual Matter Control =====
+function manualMatterTargets(language,sendMode,selectedExamId){
+ const lang=['Hindi','English'].includes(String(language))?String(language):'English';
+ if(sendMode==='selected'){
+  const ex=db.prepare("SELECT * FROM exams WHERE id=? AND active=1 AND slug NOT LIKE 'live-template-%'").get(Number(selectedExamId));
+  if(!ex)throw Error('Selected exam/sub-folder नहीं मिला');
+  return [ex];
+ }
+ const rows=db.prepare("SELECT * FROM exams WHERE active=1 AND language=? AND slug NOT LIKE 'live-template-%' ORDER BY id").all(lang);
+ if(!rows.length)throw Error('इस language का कोई active exam/sub-folder नहीं मिला');
+ return rows;
+}
+function manualMatterPassageValues(group,exam){
+ const hm=['current_char','current_word','errors_only','none'].includes(group.highlight_mode)
+  ?group.highlight_mode:(exam.highlight_mode||'current_char');
+ const as=group.auto_scroll_mode==='on'?1:group.auto_scroll_mode==='off'?0:(Number(exam.auto_scroll??1)===1?1:0);
+ const rc=group.result_count_mode==='word'||group.result_count_mode==='character'
+  ?group.result_count_mode:(exam.default_result_count_mode||'word');
+ const qm=['all','wpm','accuracy','wpm_accuracy','words_wpm_accuracy','chars_wpm_accuracy'].includes(group.qualification_method)
+  ?group.qualification_method:(exam.qualification_method||'all');
+ return {
+  layout:exam.layout||(group.language==='Hindi'?'Unicode / Mangal':'QWERTY'),
+  highlight_mode:hm,auto_scroll:as,result_count_mode:rc,qualification_method:qm
+ };
+}
+function insertManualMatterPassage(group,exam){
+ const v=manualMatterPassageValues(group,exam);
+ return Number(db.prepare(`INSERT INTO passages(
+  title,language,layout,difficulty,content,active,highlight_mode,exam_id,
+  required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,
+  qualification_method,auto_scroll,result_count_mode
+ ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  group.title,exam.language||group.language,v.layout,group.difficulty,group.content,group.active?1:0,v.highlight_mode,exam.id,
+  group.required_wpm,group.required_accuracy,group.min_words,group.min_chars,group.duration_override,group.instructions||'',
+  v.qualification_method,v.auto_scroll,v.result_count_mode
+ ).lastInsertRowid);
+}
+function manualMatterUsed(passageId){
+ return Number(db.prepare('SELECT COUNT(*) c FROM results WHERE passage_id=?').get(Number(passageId))?.c||0)>0;
+}
+function syncManualMatterGroup(groupId,body){
+ const cur=db.prepare('SELECT * FROM manual_matter_groups WHERE id=? AND deleted_at IS NULL').get(Number(groupId));
+ if(!cur)throw Error('Manual matter नहीं मिला');
+ const sendMode=['selected','all'].includes(body.send_mode)?body.send_mode:cur.send_mode;
+ let language=['Hindi','English'].includes(body.language)?body.language:cur.language;
+ let selectedExamId=sendMode==='selected'?(Number(body.selected_exam_id??cur.selected_exam_id)||null):null;
+ if(sendMode==='selected'){
+  const selected=db.prepare("SELECT * FROM exams WHERE id=? AND active=1 AND slug NOT LIKE 'live-template-%'").get(selectedExamId);
+  if(!selected)throw Error('Selected exam/sub-folder नहीं मिला');
+  language=selected.language;
+ }
+ const next={
+  ...cur,
+  title:String(body.title??cur.title).trim(),
+  language,
+  difficulty:['Easy','Medium','Moderate to Hard','Hard'].includes(body.difficulty)?body.difficulty:cur.difficulty,
+  content:String(body.content??cur.content).trim(),
+  send_mode:sendMode,
+  selected_exam_id:selectedExamId,
+  highlight_mode:['exam_default','current_char','current_word','errors_only','none'].includes(body.highlight_mode)?body.highlight_mode:cur.highlight_mode,
+  auto_scroll_mode:['exam_default','on','off'].includes(body.auto_scroll_mode)?body.auto_scroll_mode:cur.auto_scroll_mode,
+  result_count_mode:['exam_default','word','character'].includes(body.result_count_mode)?body.result_count_mode:cur.result_count_mode,
+  required_wpm:body.required_wpm===''||body.required_wpm===null?null:(body.required_wpm===undefined?cur.required_wpm:Math.max(0,Number(body.required_wpm)||0)),
+  required_accuracy:body.required_accuracy===''||body.required_accuracy===null?null:(body.required_accuracy===undefined?cur.required_accuracy:Math.max(0,Math.min(100,Number(body.required_accuracy)||0))),
+  min_words:body.min_words===''||body.min_words===null?null:(body.min_words===undefined?cur.min_words:Math.max(0,Math.floor(Number(body.min_words)||0))),
+  min_chars:body.min_chars===''||body.min_chars===null?null:(body.min_chars===undefined?cur.min_chars:Math.max(0,Math.floor(Number(body.min_chars)||0))),
+  duration_override:body.duration_override===''||body.duration_override===null?null:(body.duration_override===undefined?cur.duration_override:Math.max(1,Math.floor(Number(body.duration_override)||1))),
+  instructions:String(body.instructions??cur.instructions??'').slice(0,3000),
+  qualification_method:['exam_default','all','wpm','accuracy','wpm_accuracy','words_wpm_accuracy','chars_wpm_accuracy'].includes(body.qualification_method)?body.qualification_method:cur.qualification_method,
+  active:body.active===undefined?Number(cur.active)!==0:!!body.active
+ };
+ if(next.title.length<2||!next.content)throw Error('Title और Matter दोनों जरूरी हैं');
+ if(next.language==='Hindi'&&/[A-Za-z]/.test(next.content))throw Error('Hindi matter में English alphabet letters नहीं होने चाहिए');
+
+ const targets=manualMatterTargets(next.language,next.send_mode,next.selected_exam_id);
+ const desired=new Map(targets.map(x=>[Number(x.id),x]));
+ const links=db.prepare(`SELECT mp.*,p.exam_id,p.id passage_id
+  FROM manual_matter_publications mp JOIN passages p ON p.id=mp.passage_id
+  WHERE mp.group_id=?`).all(Number(groupId));
+ const existing=new Map(links.map(x=>[Number(x.exam_id),x]));
+
+ db.transaction(()=>{
+  db.prepare(`UPDATE manual_matter_groups SET
+   title=?,language=?,difficulty=?,content=?,send_mode=?,selected_exam_id=?,
+   highlight_mode=?,auto_scroll_mode=?,result_count_mode=?,required_wpm=?,required_accuracy=?,
+   min_words=?,min_chars=?,duration_override=?,instructions=?,qualification_method=?,active=?,
+   updated_at=CURRENT_TIMESTAMP
+   WHERE id=?`).run(
+    next.title,next.language,next.difficulty,next.content,next.send_mode,next.selected_exam_id,
+    next.highlight_mode,next.auto_scroll_mode,next.result_count_mode,next.required_wpm,next.required_accuracy,
+    next.min_words,next.min_chars,next.duration_override,next.instructions,next.qualification_method,next.active?1:0,
+    Number(groupId)
+   );
+
+  // Remove destinations no longer selected. Used passages are archived to protect result history.
+  for(const [examId,link] of existing){
+   if(desired.has(examId))continue;
+   if(manualMatterUsed(link.passage_id))db.prepare('UPDATE passages SET active=0 WHERE id=?').run(link.passage_id);
+   else db.prepare('DELETE FROM passages WHERE id=?').run(link.passage_id);
+   db.prepare('DELETE FROM manual_matter_publications WHERE group_id=? AND passage_id=?').run(Number(groupId),link.passage_id);
+  }
+
+  // Update each desired destination. If a copy has results, preserve it and create a new replacement.
+  for(const [examId,exam] of desired){
+   const old=existing.get(examId);
+   if(old&&manualMatterUsed(old.passage_id)){
+    db.prepare('UPDATE passages SET active=0 WHERE id=?').run(old.passage_id);
+    db.prepare('DELETE FROM manual_matter_publications WHERE group_id=? AND passage_id=?').run(Number(groupId),old.passage_id);
+    const pid=insertManualMatterPassage(next,exam);
+    db.prepare('INSERT INTO manual_matter_publications(group_id,passage_id,exam_id) VALUES(?,?,?)').run(Number(groupId),pid,examId);
+   }else if(old){
+    const v=manualMatterPassageValues(next,exam);
+    db.prepare(`UPDATE passages SET title=?,language=?,layout=?,difficulty=?,content=?,active=?,highlight_mode=?,
+      required_wpm=?,required_accuracy=?,min_words=?,min_chars=?,duration_override=?,instructions=?,
+      qualification_method=?,auto_scroll=?,result_count_mode=? WHERE id=?`).run(
+      next.title,exam.language||next.language,v.layout,next.difficulty,next.content,next.active?1:0,v.highlight_mode,
+      next.required_wpm,next.required_accuracy,next.min_words,next.min_chars,next.duration_override,next.instructions,
+      v.qualification_method,v.auto_scroll,v.result_count_mode,old.passage_id
+    );
+   }else{
+    const pid=insertManualMatterPassage(next,exam);
+    db.prepare('INSERT INTO manual_matter_publications(group_id,passage_id,exam_id) VALUES(?,?,?)').run(Number(groupId),pid,examId);
+   }
+  }
+ })();
+ return db.prepare('SELECT * FROM manual_matter_groups WHERE id=?').get(Number(groupId));
+}
+
+app.get('/api/admin/manual-matters',auth,admin,(req,res)=>{
+ const rows=db.prepare(`SELECT g.*,
+  COUNT(mp.passage_id) publication_count,
+  COALESCE(SUM(CASE WHEN EXISTS(SELECT 1 FROM results r WHERE r.passage_id=mp.passage_id) THEN 1 ELSE 0 END),0) used_copy_count
+  FROM manual_matter_groups g
+  LEFT JOIN manual_matter_publications mp ON mp.group_id=g.id
+  WHERE g.deleted_at IS NULL
+  GROUP BY g.id
+  ORDER BY g.id DESC`).all();
+ res.set('Cache-Control','no-store');res.json(rows);
+});
+app.get('/api/admin/manual-matters/:id',auth,admin,(req,res)=>{
+ const g=db.prepare('SELECT * FROM manual_matter_groups WHERE id=? AND deleted_at IS NULL').get(Number(req.params.id));
+ if(!g)return res.status(404).json({error:'Manual matter not found'});
+ const copies=db.prepare(`SELECT mp.passage_id,mp.exam_id,e.name exam_name,p.active,p.created_at,
+  (SELECT COUNT(*) FROM results r WHERE r.passage_id=mp.passage_id) result_count
+  FROM manual_matter_publications mp
+  JOIN passages p ON p.id=mp.passage_id
+  LEFT JOIN exams e ON e.id=mp.exam_id
+  WHERE mp.group_id=? ORDER BY e.name`).all(Number(req.params.id));
+ res.json({...g,copies});
+});
+app.post('/api/admin/manual-matters',auth,admin,(req,res)=>{try{
+ const b=req.body||{},sendMode=['selected','all'].includes(b.send_mode)?b.send_mode:'selected';
+ let language=['Hindi','English'].includes(b.language)?b.language:'English',selectedExamId=sendMode==='selected'?(Number(b.selected_exam_id)||null):null;
+ if(sendMode==='selected'){
+  const ex=db.prepare("SELECT * FROM exams WHERE id=? AND active=1 AND slug NOT LIKE 'live-template-%'").get(selectedExamId);
+  if(!ex)return res.status(400).json({error:'Selected exam/sub-folder नहीं मिला'});
+  language=ex.language;
+ }
+ const g={
+  title:String(b.title||'').trim(),language,
+  difficulty:['Easy','Medium','Moderate to Hard','Hard'].includes(b.difficulty)?b.difficulty:'Medium',
+  content:String(b.content||'').trim(),send_mode:sendMode,selected_exam_id:selectedExamId,
+  highlight_mode:['exam_default','current_char','current_word','errors_only','none'].includes(b.highlight_mode)?b.highlight_mode:'exam_default',
+  auto_scroll_mode:['exam_default','on','off'].includes(b.auto_scroll_mode)?b.auto_scroll_mode:'exam_default',
+  result_count_mode:['exam_default','word','character'].includes(b.result_count_mode)?b.result_count_mode:'exam_default',
+  required_wpm:b.required_wpm===''||b.required_wpm==null?null:Math.max(0,Number(b.required_wpm)||0),
+  required_accuracy:b.required_accuracy===''||b.required_accuracy==null?null:Math.max(0,Math.min(100,Number(b.required_accuracy)||0)),
+  min_words:b.min_words===''||b.min_words==null?null:Math.max(0,Math.floor(Number(b.min_words)||0)),
+  min_chars:b.min_chars===''||b.min_chars==null?null:Math.max(0,Math.floor(Number(b.min_chars)||0)),
+  duration_override:b.duration_override===''||b.duration_override==null?null:Math.max(1,Math.floor(Number(b.duration_override)||1)),
+  instructions:String(b.instructions||'').slice(0,3000),
+  qualification_method:['exam_default','all','wpm','accuracy','wpm_accuracy','words_wpm_accuracy','chars_wpm_accuracy'].includes(b.qualification_method)?b.qualification_method:'exam_default',
+  active:b.active===false?0:1
+ };
+ if(g.title.length<2||!g.content)return res.status(400).json({error:'Title और Matter दोनों जरूरी हैं'});
+ if(g.language==='Hindi'&&/[A-Za-z]/.test(g.content))return res.status(400).json({error:'Hindi matter में English alphabet letters नहीं होने चाहिए'});
+ const targets=manualMatterTargets(g.language,g.send_mode,g.selected_exam_id);
+ let groupId=0;
+ db.transaction(()=>{
+  groupId=Number(db.prepare(`INSERT INTO manual_matter_groups(
+   title,language,difficulty,content,send_mode,selected_exam_id,highlight_mode,auto_scroll_mode,
+   result_count_mode,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,
+   qualification_method,active
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+   g.title,g.language,g.difficulty,g.content,g.send_mode,g.selected_exam_id,g.highlight_mode,g.auto_scroll_mode,
+   g.result_count_mode,g.required_wpm,g.required_accuracy,g.min_words,g.min_chars,g.duration_override,g.instructions,
+   g.qualification_method,g.active
+  ).lastInsertRowid);
+  for(const ex of targets){
+   const pid=insertManualMatterPassage(g,ex);
+   db.prepare('INSERT INTO manual_matter_publications(group_id,passage_id,exam_id) VALUES(?,?,?)').run(groupId,pid,ex.id);
+  }
+ })();
+ audit(req,'CREATE','manual_matter_group',groupId,`${g.title} -> ${g.send_mode==='all'?'All '+g.language+' exams':'Exam '+g.selected_exam_id}`);
+ res.json({ok:true,id:groupId,published_count:targets.length});
+ }catch(e){res.status(400).json({error:e.message||'Manual matter add नहीं हुआ'})}
+});
+app.put('/api/admin/manual-matters/:id',auth,admin,(req,res)=>{try{
+ const g=syncManualMatterGroup(Number(req.params.id),req.body||{});
+ audit(req,'UPDATE','manual_matter_group',Number(req.params.id),g.title);
+ res.json({ok:true,...g});
+ }catch(e){res.status(400).json({error:e.message||'Manual matter update नहीं हुआ'})}
+});
+app.delete('/api/admin/manual-matters/:id',auth,admin,(req,res)=>{try{
+ const id=Number(req.params.id),g=db.prepare('SELECT * FROM manual_matter_groups WHERE id=? AND deleted_at IS NULL').get(id);
+ if(!g)return res.status(404).json({error:'Manual matter नहीं मिला'});
+ const links=db.prepare('SELECT * FROM manual_matter_publications WHERE group_id=?').all(id);
+ let deleted=0,archived=0;
+ db.transaction(()=>{
+  for(const link of links){
+   db.prepare('DELETE FROM live_tests WHERE passage_id=?').run(link.passage_id);
+   if(manualMatterUsed(link.passage_id)){db.prepare('UPDATE passages SET active=0 WHERE id=?').run(link.passage_id);archived++}
+   else{db.prepare('DELETE FROM passages WHERE id=?').run(link.passage_id);deleted++}
+  }
+  db.prepare('DELETE FROM manual_matter_publications WHERE group_id=?').run(id);
+  db.prepare("UPDATE manual_matter_groups SET deleted_at=CURRENT_TIMESTAMP,active=0,updated_at=CURRENT_TIMESTAMP WHERE id=?").run(id);
+ })();
+ audit(req,'DELETE_ALL','manual_matter_group',id,`Deleted ${deleted}, archived ${archived}`);
+ res.json({ok:true,deleted,archived,total:deleted+archived});
+ }catch(e){res.status(400).json({error:e.message||'Manual matter delete नहीं हुआ'})}
+});
+
+
 // ===== Owner / DBA-style controls =====
 app.get('/api/admin/exams',auth,admin,(req,res)=>{ensureNorthRailwayExamDirectory();res.json(db.prepare('SELECT * FROM exams ORDER BY id DESC').all())});
 app.use('/api/admin/exams',(req,res,next)=>{
@@ -1818,7 +2077,7 @@ function ensureBrotherExamHistoryGroups(){
  const insGroup=db.prepare('INSERT INTO brother_exam_groups(title,language,content_hash,content) VALUES(?,?,?,?)');
  const insPub=db.prepare('INSERT OR IGNORE INTO brother_exam_publications(group_id,passage_id,exam_id) VALUES(?,?,?)');
  db.transaction(()=>{for(const g of grouped.values()){
-  const gid=insGroup.run(g.title,g.language,hash(g.content),g.content).lastInsertRowid;
+  const gid=insGroup.run(g.title,g.language,crypto.createHash('sha256').update(String(g.content||'').replace(/\s+/g,' ').trim()).digest('hex'),g.content).lastInsertRowid;
   for(const p of g.rows)insPub.run(gid,p.id,p.exam_id);
  }})();
 }
@@ -1872,7 +2131,7 @@ app.post('/api/admin/brother/publish',auth,admin,(req,res)=>{try{
   const insert=db.prepare('INSERT INTO passages(title,language,layout,difficulty,content,active,highlight_mode,exam_id,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,qualification_method,auto_scroll,result_count_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   const created=[],skipped=[];let groupId=null;
   db.transaction(()=>{
-   groupId=db.prepare('INSERT INTO brother_exam_groups(title,language,content_hash,content) VALUES(?,?,?,?)').run(title,language,hash(content),content).lastInsertRowid;
+   groupId=db.prepare('INSERT INTO brother_exam_groups(title,language,content_hash,content) VALUES(?,?,?,?)').run(title,language,crypto.createHash('sha256').update(String(content||'').replace(/\s+/g,' ').trim()).digest('hex'),content).lastInsertRowid;
    const linkGroup=db.prepare('INSERT OR IGNORE INTO brother_exam_publications(group_id,passage_id,exam_id) VALUES(?,?,?)');
    for(const exam of exams){
     const same=db.prepare('SELECT id,content FROM passages WHERE active=1 AND exam_id=?').all(exam.id).find(x=>normalizeMatterForDuplicateCheck(x.content)===normalizeMatterForDuplicateCheck(content));
@@ -2393,7 +2652,7 @@ async function runDeferredMatterMaintenance(){
 app.get('/api/admin/daily-passage-queue',auth,admin,(req,res)=>{
  const status=String(req.query.status||'pending'),limit=Math.min(200,Math.max(1,Number(req.query.limit)||200)),offset=Math.max(0,Number(req.query.offset)||0);
  const q=String(req.query.q||'').trim(),like='%'+q+'%',language=['English','Hindi'].includes(String(req.query.language||''))?String(req.query.language):'';
- const base=`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE (?='all' OR q.status=?)`;
+ const base=`SELECT q.*,e.layout,COALESCE(p.title,q.title) title,COALESCE(p.content,q.content) content,COALESCE(p.difficulty,q.difficulty) difficulty FROM daily_passage_queue q LEFT JOIN exams e ON e.id=q.exam_id LEFT JOIN passages p ON p.id=q.published_passage_id WHERE q.status!='deleted' AND (?='all' OR q.status=?)`;
  let rows;
  if(language){
   rows=db.prepare(base+` AND q.language=? AND (?='' OR COALESCE(p.title,q.title) LIKE ? OR COALESCE(p.content,q.content) LIKE ? OR CAST(q.id AS TEXT)=? OR CAST(q.exam_id AS TEXT)=?) ORDER BY CASE q.status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END,q.queue_date DESC,q.id DESC LIMIT ? OFFSET ?`).all(status,status,language,q,like,like,q,q,limit,offset);
@@ -2453,6 +2712,7 @@ app.delete('/api/admin/daily-passage-queue/:id',auth,admin,(req,res)=>{const id=
 app.delete('/api/admin/daily-passage-queue/:id/published-all',auth,admin,(req,res)=>{try{
  const id=Number(req.params.id),q=db.prepare('SELECT * FROM daily_passage_queue WHERE id=?').get(id);
  if(!q)return res.status(404).json({error:'Daily Queue matter not found'});
+ if(q.status==='deleted')return res.json({ok:true,already_deleted:true,deleted:0,archived:0,total:0});
  if(q.status!=='published')return res.status(400).json({error:'यह matter अभी published नहीं है'});
  const linked=new Set(db.prepare('SELECT passage_id FROM daily_queue_publications WHERE queue_id=?').all(id).map(x=>Number(x.passage_id)).filter(Boolean));
  if(q.published_passage_id)linked.add(Number(q.published_passage_id));
