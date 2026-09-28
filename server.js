@@ -537,6 +537,11 @@ if(!resultCols.includes('min_words_snapshot')) db.exec("ALTER TABLE results ADD 
 if(!resultCols.includes('min_chars_snapshot')) db.exec("ALTER TABLE results ADD COLUMN min_chars_snapshot INTEGER");
 if(!resultCols.includes('qualification_method_snapshot')) db.exec("ALTER TABLE results ADD COLUMN qualification_method_snapshot TEXT");
 if(!resultCols.includes('qualification_note_snapshot')) db.exec("ALTER TABLE results ADD COLUMN qualification_note_snapshot TEXT");
+if(!resultCols.includes('full_mistakes')) db.exec("ALTER TABLE results ADD COLUMN full_mistakes REAL DEFAULT 0");
+if(!resultCols.includes('half_mistakes')) db.exec("ALTER TABLE results ADD COLUMN half_mistakes REAL DEFAULT 0");
+if(!resultCols.includes('official_correct_words')) db.exec("ALTER TABLE results ADD COLUMN official_correct_words REAL");
+if(!resultCols.includes('official_speed_wpm')) db.exec("ALTER TABLE results ADD COLUMN official_speed_wpm REAL");
+
 // Legacy result snapshot repair (2026-09-22): preserve already-typed candidate attempts.
 // This ONLY fills fields that older rows did not store. It never changes typed_text,
 // pass/fail, timestamps, duration, or the candidate's saved historical metrics.
@@ -744,6 +749,85 @@ function ensureVerifiedTypingExamDirectory(){
  db.transaction(()=>VERIFIED_TYPING_EXAM_DIRECTORY.forEach(x=>ins.run(x[0],x[1],x[2],x[3],x[4],x[5],x[6],1,'full','Verified typing-stage folder. Exact UI behaviour not published by authority remains Owner-configurable; no unsupported behaviour is claimed as official.',1,0,0,30,4,'none')))();
 }
 ensureVerifiedTypingExamDirectory();
+
+// UP Police SI (Confidential) / ASI Clerk / ASI Accounts typing profiles.
+// UPPRPB notice dated 23-01-2026:
+// SI Confidential + ASI Clerk: English 30 WPM / 15 min / 500 words / 85%;
+// Hindi 25 WPM / 15 min / 400 words / 85%; 20-minute interval between the two tests.
+// ASI Accounts: Hindi 15 WPM / 15 min / 250 words / 85%.
+// Highlight and auto-scroll are not specified in the notice, so exam-like defaults are OFF.
+(function ensureUpPoliceMinisterialTypingProfiles(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='up_police_ministerial_typing_profiles_20260929_v2_official_eval';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+
+ const old=db.prepare("SELECT * FROM exams WHERE slug='up-police-ministerial-typing'").get();
+ const insert=db.prepare(`INSERT OR IGNORE INTO exams(
+  name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,error_rule,
+  description,active,highlight_mode,fee_amount,validity_days,daily_demo_limit,paid_enabled,
+  min_words,min_chars,qualification_method,speed_based_time_taken,auto_scroll
+ ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+
+ db.transaction(()=>{
+  if(old){
+   db.prepare(`UPDATE exams SET
+    name=?,language='Hindi',layout='Unicode / Inscript',duration=15,required_wpm=25,required_accuracy=85,
+    min_words=0,min_chars=0,qualification_method='special_upp_ministerial',
+    qualification_note=?,duration_word_map=?,highlight_mode='none',auto_scroll=0,
+    description=?,active=1
+    WHERE id=?`).run(
+     'UP Police - SI (Confidential) / ASI Clerk Typing - Hindi',
+     'UPPRPB official: 15 minutes, Hindi 25 WPM, about 400 words, 85% accuracy; official full/half-mistake evaluator; 20-minute interval from English test.',
+     JSON.stringify({'15':400}),
+     'UP Police SI (Confidential) / ASI Clerk Hindi typing — official UPPRPB profile.',
+     old.id
+   );
+  }else{
+   insert.run(
+    'UP Police - SI (Confidential) / ASI Clerk Typing - Hindi','up-police-ministerial-typing',
+    'Hindi','Unicode / Inscript',15,25,85,1,'full',
+    'UP Police SI (Confidential) / ASI Clerk Hindi typing — official UPPRPB profile.',
+    1,'none',0,30,4,0,0,0,'special_upp_ministerial',0,0
+   );
+  }
+
+  insert.run(
+   'UP Police - SI (Confidential) / ASI Clerk Typing - English','up-police-ministerial-typing-english',
+   'English','QWERTY',15,30,85,1,'full',
+   'UP Police SI (Confidential) / ASI Clerk English typing — official UPPRPB profile.',
+   1,'none',0,30,4,0,0,0,'special_upp_ministerial',0,0
+  );
+
+  insert.run(
+   'UP Police - ASI Accounts Typing - Hindi','up-police-asi-accounts-typing-hindi',
+   'Hindi','Unicode / Inscript',15,15,85,1,'full',
+   'UP Police ASI Accounts Hindi typing — official UPPRPB profile.',
+   1,'none',0,30,4,0,0,0,'special_upp_ministerial',0,0
+  );
+
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=25,required_accuracy=85,duration_word_map=?,
+    qualification_method='special_upp_ministerial',qualification_note=?,highlight_mode='none',auto_scroll=0
+    WHERE slug='up-police-ministerial-typing'`).run(
+      JSON.stringify({'15':400}),
+      'UPPRPB official: Hindi 25 WPM, 15 minutes, about 400 words, 85% accuracy; 20-minute interval from English test.'
+    );
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=30,required_accuracy=85,duration_word_map=?,
+    qualification_method='special_upp_ministerial',qualification_note=?,highlight_mode='none',auto_scroll=0
+    WHERE slug='up-police-ministerial-typing-english'`).run(
+      JSON.stringify({'15':500}),
+      'UPPRPB official: English 30 WPM, 15 minutes, about 500 words, 85% accuracy; 20-minute interval from Hindi test.'
+    );
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=15,required_accuracy=85,duration_word_map=?,
+    qualification_method='special_upp_ministerial',qualification_note=?,highlight_mode='none',auto_scroll=0
+    WHERE slug='up-police-asi-accounts-typing-hindi'`).run(
+      JSON.stringify({'15':250}),
+      'UPPRPB official: ASI Accounts Hindi 15 WPM, 15 minutes, about 250 words, 85% accuracy.'
+    );
+
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
 // Highlight safety policy: NEVER infer live highlighting from silence in an official notice.
 // Existing per-exam highlight_mode remains untouched unless the actual exam UI/authority explicitly verifies it.
 // Highlight is not an Owner/Candidate preference in Exam Mode; the runtime uses the exam's stored verified value.
@@ -963,6 +1047,254 @@ function applyVerifiedExamDefaultsOnce(){
 // Do not run v4: its name-based guesses and blanket Backspace/Highlight rules
 // have not been verified against exam instructions. Preserve stored settings.
 // An already deployed v4 cannot be undone without the pre-migration settings.
+
+// Verified exam-rule corrections only. Unverified generic state folders are intentionally untouched.
+(function applyVerifiedExamRulesV5(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='verified_exam_rules_v5_20260929';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+
+ const insertExam=db.prepare(`INSERT OR IGNORE INTO exams(
+  name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,error_rule,
+  description,active,paid_enabled,fee_amount,validity_days,daily_demo_limit,highlight_mode,
+  highlight_user_change_allowed,default_result_count_mode,auto_scroll,min_words,min_chars,
+  qualification_method,duration_word_map,qualification_note
+ ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+
+ db.transaction(()=>{
+  // Delhi Police Head Constable (Ministerial), SSC notice 2025:
+  // 10 minutes; English >=30 WPM with >=400 words/2000 strokes;
+  // Hindi >=25 WPM with >=350 words/1750 strokes; one word per mistake; marks by speed band.
+  const dphEn=db.prepare("SELECT * FROM exams WHERE slug='delhi-police-hcm-typing'").get();
+  if(dphEn){
+   db.prepare(`UPDATE exams SET name=?,language='English',layout='QWERTY',duration=10,required_wpm=30,
+    required_accuracy=0,min_words=400,min_chars=2000,qualification_method='special_delhi_police_hcm',
+    duration_word_map=?,qualification_note=?,highlight_mode='none',auto_scroll=0
+    WHERE id=?`).run(
+     'Delhi Police - Head Constable (Ministerial) Typing - English',
+     JSON.stringify({'10':400}),
+     'SSC Delhi Police HCM 2025: 10 min; English minimum 30 WPM; passage minimum 400 words / 2000 strokes; one word per mistake; speed-band marks.',
+     dphEn.id
+   );
+  }
+  insertExam.run(
+   'Delhi Police - Head Constable (Ministerial) Typing - Hindi','delhi-police-hcm-typing-hindi',
+   'Hindi','Unicode / Mangal',10,25,0,1,'full',
+   'Delhi Police HCM Hindi typing — SSC 2025 official profile.',1,0,0,30,4,'none',1,'character',0,
+   350,1750,'special_delhi_police_hcm',JSON.stringify({'10':350}),
+   'SSC Delhi Police HCM 2025: 10 min; Hindi minimum 25 WPM; passage minimum 350 words / 1750 strokes; one word per mistake; speed-band marks.'
+  );
+  db.prepare(`UPDATE exams SET duration=10,required_wpm=25,required_accuracy=0,min_words=350,min_chars=1750,
+    qualification_method='special_delhi_police_hcm',duration_word_map=?,highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='delhi-police-hcm-typing-hindi'`).run(
+     JSON.stringify({'10':350}),
+     'SSC Delhi Police HCM 2025: 10 min; Hindi minimum 25 WPM; passage minimum 350 words / 1750 strokes; one word per mistake; speed-band marks.'
+  );
+
+  // Also correct the directory alias versions if they already exist.
+  db.prepare(`UPDATE exams SET duration=10,required_wpm=30,required_accuracy=0,min_words=400,min_chars=2000,
+    qualification_method='special_delhi_police_hcm',duration_word_map=?,highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='state-delhi-police-head-constable-ministerial'`).run(
+     JSON.stringify({'10':400}),
+     'SSC Delhi Police HCM 2025 official English profile.'
+  );
+  db.prepare(`UPDATE exams SET duration=10,required_wpm=25,required_accuracy=0,min_words=350,min_chars=1750,
+    qualification_method='special_delhi_police_hcm',duration_word_map=?,highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='state-delhi-police-head-constable-ministerial-hindi'`).run(
+     JSON.stringify({'10':350}),
+     'SSC Delhi Police HCM 2025 official Hindi profile.'
+  );
+
+  // Supreme Court JCA 2025: English only, 10 min, 35 WPM, mistakes <=3% of total words to be typed.
+  db.prepare(`UPDATE exams SET language='English',layout='QWERTY',duration=10,required_wpm=35,required_accuracy=0,
+    min_words=0,min_chars=0,qualification_method='special_court_3pct_words',highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='central-supreme-court-jca-typing'`).run(
+     'Supreme Court JCA 2025: English typing, 10 minutes, minimum 35 WPM, mistakes allowed up to 3% of total words to be typed.'
+  );
+
+  // Delhi High Court JJA/Restorer 2026: English only, 10 min, 35 WPM.
+  // Speed uses characters-with-space. Mistakes <=3% of total words typed with prescribed rounding.
+  db.prepare(`UPDATE exams SET language='English',layout='QWERTY',duration=10,required_wpm=35,required_accuracy=0,
+    min_words=0,min_chars=0,qualification_method='special_delhi_hc_jja_3pct',highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='state-delhi-high-court-junior-judicial-assistant'`).run(
+     'Delhi High Court JJA/Restorer 2026: English, 10 minutes, 35 WPM; speed by characters-with-space; mistakes up to 3% of total words typed with official rounding.'
+  );
+
+  // RRB NTPC CBTST: existing speed/mistake formula is retained; editing tools are not permitted.
+  for(const slug of ['railway-rrb-ntpc-typing-skill-test','railway-rrb-ntpc-typing-skill-test-hindi']){
+   db.prepare(`UPDATE exams SET backspace_allowed=0,backspace_mode='none',backspace_limit=0,highlight_mode='none'
+     WHERE slug=?`).run(slug);
+  }
+
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
+
+// Additional verified exam corrections (2026-09-29).
+// Only exact, source-supported fields are changed. Broad/notification-specific folders remain untouched.
+(function applyVerifiedExamCorrectionsV6(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='verified_exam_corrections_v6_20260929';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+
+ db.transaction(()=>{
+  // UPSSSC Junior Assistant: no official source was found for live word highlighting.
+  // Keep the test settings already stored, but remove the unsupported forced highlight default.
+  for(const slug of ['state-up-upsssc-junior-assistant','state-up-upsssc-junior-assistant-hindi']){
+   db.prepare("UPDATE exams SET highlight_mode='none' WHERE slug=?").run(slug);
+   db.prepare("UPDATE passages SET highlight_mode='none' WHERE exam_id=(SELECT id FROM exams WHERE slug=?)").run(slug);
+  }
+
+  // DDA Junior Secretariat Assistant (Direct Recruitment 2025):
+  // 10 min; English 35 WPM / Hindi 30 WPM.
+  // Official speed = [(gross keystrokes/5) - (incorrect words*10)] / 10.
+  for(const [slug,lang,wpm] of [
+   ['state-delhi-dda-junior-secretariat-assistant','English',35],
+   ['state-delhi-dda-junior-secretariat-assistant-hindi','Hindi',30]
+  ]){
+   db.prepare(`UPDATE exams SET language=?,duration=10,required_wpm=?,required_accuracy=0,
+    min_words=0,min_chars=0,qualification_method='special_dda_jsa_2025',
+    highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug=?`).run(
+      lang,wpm,
+      `DDA JSA Direct Recruitment 2025: ${lang} typing, 10 minutes, ${wpm} WPM. Official speed formula uses gross keystrokes/5 minus incorrect words×10, divided by 10 minutes.`,
+      slug
+   );
+  }
+
+  // Himachal Pradesh High Court Clerk / Proof Reader:
+  // official syllabus: English 30 WPM, 10 minutes, max 10% mistakes (more than 30 mistakes disqualifies).
+  db.prepare(`UPDATE exams SET language='English',layout='QWERTY',duration=10,required_wpm=30,
+   required_accuracy=0,min_words=0,min_chars=0,qualification_method='special_hp_hc_clerk',
+   highlight_mode='none',auto_scroll=0,
+   qualification_note=? WHERE slug='state-himachal-pradesh-high-court-clerk-junior-assistant'`).run(
+    'HP High Court Clerk/Proof Reader: English typing 30 WPM, 10 minutes; only 10% mistakes allowed, and more than 30 mistakes disqualifies.'
+  );
+  // Auto-created Hindi companion is not part of this verified Clerk/Proof Reader profile.
+  db.prepare("UPDATE exams SET active=0 WHERE slug='state-himachal-pradesh-high-court-clerk-junior-assistant-hindi'").run();
+
+  // Allahabad High Court Civil Court Group-C Junior Assistant / Paid Apprentice:
+  // verified eligibility typing standard is Hindi 25 WPM / English 30 WPM.
+  // Do not invent duration/UI rules because the abridged 2024-25 notice does not publish them.
+  db.prepare(`UPDATE exams SET required_wpm=30,required_accuracy=0,qualification_method='wpm',
+   qualification_note=? WHERE slug='state-up-allahabad-high-court-junior-assistant'`).run(
+    'Allahabad High Court Civil Court Group-C 2024-25: English typing standard 30 WPM. Duration/interface not asserted here because the cited abridged notice does not specify them.'
+  );
+  db.prepare(`UPDATE exams SET required_wpm=25,required_accuracy=0,qualification_method='wpm',
+   qualification_note=? WHERE slug='state-up-allahabad-high-court-junior-assistant-hindi'`).run(
+    'Allahabad High Court Civil Court Group-C 2024-25: Hindi typing standard 25 WPM. Duration/interface not asserted here because the cited abridged notice does not specify them.'
+  );
+
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
+
+// More exact-source corrections from the remaining exam audit.
+// Only fields explicitly confirmed by the authority are changed.
+(function applyVerifiedExamCorrectionsV7(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='verified_exam_corrections_v7_20260929';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+
+ db.transaction(()=>{
+  // Telangana High Court, Typist/Copyist direct recruitment 2026:
+  // the High Court's 26-03-2026 notice explicitly says the Skill Test is a
+  // "Typing test in English" for both Typist and Copyist.
+  // Do not invent speed/duration here because this notice does not state them.
+  db.prepare(`UPDATE exams SET language='English',layout='QWERTY',
+    qualification_note=CASE WHEN COALESCE(qualification_note,'')='' THEN ?
+      ELSE qualification_note || ' | ' || ? END
+    WHERE slug='state-telangana-district-judiciary-typist-copyist'`).run(
+      'Telangana High Court 2026: Typist/Copyist Skill Test is a typing test in English.',
+      'Telangana High Court 2026: Typist/Copyist Skill Test is a typing test in English.'
+    );
+  // The auto-created Hindi companion would falsely imply a Hindi real-exam test.
+  db.prepare("UPDATE exams SET active=0 WHERE slug='state-telangana-district-judiciary-typist-copyist-hindi'").run();
+
+  // JKSSB Junior Assistant: current/official recruitment rules require not less
+  // than 35 WPM typing. Keep duration/interface untouched because the cited
+  // recruitment rule does not establish a universal duration/UI rule.
+  db.prepare(`UPDATE exams SET required_wpm=35,required_accuracy=0,
+    qualification_method='wpm',
+    qualification_note=CASE WHEN COALESCE(qualification_note,'')='' THEN ?
+      ELSE qualification_note || ' | ' || ? END
+    WHERE slug='state-jammu-kashmir-jkssb-junior-assistant'`).run(
+      'JKSSB Junior Assistant: official recruitment rule requires typing speed not less than 35 WPM.',
+      'JKSSB Junior Assistant: official recruitment rule requires typing speed not less than 35 WPM.'
+    );
+
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
+
+// Main-exam audit corrections (2026-09-29).
+// Apply only rules that are supported by current official notices or, for UPSSSC's
+// detailed typing mechanics, by multiple current reproductions of the admit-card instructions.
+(function applyMainExamAuditV8(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='main_exam_audit_v8_20260929';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+
+ db.transaction(()=>{
+  // UPSSSC Junior Assistant / Junior Clerk / Assistant Grade-III:
+  // Recruitment notice confirms 30 WPM English + 25 WPM Hindi.
+  // Current exam-instruction reproductions consistently show 5 minutes per language,
+  // first five mistakes free, then each additional mistake deducts five words,
+  // with Full/Half mistake classification.
+  for(const [slug,lang,wpm] of [
+   ['state-up-upsssc-junior-assistant','English',30],
+   ['state-up-upsssc-junior-assistant-hindi','Hindi',25]
+  ]){
+   db.prepare(`UPDATE exams SET language=?,duration=5,required_wpm=?,required_accuracy=0,
+     min_words=0,min_chars=0,qualification_method='special_upsssc_ja',
+     highlight_mode='current_word',auto_scroll=1,backspace_allowed=1,backspace_mode='current_prev_word',backspace_limit=0,
+     qualification_note=? WHERE slug=?`).run(
+       lang,wpm,
+       `UPSSSC Junior Assistant: ${lang} ${wpm} WPM, 5 minutes; first 5 weighted mistakes allowed, then 5-word deduction per additional mistake. Backspace limited to current and immediately previous word.`,
+       slug
+   );
+  }
+
+  // Allahabad High Court / UP Civil Court Group-C Clerical Cadre 2024-25:
+  // Stage-II has BOTH Hindi and English type tests. Hindi ~250 words / 10 min;
+  // English ~300 words / 10 min. Hindi uses Mangal + INSCRIPT and matter is shown on screen.
+  db.prepare(`UPDATE exams SET language='English',layout='QWERTY',duration=10,required_wpm=30,
+    required_accuracy=0,duration_word_map=?,qualification_method='wpm',highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='state-up-allahabad-high-court-junior-assistant'`).run(
+      JSON.stringify({'10':300}),
+      'Allahabad High Court UP Civil Court Group-C 2024-25: English Type Test, approximately 300 words in 10 minutes; both English and Hindi Stage-II tests are held.'
+  );
+  db.prepare(`UPDATE exams SET language='Hindi',layout='Unicode / Inscript',duration=10,required_wpm=25,
+    required_accuracy=0,duration_word_map=?,qualification_method='wpm',highlight_mode='none',auto_scroll=0,
+    qualification_note=? WHERE slug='state-up-allahabad-high-court-junior-assistant-hindi'`).run(
+      JSON.stringify({'10':250}),
+      'Allahabad High Court UP Civil Court Group-C 2024-25: Hindi Type Test, approximately 250 words in 10 minutes; Mangal font with INSCRIPT keyboard; both Hindi and English Stage-II tests are held.'
+  );
+
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
+
+// UPSSSC Junior Assistant interface correction:
+// Word Highlight ON + Auto Scroll ON for both English and Hindi.
+// This is intentionally limited to these two exact profiles only.
+(function correctUpssscJaHighlightAutoScroll(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='upsssc_ja_highlight_autoscroll_v1_20260929';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ db.transaction(()=>{
+  for(const slug of ['state-up-upsssc-junior-assistant','state-up-upsssc-junior-assistant-hindi']){
+   db.prepare("UPDATE exams SET highlight_mode='current_word',auto_scroll=1 WHERE slug=?").run(slug);
+   db.prepare("UPDATE passages SET highlight_mode='current_word',auto_scroll=1 WHERE exam_id=(SELECT id FROM exams WHERE slug=?)").run(slug);
+  }
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
 app.use(express.json({limit:'1mb'}));
 function loginClientInfo(req){
  const ua=String(req.get('user-agent')||'').slice(0,1000),low=ua.toLowerCase();
@@ -1402,7 +1734,28 @@ function cleanupObsoleteGeneratedExamMatterOnce(){
 try{cleanupObsoleteGeneratedExamMatterOnce();}catch(error){console.error('Exam generated matter cleanup was not applied:',error.message);}
 
 app.get('/api/exams',(req,res)=>{ensureNorthRailwayExamDirectory();let q="SELECT e.*,(SELECT COUNT(*) FROM passages p WHERE p.exam_id=e.id AND p.active=1) passage_count FROM exams e WHERE e.active=1";const a=[];if(req.query.candidate==='1'){q+=" AND e.slug NOT IN ('hindi-unicode','hindi-remington','krutidev-hindi','up-govt','custom-english')"}if(req.query.language){q+=' AND e.language=?';a.push(req.query.language)}let rows=db.prepare(q+' ORDER BY e.id').all(...a);if(!paymentSystemEnabled())rows=rows.map(x=>({...x,paid_enabled:0,fee_amount:0,payment_system_free:true}));res.set('Cache-Control','no-store');res.json(rows)});
-app.get('/api/exams/:id',auth,(req,res)=>{const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});const cfg=examFolderConfig(e),state=examAccessState(req.user,cfg);if(state.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:state.block_reason});if(cfg.paid_enabled&&!state.can_start)return res.status(402).json({error:'Payment required for this exam sub-folder',code:'EXAM_PAYMENT_REQUIRED'});const p=db.prepare("SELECT * FROM passages WHERE active=1 AND exam_id=? ORDER BY id DESC LIMIT 100").all(e.id);res.json({...e,fee_amount:cfg.fee_amount,validity_days:cfg.validity_days,daily_demo_limit:cfg.daily_demo_limit,paid_enabled:cfg.paid_enabled,passages:p})});
+app.get('/api/exams/:id',auth,(req,res)=>{
+ const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});
+ const cfg=examFolderConfig(e),state=examAccessState(req.user,cfg);
+ if(state.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:state.block_reason});
+ if(cfg.paid_enabled&&!state.can_start)return res.status(402).json({error:'Payment required for this exam sub-folder',code:'EXAM_PAYMENT_REQUIRED'});
+ const pair={ 'up-police-ministerial-typing':'up-police-ministerial-typing-english',
+              'up-police-ministerial-typing-english':'up-police-ministerial-typing' };
+ const otherSlug=pair[String(e.slug||'')];
+ if(otherSlug){
+  const last=db.prepare(`SELECT r.created_at FROM results r JOIN exams x ON x.id=r.exam_id
+    WHERE r.user_id=? AND x.slug=? ORDER BY r.id DESC LIMIT 1`).get(req.user.id,otherSlug);
+  if(last?.created_at){
+   const when=Date.parse(String(last.created_at).replace(' ','T')+'Z');
+   if(Number.isFinite(when)){
+    const wait=Math.ceil(20*60-(Date.now()-when)/1000);
+    if(wait>0)return res.status(429).json({error:`Official pattern: English और Hindi typing tests के बीच 20 मिनट का interval है. ${Math.ceil(wait/60)} मिनट बाद यह test शुरू करें.`,code:'UPP_MINISTERIAL_INTERVAL',retry_after_seconds:wait});
+   }
+  }
+ }
+ const p=db.prepare("SELECT * FROM passages WHERE active=1 AND exam_id=? ORDER BY id DESC LIMIT 100").all(e.id);
+ res.json({...e,fee_amount:cfg.fee_amount,validity_days:cfg.validity_days,daily_demo_limit:cfg.daily_demo_limit,paid_enabled:cfg.paid_enabled,passages:p});
+});
 app.get('/api/passages',(req,res)=>{if(req.query.exam_id||req.query.include_all==='1')return res.status(403).json({error:'Exam passages are available only through the authenticated exam endpoint.'});let q=`SELECT * FROM passages WHERE active=1 AND exam_id IS NULL`,a=[];if(req.query.language){q+=' AND language=?';a.push(req.query.language)}if(req.query.layout){q+=' AND layout=?';a.push(req.query.layout)}if(req.query.difficulty){q+=' AND difficulty=?';a.push(req.query.difficulty)}res.json(db.prepare(q+' ORDER BY id DESC').all(...a))});
 app.get('/api/practice-passages/:id',auth,(req,res)=>{const p=db.prepare('SELECT * FROM passages WHERE id=? AND active=1 AND exam_id IS NULL').get(Number(req.params.id));if(!p)return res.status(404).json({error:'Practice passage not found'});const gate=practiceAccessState(req.user.id,p);if(!gate.can_start)return res.status(402).json({error:'Practice access required',code:'PRACTICE_PAYMENT_REQUIRED',demo_remaining:gate.demo_remaining||0,fee_amount:gate.fee_amount||0,validity_days:gate.validity_days||30});res.json(p)});
 function parseLiveTime(v){const t=String(v||'').trim();if(!t)return NaN;if(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(t))return new Date(t).getTime();return new Date(t+'+05:30').getTime()}
@@ -1440,6 +1793,82 @@ function wordErrorMetrics(original,typed){
  if(i<o.length){const remaining=o.length-i;omissions+=remaining;i=o.length;}
  return{correct,wrong,omissions,extra,substitutions,typed_words:t.length};
 }
+
+// UPPRPB ministerial typing evaluator.
+// Official notice: full mistakes = omission/substitution/addition/spelling/repetition/incomplete word;
+// half mistakes = spacing/capitalisation (English only)/punctuation/transposition/paragraphic errors.
+// Accuracy = correctly typed words / total passage words * 100.
+// Speed = total typed words / time used.
+function uppMinisterialTypingMetrics(original,typed,language='English'){
+ const rawO=String(original||''),rawT=String(typed||'');
+ const o=rawO.trim().split(/\s+/).filter(Boolean),t=rawT.trim().split(/\s+/).filter(Boolean);
+ const core=w=>String(w||'').replace(/[^\p{L}\p{N}]/gu,'');
+ const low=w=>core(w).toLocaleLowerCase('en-US');
+ const exact=(a,b)=>String(a)===String(b);
+ const sameCore=(a,b)=>core(a)===core(b);
+ const sameIgnoreCase=(a,b)=>low(a)===low(b);
+ let i=0,j=0,full=0,half=0,exactCorrect=0;
+ const run=(oi,tj,limit=7)=>{let n=0;while(n<limit&&oi+n<o.length&&tj+n<t.length&&exact(o[oi+n],t[tj+n]))n++;return n};
+
+ while(i<o.length || j<t.length){
+  if(i>=o.length){full++;j++;continue}
+  if(j>=t.length){full++;i++;continue}
+  if(exact(o[i],t[j])){exactCorrect++;i++;j++;continue}
+
+  // Transposed neighbouring words = one half mistake.
+  if(i+1<o.length&&j+1<t.length&&exact(o[i],t[j+1])&&exact(o[i+1],t[j])){
+   half+=1;i+=2;j+=2;continue;
+  }
+
+  // Spacing error: two source words joined, or one source word split into two typed tokens.
+  if(i+1<o.length&&sameIgnoreCase(core(o[i])+core(o[i+1]),t[j])){
+   half+=1;i+=2;j+=1;continue;
+  }
+  if(j+1<t.length&&sameIgnoreCase(o[i],core(t[j])+core(t[j+1]))){
+   half+=1;i+=1;j+=2;continue;
+  }
+
+  // Same letters/digits: only case and/or punctuation differs => half mistake(s).
+  if(sameIgnoreCase(o[i],t[j])){
+   let localHalf=0;
+   if(String(language).toLowerCase()!=='hindi' && core(o[i])!==core(t[j]) && low(o[i])===low(t[j]))localHalf++;
+   const punctO=String(o[i]).replace(/[\p{L}\p{N}]/gu,''),punctT=String(t[j]).replace(/[\p{L}\p{N}]/gu,'');
+   if(punctO!==punctT)localHalf++;
+   half+=Math.max(1,localHalf);
+   i++;j++;continue;
+  }
+
+  // Alignment decides omission/addition vs wrong/spelling word.
+  let best={type:'sub',d:1,score:run(i+1,j+1)*30+10};
+  const lim=Math.min(24,Math.max(o.length-i-1,t.length-j-1));
+  for(let d=1;d<=lim&&i+d<o.length;d++){
+   if(exact(o[i+d],t[j])){const sc=run(i+d,j)*30-d;if(sc>best.score)best={type:'delete',d,score:sc}}
+  }
+  for(let d=1;d<=lim&&j+d<t.length;d++){
+   if(exact(o[i],t[j+d])){const sc=run(i,j+d)*30-d;if(sc>best.score)best={type:'insert',d,score:sc}}
+  }
+  if(best.type==='delete'){full+=best.d;i+=best.d;continue}
+  if(best.type==='insert'){full+=best.d;j+=best.d;continue}
+  full+=1;i++;j++;
+ }
+
+ // Paragraphic errors only matter when the source itself contains paragraph breaks.
+ const op=rawO.split(/\r?\n/),tp=rawT.split(/\r?\n/);
+ if(op.length>1){
+  half+=Math.abs(op.length-tp.length);
+  const n=Math.min(op.length,tp.length);
+  for(let k=1;k<n;k++){
+   const os=(op[k].match(/^[\t ]*/)||[''])[0],ts=(tp[k].match(/^[\t ]*/)||[''])[0];
+   const oTab=/\t/.test(os),tTab=/\t/.test(ts);
+   if(oTab!==tTab || (!oTab&&!tTab&&os.length!==ts.length))half+=1;
+  }
+ }
+ const totalWords=o.length,typedWords=t.length,weightedMistakes=full+(half*0.5);
+ const correctWords=Math.max(0,Math.min(totalWords,totalWords-weightedMistakes));
+ return {full_mistakes:full,half_mistakes:half,weighted_mistakes:weightedMistakes,
+  correct_words:correctWords,total_words:totalWords,typed_words:typedWords,exact_correct_words:exactCorrect};
+}
+
 function liveAccessState(user,row){
  if(!paymentSystemEnabled()||!Number(row?.paid_enabled))return {allowed:true,source:'free'};
  if(isMasterOwner(user))return {allowed:true,source:'owner'};
@@ -1476,12 +1905,87 @@ app.post('/api/results',auth,(req,res)=>{
  const ruleWpm=e?Number(e.required_wpm||0):Number(passage.required_wpm||0),ruleAcc=e?Number(e.required_accuracy||0):Number(passage.required_accuracy||0),ruleWords=e?Number(e.min_words||0):Number(passage.min_words||0),ruleChars=e?Number(e.min_chars||0):Number(passage.min_chars||0),qualMethod=String(e?.qualification_method||passage.qualification_method||'all');
  const hasQualificationRule=ruleWpm>0||ruleAcc>0||ruleWords>0||ruleChars>0;
  const isRrbNtpcQualification=qualMethod==='special_rrb_ntpc';
+ const isUppMinisterialQualification=qualMethod==='special_upp_ministerial';
+ const isDelhiPoliceHcmQualification=qualMethod==='special_delhi_police_hcm';
+ const isCourt3PctQualification=qualMethod==='special_court_3pct_words';
+ const isDelhiHcJjaQualification=qualMethod==='special_delhi_hc_jja_3pct';
+ const isDdaJsaQualification=qualMethod==='special_dda_jsa_2025';
+ const isHpHcClerkQualification=qualMethod==='special_hp_hc_clerk';
+ const isUpssscJaQualification=qualMethod==='special_upsssc_ja';
  const specialQualificationRule=/^special_/i.test(qualMethod);
- // RRB NTPC is fully calculable here: minimum words first, then the official 5% mistake-grace speed formula.
- const qualificationConfigured=!!((hasQualificationRule&&!specialQualificationRule)||isRrbNtpcQualification);
+ const qualificationConfigured=!!((hasQualificationRule&&!specialQualificationRule)||isRrbNtpcQualification||isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification);
  const checks={wpm:(ruleWpm<=0||qualificationBaseSpeed>=ruleWpm),accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
- let qualOk=true,qualificationSpeed=qualificationBaseSpeed,qualificationFinalMistakes=null;
- if(isRrbNtpcQualification){
+ let qualOk=true,qualificationSpeed=qualificationBaseSpeed,qualificationFinalMistakes=null,uppMetrics=null,officialAccuracy=null,officialMistakes=null,typingMarks=null;
+ if(isUppMinisterialQualification){
+   uppMetrics=uppMinisterialTypingMetrics(evaluationContent,typed,e?.language||passage.language);
+   qualificationSpeed=uppMetrics.typed_words/Math.max(1/60,elapsedMinutes);
+   officialAccuracy=uppMetrics.total_words?(uppMetrics.correct_words/uppMetrics.total_words*100):0;
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   checks.accuracy=(ruleAcc<=0||officialAccuracy>=ruleAcc);
+   qualOk=checks.wpm&&checks.accuracy;
+ }else if(isDelhiPoliceHcmQualification){
+   // SSC Delhi Police HCM 2025: tentative speed = strokes/5/time; one word deducted per mistake.
+   // The word-error aligner treats substitution/addition/omission (including punctuation/case token mismatch)
+   // as one mistake each, matching the notice's one-word-per-mistake rule.
+   const strokes=Array.from(typed).length;
+   const tentativeSpeed=(strokes/5)/Math.max(1,scheduledMinutes);
+   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   qualificationSpeed=Math.max(0,tentativeSpeed-officialMistakes);
+   checks.words=(ruleWords<=0||typedWords>=ruleWords);
+   checks.chars=(ruleChars<=0||strokes>=ruleChars);
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   qualOk=checks.words&&checks.chars&&checks.wpm;
+   if(qualOk){
+    if(String(e?.language||passage.language).toLowerCase()==='hindi'){
+     typingMarks=qualificationSpeed>45?25:qualificationSpeed>=41?21:qualificationSpeed>=36?18:qualificationSpeed>=31?15:qualificationSpeed>=26?12:10;
+    }else{
+     typingMarks=qualificationSpeed>50?25:qualificationSpeed>=46?21:qualificationSpeed>=41?18:qualificationSpeed>=36?15:qualificationSpeed>=31?12:10;
+    }
+   }else typingMarks=0;
+ }else if(isUpssscJaQualification){
+   // UPSSSC Junior Assistant: 5 weighted mistakes are admissible;
+   // each weighted mistake beyond 5 deducts five words from gross standard words.
+   const u=uppMinisterialTypingMetrics(evaluationContent,typed,e?.language||passage.language);
+   uppMetrics=u;
+   const weighted=Math.max(0,Number(u.weighted_mistakes||0));
+   const grossStandardWords=Array.from(typed).length/5;
+   const excess=Math.max(0,weighted-5);
+   qualificationFinalMistakes=excess;
+   qualificationSpeed=Math.max(0,(grossStandardWords-(excess*5))/Math.max(1,scheduledMinutes));
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   qualOk=checks.wpm;
+ }else if(isDdaJsaQualification){
+   // DDA JSA 2025 official formula:
+   // [(gross keystrokes / 5) - (incorrect words * 10)] / 10 allotted minutes.
+   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   const grossKeystrokes=Array.from(typed).length;
+   qualificationSpeed=Math.max(0,((grossKeystrokes/5)-(officialMistakes*10))/Math.max(1,scheduledMinutes));
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   qualOk=checks.wpm;
+ }else if(isHpHcClerkQualification){
+   // HP High Court Clerk/Proof Reader syllabus: English 30 WPM, 10 minutes;
+   // only 10% mistakes permitted, explicitly more than 30 mistakes = disqualified.
+   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   qualificationSpeed=typedWords/Math.max(1,scheduledMinutes);
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   const allowedMistakes=Math.min(30,Math.floor(Math.max(0,passageWords)*0.10));
+   qualOk=checks.wpm&&officialMistakes<=allowedMistakes;
+ }else if(isDelhiHcJjaQualification){
+   // Delhi HC 2026: speed by characters-with-space; 3% mistakes of total words typed.
+   qualificationSpeed=(Array.from(typed).length/5)/Math.max(1,scheduledMinutes);
+   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   const rawAllowed=Math.max(0,typedWords*0.03),base=Math.floor(rawAllowed),frac=rawAllowed-base;
+   const allowed=base+(frac===0?0:(frac<=0.50?0.5:1));
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   qualOk=checks.wpm&&officialMistakes<=allowed;
+ }else if(isCourt3PctQualification){
+   // Supreme Court JCA 2025: English 35 WPM, 10 min, mistakes <=3% of total passage words.
+   qualificationSpeed=typedWords/Math.max(1,scheduledMinutes);
+   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   const allowed=Math.max(0,passageWords*0.03);
+   checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
+   qualOk=checks.wpm&&officialMistakes<=allowed;
+ }else if(isRrbNtpcQualification){
    // Existing evaluator counts wrong typed/substituted/extra words in wordMetrics.wrong and skipped source words in omissions.
    // Current RRB notice grants 5% of total typed words before applying the x10 penalty in the speed formula.
    const rrbFullMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
@@ -1504,10 +2008,10 @@ app.post('/api/results',auth,(req,res)=>{
  const qualificationStatus=e?(qualificationConfigured?(passed?'qualified':'not_qualified'):(specialQualificationRule?'special_rule_check':'rule_not_configured')):'practice';
  if(attemptId){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=? AND user_id=?').get(attemptId,req.user.id);if(old)return res.json({id:old.id,passed:old.passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}
  const wt=Array.isArray(b.word_timings)?b.word_timings.slice(0,1000).map(x=>({word:String(x.word||'').slice(0,80),ms:Math.max(0,Math.min(120000,Number(x.ms)||0)),index:Math.max(0,Number(x.index)||0)})):[];
- try{const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status,scheduled_seconds,result_count_mode_snapshot,exam_name_snapshot,passage_title_snapshot,required_wpm_snapshot,required_accuracy_snapshot,min_words_snapshot,min_chars_snapshot,qualification_method_snapshot,qualification_note_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,gross,net,accuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus,Math.max(1,Math.round(scheduledMinutes*60)),standardCount?'character':'word',String(e?.name||''),String(passage.title||''),ruleWpm,ruleAcc,ruleWords,ruleChars,qualMethod,String(e?.qualification_note||passage.instructions||'')).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);res.json({id,passed,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,metrics:{gross_wpm:gross,net_wpm:net,accuracy,correct_chars:good,wrong_chars:wrong,correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,qualification_speed:qualificationSpeed,qualification_final_mistakes:qualificationFinalMistakes,total_passage_words:passageWords,total_passage_chars:passageChars,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}throw err}
+ try{const useOfficialSpeed=isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification;const storedGross=useOfficialSpeed?qualificationSpeed:gross,storedNet=useOfficialSpeed?qualificationSpeed:net,storedAccuracy=isUppMinisterialQualification?officialAccuracy:accuracy;const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status,scheduled_seconds,result_count_mode_snapshot,exam_name_snapshot,passage_title_snapshot,required_wpm_snapshot,required_accuracy_snapshot,min_words_snapshot,min_chars_snapshot,qualification_method_snapshot,qualification_note_snapshot,full_mistakes,half_mistakes,official_correct_words,official_speed_wpm) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,storedGross,storedNet,storedAccuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus,Math.max(1,Math.round(scheduledMinutes*60)),standardCount?'character':'word',String(e?.name||''),String(passage.title||''),ruleWpm,ruleAcc,ruleWords,ruleChars,qualMethod,String(e?.qualification_note||passage.instructions||''),Number(uppMetrics?.full_mistakes||0),Number(uppMetrics?.half_mistakes||0),uppMetrics?Number(uppMetrics.correct_words):null,useOfficialSpeed?Number(qualificationSpeed):null).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);res.json({id,passed,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,metrics:{gross_wpm:isUppMinisterialQualification?qualificationSpeed:gross,net_wpm:isUppMinisterialQualification?qualificationSpeed:net,accuracy:isUppMinisterialQualification?officialAccuracy:accuracy,correct_chars:good,wrong_chars:wrong,correct_words:isUppMinisterialQualification?uppMetrics.correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,full_mistakes:Number(uppMetrics?.full_mistakes||0),half_mistakes:Number(uppMetrics?.half_mistakes||0),weighted_mistakes:Number(uppMetrics?.weighted_mistakes||0),official_mistakes:officialMistakes,typing_marks:typingMarks,qualification_speed:qualificationSpeed,qualification_final_mistakes:qualificationFinalMistakes,total_passage_words:passageWords,total_passage_chars:passageChars,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}throw err}
 });
-app.get('/api/results/me',auth,(req,res)=>res.json(db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method)='special_rrb_ntpc' THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id WHERE r.user_id=? ORDER BY r.id DESC`).all(req.user.id).map(practiceSavedResultForReview)));
-app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(NULLIF(r.qualification_note_snapshot,''),e.qualification_note,'') qualification_note,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method)='special_rrb_ntpc' THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration,u.name user_name,u.email user_email FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(Number(req.params.id));if(!row)return res.status(404).json({error:'Result not found'});if(req.user.role!=='admin'&&row.user_id!==req.user.id)return res.status(403).json({error:'Not allowed'});try{row.word_timings=JSON.parse(row.word_timings||'[]')}catch{row.word_timings=[]}res.json(practiceSavedResultForReview(row))});
+app.get('/api/results/me',auth,(req,res)=>res.json(db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id WHERE r.user_id=? ORDER BY r.id DESC`).all(req.user.id).map(practiceSavedResultForReview)));
+app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(NULLIF(r.qualification_note_snapshot,''),e.qualification_note,'') qualification_note,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration,u.name user_name,u.email user_email FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(Number(req.params.id));if(!row)return res.status(404).json({error:'Result not found'});if(req.user.role!=='admin'&&row.user_id!==req.user.id)return res.status(403).json({error:'Not allowed'});try{row.word_timings=JSON.parse(row.word_timings||'[]')}catch{row.word_timings=[]}res.json(practiceSavedResultForReview(row))});
 app.get('/api/learning/progress',auth,(req,res)=>{const rows=db.prepare(`SELECT lesson_key,lesson_title,level,COUNT(*) attempts,MAX(score) best_score,MAX(wpm) best_wpm,ROUND(AVG(accuracy),1) avg_accuracy,MAX(created_at) last_practiced FROM learning_attempts WHERE user_id=? GROUP BY lesson_key ORDER BY MAX(id) DESC`).all(req.user.id);const totals=db.prepare(`SELECT COUNT(*) attempts,COUNT(DISTINCT lesson_key) lessons,COALESCE(MAX(wpm),0) best_wpm,COALESCE(ROUND(AVG(accuracy),1),0) avg_accuracy FROM learning_attempts WHERE user_id=?`).get(req.user.id);res.json({rows,totals})});
 app.get('/api/learning/history',auth,(req,res)=>{const limit=Math.min(200,Math.max(1,Number(req.query.limit)||50));res.json(db.prepare(`SELECT id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration,created_at FROM learning_attempts WHERE user_id=? ORDER BY id DESC LIMIT ?`).all(req.user.id,limit))});
 app.post('/api/learning/attempts',auth,(req,res)=>{const b=req.body||{},key=String(b.lesson_key||'').trim().slice(0,80);if(!key)return res.status(400).json({error:'Lesson key required'});const gate=learningAccessState(req.user.id,learningCourseKey(key));if(!gate.allowed)return res.status(402).json({error:'Learning demo finished. Payment required.',code:'LEARNING_PAYMENT_REQUIRED',course_key:learningCourseKey(key),plan:gate.plan});const id=db.prepare(`INSERT INTO learning_attempts(user_id,lesson_key,lesson_title,level,score,wpm,accuracy,errors,duration) VALUES(?,?,?,?,?,?,?,?,?)`).run(req.user.id,key,String(b.lesson_title||key).slice(0,120),String(b.level||'Basic').slice(0,40),Number(b.score)||0,Number(b.wpm)||0,Math.max(0,Math.min(100,Number(b.accuracy)||0)),Math.max(0,Number(b.errors)||0),Math.max(0,Number(b.duration)||0)).lastInsertRowid;res.json({id})});
@@ -1538,12 +2042,12 @@ app.get('/api/leaderboard/attempts',(req,res)=>{const range=req.query.range||'al
 ) SELECT user_id,result_id,name,test_name,duration,best_wpm,ROUND(gross_wpm,1) gross_wpm,ROUND(accuracy,1) accuracy,tests,difficulty,
  CASE WHEN exam_id IS NULL THEN 'Practice'
       WHEN COALESCE(qualification_method_snapshot,qualification_method) LIKE 'special_%'
-           AND COALESCE(qualification_method_snapshot,qualification_method)!='special_rrb_ntpc' THEN 'Rule not set'
+           AND COALESCE(qualification_method_snapshot,qualification_method) NOT IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 'Rule not set'
       WHEN COALESCE(required_wpm_snapshot,required_wpm,0)<=0
        AND COALESCE(required_accuracy_snapshot,required_accuracy,0)<=0
        AND COALESCE(min_words_snapshot,min_words,0)<=0
        AND COALESCE(min_chars_snapshot,min_chars,0)<=0
-       AND COALESCE(qualification_method_snapshot,qualification_method,'')!='special_rrb_ntpc' THEN 'Rule not set'
+       AND COALESCE(qualification_method_snapshot,qualification_method,'') NOT IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 'Rule not set'
       WHEN passed=1 THEN 'Qualify' ELSE 'Not Qualify' END qualification_status
  FROM ranked ORDER BY best_wpm DESC,result_id DESC`).all())});
 app.get('/api/leaderboard',(req,res)=>{const range=req.query.range||'all';let where='';if(range==='daily')where+=" AND date(r.created_at)=date('now','localtime')";if(range==='weekly')where+=" AND date(r.created_at)>=date('now','-6 day','localtime')";res.json(db.prepare(`WITH ranked AS (
@@ -1559,15 +2063,15 @@ app.get('/api/leaderboard',(req,res)=>{const range=req.query.range||'all';let wh
 ) SELECT name,best_wpm,ROUND(gross_wpm,1) gross_wpm,ROUND(accuracy,1) accuracy,tests,difficulty,
  CASE WHEN exam_id IS NULL THEN 'Practice'
       WHEN COALESCE(qualification_method_snapshot,qualification_method) LIKE 'special_%'
-           AND COALESCE(qualification_method_snapshot,qualification_method)!='special_rrb_ntpc' THEN 'Rule not set'
+           AND COALESCE(qualification_method_snapshot,qualification_method) NOT IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 'Rule not set'
       WHEN COALESCE(required_wpm_snapshot,required_wpm,0)<=0
        AND COALESCE(required_accuracy_snapshot,required_accuracy,0)<=0
        AND COALESCE(min_words_snapshot,min_words,0)<=0
        AND COALESCE(min_chars_snapshot,min_chars,0)<=0
-       AND COALESCE(qualification_method_snapshot,qualification_method,'')!='special_rrb_ntpc' THEN 'Rule not set'
+       AND COALESCE(qualification_method_snapshot,qualification_method,'') NOT IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 'Rule not set'
       WHEN passed=1 THEN 'Qualify' ELSE 'Not Qualify' END qualification_status
  FROM ranked WHERE rn=1 ORDER BY best_wpm DESC LIMIT 50`).all())});
-app.get('/api/recent-results',(req,res)=>res.json(db.prepare(`SELECT u.name,e.name exam_name,r.net_wpm,r.accuracy,r.passed,r.created_at,CASE WHEN e.id IS NULL THEN 1 WHEN e.qualification_method='special_rrb_ntpc' THEN 1 WHEN e.qualification_method LIKE 'special_%' THEN 0 WHEN COALESCE(e.required_wpm,0)>0 OR COALESCE(e.required_accuracy,0)>0 OR COALESCE(e.min_words,0)>0 OR COALESCE(e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id WHERE COALESCE(u.role,'student')!='admin' ORDER BY r.id DESC LIMIT 20`).all()));
+app.get('/api/recent-results',(req,res)=>res.json(db.prepare(`SELECT u.name,e.name exam_name,r.net_wpm,r.accuracy,r.passed,r.created_at,CASE WHEN e.id IS NULL THEN 1 WHEN e.qualification_method IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 1 WHEN e.qualification_method LIKE 'special_%' THEN 0 WHEN COALESCE(e.required_wpm,0)>0 OR COALESCE(e.required_accuracy,0)>0 OR COALESCE(e.min_words,0)>0 OR COALESCE(e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured FROM results r JOIN users u ON u.id=r.user_id LEFT JOIN exams e ON e.id=r.exam_id WHERE COALESCE(u.role,'student')!='admin' ORDER BY r.id DESC LIMIT 20`).all()));
 app.get('/api/admin/stats',auth,admin,(req,res)=>res.json({users:db.prepare("SELECT COUNT(*) c FROM users WHERE role='student'").get().c,exams:db.prepare('SELECT COUNT(*) c FROM exams').get().c,passages:db.prepare('SELECT COUNT(*) c FROM passages').get().c,tests:db.prepare('SELECT COUNT(*) c FROM results').get().c,avg:db.prepare('SELECT ROUND(AVG(net_wpm),1) x FROM results').get().x||0}));
 app.post('/api/owner/admins',auth,ownerOnly,(req,res)=>{let{name,phone,email,password}=req.body||{};name=String(name||'').trim().replace(/\s+/g,' ');phone=normalizePhone(phone);email=String(email||'').trim().toLowerCase();password=String(password||'');if(name.length<2||name.length>80)return res.status(400).json({error:'Enter admin full name'});if(!phone)return res.status(400).json({error:'Enter a valid 10-digit admin mobile number'});if(!emailOk(email)||email.length>160)return res.status(400).json({error:'Enter a valid admin email'});if(password.length<12||password.length>200)return res.status(400).json({error:'Admin password must be at least 12 characters'});if(db.prepare('SELECT 1 FROM users WHERE email=? OR phone=?').get(email,phone))return res.status(400).json({error:'Email or mobile number already registered'});try{const id=db.prepare("INSERT INTO users(name,phone,email,password,role,active,plan,phone_verified,is_owner,target_exam) VALUES(?,?,?,?, 'admin',1,'Admin',1,0,'Administration')").run(name,phone,email,bcrypt.hashSync(password,12)).lastInsertRowid;audit(req,'CREATE_ADMIN','user',id,email);res.json({created:true,id,message:'Admin account created successfully'});}catch(e){res.status(400).json({error:'Could not create admin account'})}});
 app.get('/api/owner/admins',auth,ownerOnly,(req,res)=>res.json(db.prepare("SELECT id,name,email,phone,active,last_login,created_at FROM users WHERE role='admin' AND COALESCE(is_owner,0)=0 ORDER BY id DESC").all()));
@@ -1839,7 +2343,7 @@ app.delete('/api/admin/manual-matters/:id',auth,admin,(req,res)=>{try{
 app.get('/api/admin/exams',auth,admin,(req,res)=>{ensureNorthRailwayExamDirectory();res.json(db.prepare('SELECT * FROM exams ORDER BY id DESC').all())});
 app.use('/api/admin/exams',(req,res,next)=>{
  if(!['POST','PUT'].includes(req.method))return next();
- const b=req.body||{},valid=['off','unlimited','current_word','limited'];
+ const b=req.body||{},valid=['off','unlimited','current_word','current_prev_word','limited'];
  if(!valid.includes(b.backspace_mode))return next();
  const mode=b.backspace_mode,limit=mode==='limited'?Math.max(1,Math.floor(Number(b.backspace_limit)||1)):0;
  b.backspace_allowed=mode!=='off';
