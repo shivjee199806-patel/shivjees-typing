@@ -3399,7 +3399,7 @@ app.get('/terms',(req,res)=>res.type('html').send('<!doctype html><html lang="en
 
 // SEO discovery files — must be declared before the SPA catch-all route.
 app.get('/robots.txt',(req,res)=>{
-  res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://jptyping.in/sitemap.xml\n');
+  res.type('text/plain').send('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /owner\nSitemap: https://jptyping.in/sitemap.xml\n');
 });
 app.get('/sitemap.xml',(req,res)=>{
   res.sendFile(path.join(__dirname,'public','sitemap.xml'));
