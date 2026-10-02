@@ -1402,7 +1402,7 @@ async function finishTest(manual=false,ended=false,fromPreview=false){
  if(!S.started||(!t.length&&!ended)){showToast('Type at least one character before submitting.');return}
  S.submitting=true;
  const btn=document.getElementById('submit');if(btn){btn.disabled=true;btn.textContent='Submitting…'}
- const p=S.passage,c=calcTyping(t);S.lastTyped=t;S.lastOriginal=p.content;const elapsed=fromPreview?(S.previewElapsed||Math.max(1,Math.min(S.total,(Date.now()-S.startTime)/1000))):Math.max(1,Math.min(S.total,(Date.now()-S.startTime)/1000)),mins=elapsed/60;
+ const p=S.passage,c=calcTyping(t);S.lastTyped=t;S.lastOriginal=p.content;const elapsed=fromPreview?(S.previewElapsed||Math.max(1,Math.min(S.total,(Date.now()-S.startTime)/1000))):Math.max(1,Math.min(S.total,(Date.now()-S.startTime)/1000));S.lastElapsed=elapsed;const mins=elapsed/60;
  const finalWordStats=detailedWordStats(p.content,t),isStandardResult=String(p.result_count_mode||'word')==='character',givenCharCount=Array.from(String(p.content||'')).length;
  const gross=(c.n/5)/mins,acc=isStandardResult?(givenCharCount?c.good/givenCharCount*100:0):(finalWordStats.given?finalWordStats.correct/finalWordStats.given*100:0),net=Math.max(0,gross-(c.wrong/5)/mins),back=S.backspaces||0;
  if(S.timer)clearInterval(S.timer);
@@ -6024,7 +6024,8 @@ body:not(.exam-mode) .topnav a[data-route="live"] .live-dot{display:none!importa
   const wordStats=typeof detailedWordStats==='function'?detailedWordStats(original,typed):{typed:(typed.trim().match(/\S+/g)||[]).length,correct:0,given:(original.trim().match(/\S+/g)||[]).length};
   const charStats=typeof resyncAlign==='function'?resyncAlign(original,typed):{good:0,n:Array.from(typed).length};
   const normalTyped=Number(wordStats.typed||0),normalCorrect=Number(wordStats.correct||0),normalGiven=Number(wordStats.given||0),givenChars=Array.from(original).length,standardTyped=Number(charStats.n||Array.from(typed).length)/5,standardCorrect=Number(charStats.good||0)/5;
-  const elapsedSeconds=saved?Math.max(1,Number(saved.elapsed||1)):Math.max(1,Math.min(Number(liveState?.total||60),Number(liveState?.previewElapsed)||Number(liveState?.lastElapsed)||((liveState?.startTime)?(Date.now()-Number(liveState.startTime))/1000:Number(liveState?.total||60))));
+  const isHindiPractice=!saved&&String(liveState?.mode||'')==='practice'&&String(liveState?.passage?.language||liveState?.practiceLanguage||'').toLowerCase()==='hindi';
+  const elapsedSeconds=saved?Math.max(1,Number(saved.elapsed||1)):Math.max(1,Math.min(Number(liveState?.total||60),isHindiPractice?Number(liveState?.lastElapsed||liveState?.total||60):(Number(liveState?.previewElapsed)||Number(liveState?.lastElapsed)||((liveState?.startTime)?(Date.now()-Number(liveState.startTime))/1000:Number(liveState?.total||60)))));
   const usedMinutes=elapsedSeconds/60;
   const givenMinutes=Math.max(1,Number(saved?.total||liveState?.total||60))/60;
   const control=document.createElement('div');control.className='jp-word-count-toggle';

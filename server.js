@@ -828,6 +828,20 @@ ensureVerifiedTypingExamDirectory();
  })();
 })();
 
+// Enforce the exact UPPRPB 23-01-2026 15-minute matter sizes for the ministerial typing tests.
+// This migration is deliberately limited to SI (Confidential), ASI Clerk and ASI Accounts only.
+(function enforceUpPoliceMinisterialMatterSizesV3(){
+ db.exec('CREATE TABLE IF NOT EXISTS app_meta(key TEXT PRIMARY KEY,value TEXT)');
+ const marker='up_police_ministerial_matter_sizes_20261003_v3';
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(marker))return;
+ db.transaction(()=>{
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=25,required_accuracy=85,duration_word_map=? WHERE slug='up-police-ministerial-typing'`).run(JSON.stringify({'15':400}));
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=30,required_accuracy=85,duration_word_map=? WHERE slug='up-police-ministerial-typing-english'`).run(JSON.stringify({'15':500}));
+  db.prepare(`UPDATE exams SET duration=15,required_wpm=15,required_accuracy=85,duration_word_map=? WHERE slug='up-police-asi-accounts-typing-hindi'`).run(JSON.stringify({'15':250}));
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
+ })();
+})();
+
 // Highlight safety policy: NEVER infer live highlighting from silence in an official notice.
 // Existing per-exam highlight_mode remains untouched unless the actual exam UI/authority explicitly verifies it.
 // Highlight is not an Owner/Candidate preference in Exam Mode; the runtime uses the exam's stored verified value.
