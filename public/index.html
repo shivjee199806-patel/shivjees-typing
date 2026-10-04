@@ -3804,6 +3804,121 @@ window.downloadCertificate=async function(id){try{await api('/api/certificates/'
 .jp-lb-short-section .table{font-size:12px}
 .jp-lb-short-section .table th,.jp-lb-short-section .table td{padding:9px 7px;white-space:nowrap}
 </style>
+
+<script id="jp-live-session-isolation-20261004">
+/* Live Typing isolation patch: scheduled pre-check, exact-time start, private-until-published result, session leaderboard. */
+(function(){
+  const _showResult=showResult;
+  const _restartExamConfirm=restartExamConfirm;
+
+  function jpLiveMs(v){ return parseLiveBrowserTime(v); }
+  function jpLivePhase(x){
+    const n=Date.now(), st=jpLiveMs(x.start_at), en=jpLiveMs(x.end_at);
+    if(!Number.isFinite(st)||!Number.isFinite(en)) return 'over';
+    if(n < st-300000) return 'upcoming';
+    if(n < st) return 'precheck';
+    if(n <= en) return 'live';
+    return 'over';
+  }
+  function jpLiveStateFromRow(x){
+    S.liveTest=x;
+    S.exam={id:x.exam_id,name:x.exam_name,slug:x.exam_slug||'',language:x.language,layout:x.layout,duration:x.duration,required_wpm:x.required_wpm,required_accuracy:x.required_accuracy,min_words:x.min_words||0,min_chars:x.min_chars||0,qualification_method:x.qualification_method||'all',speed_based_time_taken:x.speed_based_time_taken||0,backspace_allowed:x.backspace_allowed,error_rule:x.error_rule,description:x.description,highlight_mode:x.exam_highlight_mode||'none',highlight_user_change_allowed:x.highlight_user_change_allowed??1,auto_scroll:Number(x.exam_auto_scroll??1),duration_word_map:x.duration_word_map||'{}',qualification_note:x.qualification_note||'',passages:[]};
+    S.passage={id:x.passage_id,title:x.passage_title,language:x.language,layout:x.layout,difficulty:x.difficulty,content:String(x.content||''),highlight_mode:S.exam.highlight_mode,auto_scroll:Number(S.exam.auto_scroll??1),result_count_mode:x.result_count_mode||'word'};
+    S.mode='live';S.started=false;S.done=false;S.submitting=false;S.backspaces=0;S.wordTimings=[];
+    {const k='st_backspace_choice_exam_'+String(S.exam?.id||S.exam?.slug||'default');const bp=localStorage.getItem(k);S.attemptBackspaceAllowed=bp===null?!!S.exam?.backspace_allowed:bp==='1';}
+    S.attemptHighlightMode=S.exam.highlight_mode;
+  }
+  function jpLivePrepRemaining(){return Math.max(0,Math.ceil((jpLiveMs(S.liveTest?.start_at)-Date.now())/1000));}
+  function jpLivePrepClock(){
+    const el=document.getElementById('jpLivePrepClock'); if(!el||!S.liveTest)return;
+    const sec=jpLivePrepRemaining();el.textContent=fmt(sec);
+    if(sec<=0){clearInterval(S.livePrepTimer);S.livePrepTimer=null;jpBeginScheduledLive();}
+  }
+  window.jpRenderLivePrecheck=function(){
+    const x=S.liveTest,hindi=String(x?.language||'').toLowerCase().includes('hindi');
+    setApp(`<div class="card exam-precheck"><h1>🔴 Live Test Pre-Check</h1><p><b>${esc(x.title||x.exam_name)}</b> · ${esc(x.language)} · Scheduled start: <b>${liveWhen(x.start_at)}</b></p><div class="notice">यह pre-check scheduled start से 5 मिनट पहले खुलता है। Actual passage अभी नहीं दिखेगा और test समय से पहले शुरू नहीं हो सकता।</div><ol class="exam-rule-list"><li>Instructions अभी पढ़ लें; main Live Test exact scheduled time पर ही शुरू होगा.</li><li>Keyboard/input check अभी पूरा करें. यह final result में count नहीं होगा.</li><li>Live Test में Exam Mode जैसे typing controls रहेंगे, लेकिन यह <b>Live Session</b> के अंदर ही रहेगा.</li><li>Scheduled time से पहले कोई Skip करके main test में नहीं जा सकता.</li><li>Late join करने पर केवल scheduled end तक का remaining time मिलेगा.</li><li>Submit होने के बाद result Owner के पास save होगा; Owner Publish करने के बाद ही candidate को Result + Live Leaderboard दिखेगा.</li></ol><div class="exam-checks"><label><input id="jpLiveReadCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं।</label>${hindi?`<label><input id="jpLiveHindiCheck" type="checkbox"> मैंने Hindi keyboard/input switch check कर लिया है।</label>`:''}</div><button id="jpLiveKeyboardBtn" class="btn btn-primary" disabled onclick="jpRenderLiveKeyboardCheck()">Keyboard Check →</button> <button class="btn btn-white" onclick="cancelTypingFlow('live')">← Live Tests</button></div>`);
+    const sync=()=>{const a=document.getElementById('jpLiveReadCheck')?.checked,b=!hindi||document.getElementById('jpLiveHindiCheck')?.checked;const btn=document.getElementById('jpLiveKeyboardBtn');if(btn)btn.disabled=!(a&&b)};
+    document.getElementById('jpLiveReadCheck').onchange=sync;if(hindi)document.getElementById('jpLiveHindiCheck').onchange=sync;
+  };
+  window.jpRenderLiveKeyboardCheck=function(){
+    const txt=randomPracticeText();
+    setApp(`<div class="card practice-stage"><h1>⌨️ Live Keyboard Check</h1><div class="notice">Pre-check only — यह final result में count नहीं होगा। Main test को यहाँ से skip/start नहीं किया जा सकता.</div><div class="passage-box" style="height:auto;min-height:120px">${esc(txt)}</div><textarea id="jpLiveCheckTyping" class="typing-area" placeholder="Keyboard check here..." spellcheck="false"></textarea><div style="margin-top:12px"><button class="btn btn-primary" onclick="jpRenderLiveWaiting()">✓ Keyboard Check Complete</button> <button class="btn btn-white" onclick="jpRenderLivePrecheck()">← Instructions</button></div></div>`);
+    document.getElementById('jpLiveCheckTyping')?.focus();
+  };
+  window.jpRenderLiveWaiting=function(){
+    clearInterval(S.livePrepTimer);
+    setApp(`<div class="card exam-precheck" style="text-align:center"><h1>✅ Pre-Check Complete</h1><p>Keyboard और instructions ready हैं। Live Test scheduled time पर automatically शुरू होगा.</p><div id="jpLivePrepClock" class="timer" style="display:inline-block;margin:18px auto;font-size:32px">${fmt(jpLivePrepRemaining())}</div><div class="notice">इस screen पर रहें। Main test को manually start/skip नहीं किया जा सकता.</div></div>`);
+    S.livePrepTimer=setInterval(jpLivePrepClock,250);jpLivePrepClock();
+  };
+  window.jpBeginScheduledLive=async function(){
+    try{
+      if(!S.liveTest?.id)return;
+      const x=await api('/api/live-tests/'+S.liveTest.id+'?ts='+Date.now());
+      if(x.precheck_only)return jpRenderLiveWaiting();
+      jpLiveStateFromRow(x);
+      const st=jpLiveMs(x.start_at),en=jpLiveMs(x.end_at),now=Date.now();
+      if(now>=en){showToast('This Live Test is over.');location.hash='#live';return liveTests();}
+      const full=Math.max(1,Math.round((en-st)/1000)),remaining=Math.max(1,Math.ceil((en-now)/1000));
+      S.total=full;S.left=remaining;S.attemptId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
+      const mins=Math.max(1,Number(x.duration||Math.round(full/60)||10)),limit=requiredMatterWords(S.exam,mins);
+      S.passage.content=cleanTrimWords(x.content,limit);
+      renderTest(true);requestExamFullscreen();
+      const el=document.getElementById('typing');el?.focus();S.started=true;S.startTime=Date.now();S.deadline=en;clearInterval(S.timer);S.timer=setInterval(timerTick,250);timerTick();
+    }catch(e){showToast(e.message||'Live test could not start')}
+  };
+  window.startLiveTest=async function(id){
+    try{
+      const x=await api('/api/live-tests/'+id+'?ts='+Date.now());jpLiveStateFromRow(x);
+      if(x.precheck_only){S.total=Math.max(60,Math.round((jpLiveMs(x.end_at)-jpLiveMs(x.start_at))/1000));S.left=S.total;return jpRenderLivePrecheck();}
+      return jpBeginScheduledLive();
+    }catch(e){showToast(e.message||'Live test is not available yet')}
+  };
+  window.restartExamConfirm=function(){if(S.mode==='live'){showToast('Live Test restart नहीं किया जा सकता। Scheduled timer ही लागू रहेगा.');return}_restartExamConfirm()};
+  const _endExamConfirm=endExamConfirm;
+  window.endExamConfirm=async function(){if(S.mode!=='live')return _endExamConfirm();if(!confirm('End Live Test? आपका current attempt Owner के पास Ended / Incomplete के रूप में save होगा.'))return;await finishTest(false,true);location.hash='#live';await liveTests(window.LIVE_FILTER||'all')};
+  showResult=function(r,m){
+    if(S.mode==='live'&&r?.saved){
+      leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();S.started=false;S.done=true;S.submitting=false;
+      setApp(`<div class="page"><div class="card" style="max-width:760px;margin:40px auto;text-align:center;padding:34px"><div style="font-size:52px">✅</div><h1>Live Test Submitted</h1><p>आपका Live Test result successfully Owner के पास save हो गया है.</p><div class="notice">Result और Live Leaderboard अभी hidden हैं। Owner result publish करेगा, उसके बाद इसी Live Session में दिखाई देंगे.</div><button class="btn btn-primary" onclick="location.hash='#live'">Back to Live Typing</button></div></div>`);return;
+    }
+    return _showResult(r,m);
+  };
+  window.jpPublishLiveResult=async function(id){
+    if(!confirm('इस Live Session का Result और Leaderboard candidates के लिए publish करें?'))return;
+    try{await api('/api/admin/live-tests/'+id+'/publish-result',{method:'POST',body:'{}'});showToast('Live result published');liveTests(window.LIVE_FILTER||'all')}catch(e){showToast(e.message||'Could not publish result')}
+  };
+  window.jpOpenLiveResults=async function(id){
+    try{
+      const d=await api('/api/live-tests/'+id+'/results?ts='+Date.now()),rows=d.rows||[];
+      setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Live Typing / Session Result</div><h1>🏆 Live Leaderboard</h1><p>${d.published?'Published Live Session':'Owner Preview — not published yet'}</p></div><button class="btn btn-white" onclick="location.hash='#live'">← Live Sessions</button></div>${!d.published&&S.user?.role==='admin'?`<div class="notice">Candidates cannot see these results yet.</div>`:''}<div class="card table-wrap"><table class="table"><thead><tr><th>Rank</th><th>Candidate</th><th>Net WPM</th><th>Gross WPM</th><th>Accuracy</th><th>Result</th><th>Difficulty</th>${S.user?.role==='admin'?'<th>Analysis</th>':''}</tr></thead><tbody>${rows.map((x,i)=>`<tr><td><b>${i+1}</b></td><td>${esc(x.name)}</td><td><b>${Number(x.net_wpm||0).toFixed(1)}</b></td><td>${Number(x.gross_wpm||0).toFixed(1)}</td><td>${Number(x.accuracy||0).toFixed(1)}%</td><td>${x.passed?'Qualified':'Not Qualified'}</td><td>${esc(x.difficulty||'Not set')}</td>${S.user?.role==='admin'?`<td><button class="btn btn-soft btn-mini" onclick="openResultAnalysis(${x.result_id})">View</button></td>`:''}</tr>`).join('')||'<tr><td colspan="8" style="padding:24px">No submitted results yet.</td></tr>'}</tbody></table></div>${d.own_result_id&&d.published?`<div style="text-align:center;margin-top:16px"><button class="btn btn-primary" onclick="openResultAnalysis(${d.own_result_id})">View My Detailed Result</button></div>`:''}</div>`);
+    }catch(e){showToast(e.message||'Live result is not available yet')}
+  };
+  liveTests=async function(filterExam='all'){
+    if(!S.user){auth('login');return}activeNav('live');
+    try{
+      const d=await api('/api/live-tests?ts='+Date.now());window.LIVE_ROWS=d;window.LIVE_FILTER=filterExam;
+      const examNames=[...new Set(d.map(x=>x.exam_name).filter(Boolean))],list=filterExam==='all'?d:d.filter(x=>x.exam_name===filterExam);
+      const rows=list.map((x,i)=>{
+        const st=jpLivePhase(x),locked=Number(x.paid_enabled)===1&&!(x.access&&x.access.allowed),published=Number(x.result_published)===1,hasMine=!!x.my_result_id;
+        let action='';
+        if(locked)action=`<button class="btn btn-primary" type="button" onclick="payLiveTest(${x.id});return false">🔒 Pay ₹${Number(x.fee_amount||0)} · Unlock</button>`;
+        else if(hasMine&&!published)action='<span class="upcoming">Submitted · Result pending</span>';
+        else if(published)action=`${hasMine?`<button class="btn btn-primary" onclick="openResultAnalysis(${x.my_result_id})">My Result</button> `:''}<button class="btn btn-soft" onclick="jpOpenLiveResults(${x.id})">Leaderboard</button>`;
+        else if(st==='precheck')action=`<button class="btn btn-primary" onclick="startLiveTest(${x.id})">Enter · Instructions & Keyboard Check</button>`;
+        else if(st==='live')action=`<button class="btn btn-primary" onclick="startLiveTest(${x.id})">Start Live Test</button>`;
+        else if(st==='upcoming')action=`<span class="upcoming">Upcoming<div class="live-countdown" data-start="${esc(x.start_at)}"></div></span>`;
+        else action='<span class="over">Over · Result pending</span>';
+        if(S.user?.role==='admin')action+=`<div style="margin-top:6px"><button class="btn btn-soft btn-mini" onclick="jpOpenLiveResults(${x.id})">View Saved Results</button> ${published?'<span class="badge green">Published</span>':`<button class="btn btn-primary btn-mini" onclick="jpPublishLiveResult(${x.id})">Publish Result</button>`}</div>`;
+        const status=st==='precheck'?'PRE-CHECK':st==='live'?'LIVE':st==='upcoming'?'UPCOMING':'OVER';
+        return `<tr><td>${i+1}</td><td><b>${esc(x.title||x.exam_name)}</b><div class="muted" style="font-size:11px">${esc(x.exam_name)}</div></td><td>${esc(x.passage_title)}</td><td>${esc(x.language)}<div class="muted" style="font-size:11px">${esc(x.layout||'')}</div></td><td>${liveWhen(x.start_at)}</td><td>${liveWhen(x.end_at)}</td><td class="${st==='live'?'live-now':st}">${st==='live'?'<span class="live-dot"></span>':''}${status}</td><td>${action}</td></tr>`;
+      }).join('');
+      setApp(`<div class="page"><div class="live-test-banner"><div><div style="font-weight:900;color:#fb923c"><span class="live-dot"></span>SHIVJEE'S LIVE TYPING HALL</div><h1>Live Typing Tests</h1><div style="color:#cbd5e1">Pre-check 5 मिनट पहले · actual typing exact scheduled time पर</div></div></div><div class="live-schedule-note">⏰ Instructions + keyboard check test से 5 मिनट पहले। Main Live Test को skip करके पहले शुरू नहीं किया जा सकता। Submit के बाद result Owner के पास save होगा और Publish होने पर ही Result + Live Leaderboard दिखेगा.</div>${S.user?.role==='admin'?`<div id="liveOwnerScheduler" class="card" style="padding:20px;margin-bottom:16px"><h2 style="margin:0 0 6px">Owner Live Test Scheduler</h2><p class="muted" style="margin-top:0">Existing scheduler unchanged.</p><div id="liveOwnerSchedulerBody">Loading scheduler...</div></div>`:''}<div class="live-filter-row"><button class="live-filter-chip ${filterExam==='all'?'active':''}" onclick="liveTests('all')">All</button>${examNames.map(n=>`<button class="live-filter-chip ${filterExam===n?'active':''}" onclick="liveTests('${String(n).replace(/'/g,"\\'")}')">${esc(n)}</button>`).join('')}</div><div class="card table-wrap"><table class="table live-table"><thead><tr><th>#</th><th>Exam</th><th>Passage</th><th>Language</th><th>Start Time</th><th>End Time</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows||'<tr><td colspan="8" style="padding:24px">No live typing test has been scheduled yet.</td></tr>'}</tbody></table></div></div>`);
+      if(S.user?.role==='admin')loadLiveOwnerScheduler();updateLiveCountdowns();
+      if(window._liveRefresh)clearInterval(window._liveRefresh);window._liveRefresh=setInterval(()=>{if(location.hash==='#live')liveTests(window.LIVE_FILTER||'all');else{clearInterval(window._liveRefresh);window._liveRefresh=null}},10000);
+    }catch(e){showToast(e.message)}
+  };
+})();
+</script>
 </body></html>`);w.document.close()}catch(e){showToast(e.message)}};
 })();
 </script>
