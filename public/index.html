@@ -1030,9 +1030,9 @@ body[data-theme="dark"] #authModal .jp-google-button-shell{
 /* The reading matter and typing input, not the rest of the site. */
 .old-simple-test #passage,.old-simple-test #typing{font-size:19px!important}
 /* Put both the sound toggle and its settings drawer on the left; leave the right scrollbar free. */
-.exam-mode .exam-drawer-tab{position:fixed!important;right:auto!important;left:0!important;border-radius:0 10px 10px 0!important}
-.exam-mode .exam-drawer{position:fixed!important;right:auto!important;left:-260px!important;transition:left .25s!important}
-.exam-mode .exam-drawer.open{right:auto!important;left:0!important}
+.exam-mode .exam-drawer-tab{position:fixed!important;top:12px!important;right:12px!important;left:auto!important;z-index:96!important;padding:5px 8px!important;font-size:12px!important;border-radius:9px!important;opacity:.88!important}
+.exam-mode .exam-drawer{position:fixed!important;top:46px!important;right:-265px!important;left:auto!important;transform:none!important;max-height:min(310px,75vh)!important;border-radius:12px 0 0 12px!important;transition:right .25s!important}
+.exam-mode .exam-drawer.open{right:0!important;left:auto!important}
 </style>
 <style>
 /* Learner showcase: decorative styling limited to this section. */
@@ -1408,6 +1408,7 @@ async function finishTest(manual=false,ended=false,fromPreview=false){
  if(S.timer)clearInterval(S.timer);
  try{
   const r=await api('/api/results',{method:'POST',body:JSON.stringify({exam_id:S.exam?.id||null,passage_id:p.id,duration:elapsed,scheduled_minutes:Math.max(1,Math.round(Number(S.total||0)/60)),matter_word_limit:S.mode==='exam'?S.examMatterWordLimit:undefined,typed_text:t,backspaces:back,attempt_id:S.attemptId,mode:S.mode,word_timings:S.wordTimings||[],live_test_id:S.liveTest?.id||null,attempt_status:ended?'ended':'submitted'})});
+  if(!r||!Number(r.id))throw new Error('Result was not confirmed saved by server. Please retry.');
   S.done=true;S.submitting=false;window.onbeforeunload=null;toggleHallSound(false);try{if(typeof jpTrack==='function')jpTrack('test_complete',{test_mode:S.mode||'practice',exam_name:S.exam?.name||'Free Practice',passage_title:S.passage?.title||'',attempt_status:ended?'ended':'submitted'})}catch(_){}
   if(!ended&&(S.mode==='exam'||S.mode==='live')){try{localStorage.setItem('st_exam_completed_'+String(S.exam?.id||S.exam?.slug||'default'),'1')}catch(_){}}
   if(ended){leaveTypingFullscreen();document.body.classList.remove('exam-mode');restoreSidebarAfterExam();S.started=false;S.done=true;S.submitting=false;window.onbeforeunload=null;location.hash='#exams';await exams();showToast('Exam ended. Attempt History में Ended / Incomplete save हो गया.');return}
@@ -7589,7 +7590,23 @@ button[data-dq-lang].active:hover,
   };
 
   window.openLivePublishedResult=async function(id){try{const r=await api('/api/live-tests/'+id+'/my-result');await openResultAnalysis(r.id)}catch(e){showToast(e.message)}};
-  window.openLiveLeaderboard=async function(id){try{const rows=await api('/api/live-tests/'+id+'/leaderboard');setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Live Session</div><h1>Live Leaderboard 🏆</h1></div><button class="btn btn-white" onclick="location.hash='#live'">← Live Tests</button></div><div class="card table-wrap"><table class="table"><thead><tr><th>Rank</th><th>Candidate</th><th>Net WPM</th><th>Gross WPM</th><th>Accuracy</th><th>Status</th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>#${x.rank}</b></td><td>${esc(x.user_name)}</td><td><b>${Number(x.net_wpm||0).toFixed(1)}</b></td><td>${Number(x.gross_wpm||0).toFixed(1)}</td><td>${Number(x.accuracy||0).toFixed(1)}%</td><td><span class="${x.passed?'status-pass':'status-fail'}">${x.passed?'Qualified':'Not Qualified'}</span></td></tr>`).join('')||'<tr><td colspan="6">No results.</td></tr>'}</tbody></table></div></div>`)}catch(e){showToast(e.message)}};
+  window.toggleLivePrevious=function(userId){document.querySelectorAll('[data-live-user="'+Number(userId)+'"]').forEach(el=>el.hidden=!el.hidden)};
+  window.openLiveLeaderboard=async function(id){
+    try{
+      const rows=await api('/api/live-tests/'+id+'/leaderboard');
+      const groups=new Map();
+      rows.forEach(x=>{if(!groups.has(x.user_id))groups.set(x.user_id,[]);groups.get(x.user_id).push(x)});
+      const visible=[];
+      for(const [uid,group] of groups){group.sort((a,b)=>Number(b.id)-Number(a.id));if(group.length>=5)visible.push({row:group[0],group,expandable:true});else group.forEach(row=>visible.push({row,group,expandable:false}))}
+      const sortRank=(a,b)=>Number(b.row.net_wpm||0)-Number(a.row.net_wpm||0)||Number(b.row.accuracy||0)-Number(a.row.accuracy||0)||Number(b.row.id||0)-Number(a.row.id||0);
+      visible.sort(sortRank);
+      const qualified=visible.filter(x=>Number(x.row.passed)===1).sort(sortRank).slice(0,3);
+      const ranked=[...qualified,...visible.filter(x=>!qualified.includes(x))];
+      const tr=(x,idx,previous=false)=>{const r=x.row,award=!previous?qualified.indexOf(x)+1:0,rank=previous?'↳':award&&award<=3?`<span class="lb-rank-badge lb-rank-${award}">${['👑','🥈','🥉'][award-1]} #${award}</span>`:'#'+(idx+1);return `<tr ${previous?`hidden data-live-user="${Number(r.user_id)}" class="jp-lb-previous"`:award?`class="lb-top-${award}"`:''}><td class="rank lb-rank-cell">${rank}</td><td class="lb-candidate-cell"><b>${esc(r.user_name)}</b>${!previous&&x.expandable?`<div class="jp-lb-prev-line"><span>${x.group.length} tests</span> <button class="jp-lb-prev-btn" onclick="toggleLivePrevious(${Number(r.user_id)})">Previous देखें ▾</button></div>`:''}<small class="jp-lb-test">${previous?'Previous test':'Live Typing'} · ${Math.round(Number(r.duration||0)/60)} min</small></td><td><b>${Number(r.net_wpm||0).toFixed(1)}</b></td><td>${Number(r.gross_wpm||0).toFixed(1)}</td><td>${Number(r.accuracy||0).toFixed(1)}%</td><td><span class="lb-result ${r.passed?'qualified':'not-qualified'}">${r.passed?'Qualified':'Not Qualified'}</span></td><td class="lb-difficulty-cell">${esc(r.difficulty||'Not set')}</td></tr>`};
+      const html=ranked.map((x,i)=>tr(x,i)+(!x.expandable?'':x.group.slice(1).map(r=>tr({row:r,group:x.group,expandable:false},i,true)).join(''))).join('');
+      setApp(`<div class="page"><div class="page-title"><div><div class="crumb">Live Session</div><h1>Live Leaderboard 🏆</h1><p>Exam Mode जैसे ranking features; केवल इस Live Session के results.</p></div><button class="btn btn-white" onclick="location.hash='#live'">← Live Tests</button></div><div id="lb-exam" class="card table-wrap"><table class="table"><thead><tr><th>Rank</th><th>Candidate / Test</th><th>Net WPM</th><th>Gross WPM</th><th>Accuracy</th><th>Status</th><th>Difficulty</th></tr></thead><tbody>${html||'<tr><td colspan="7">No results.</td></tr>'}</tbody></table></div></div>`)
+    }catch(e){showToast(e.message)}
+  };
 
   const oldOwnerTab=window.ownerTab;
   window.ownerTab=function(tab,btn){if(tab==='live'){if(btn){document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}return renderOwnerLiveSessions()}return oldOwnerTab(tab,btn)};
