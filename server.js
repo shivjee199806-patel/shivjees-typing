@@ -874,6 +874,22 @@ db.prepare("UPDATE exams SET required_accuracy=0 WHERE slug IN ('upp-co-english'
     set.run(10,30,0,0,'wpm','Verified: Delhi Police HCM English minimum qualifying speed 30 WPM in 10 minutes.','delhi-police-hcm-typing');
     db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
   })();
+
+})();
+// Reconcile only legacy UP Police CO standard-rule attempts with the Time Used
+// speed already displayed on their result/history screens. Respect the exact
+// snapshotted thresholds and never rewrite live tests or special-rule exams.
+(function reconcileUppCoStandardResultStatus(){
+ try{
+  const count=db.prepare(`UPDATE results SET passed=1
+   WHERE passed=0 AND live_test_id IS NULL AND mode='exam'
+    AND exam_id IN (SELECT id FROM exams WHERE slug IN ('upp-co-english','upp-co-hindi'))
+    AND COALESCE(qualification_method_snapshot,'')='wpm_accuracy'
+    AND COALESCE(min_words_snapshot,0)=0 AND COALESCE(min_chars_snapshot,0)=0
+    AND COALESCE(required_wpm_snapshot,0)>0 AND COALESCE(required_accuracy_snapshot,0)>0
+    AND net_wpm>=required_wpm_snapshot AND accuracy>=required_accuracy_snapshot`).run().changes;
+  if(count){console.log('UP Police CO legacy result statuses reconciled:',count);scheduleRemoteSqliteMirror()}
+ }catch(err){console.warn('UP Police CO result reconciliation skipped:',err.message)}
 })();
 if(db.prepare('SELECT COUNT(*) c FROM passages').get().c===0){const p=[
 ['English Exam Passage 1','English','QWERTY','Medium','Government offices are increasingly using digital services to improve transparency and provide faster access to citizens. Regular practice, accurate typing, and careful attention to the passage can improve performance in a timed examination.'],
@@ -1902,7 +1918,7 @@ app.post('/api/results',auth,(req,res)=>{
  const liveTestId=Number(b.live_test_id)||0;let liveTest=null;if(liveTestId){liveTest=db.prepare('SELECT * FROM live_tests WHERE id=? AND active=1').get(liveTestId);if(!liveTest)return res.status(400).json({error:'Invalid live test'});if(Number(liveTest.exam_id)!==Number(e?.id)||Number(liveTest.passage_id)!==Number(passage.id))return res.status(400).json({error:'Live test exam/passage mismatch'});const now=Date.now(),st=parseLiveTime(liveTest.start_at),en=parseLiveTime(liveTest.end_at);if(now<st||now>en+120000)return res.status(403).json({error:'Live test submission window is closed'});const priorLive=db.prepare('SELECT id FROM results WHERE user_id=? AND live_test_id=? ORDER BY id DESC LIMIT 1').get(req.user.id,liveTestId);if(priorLive)return res.json({ok:true,id:priorLive.id,live:true,submitted:true,published:!!Number(liveTest.results_published),duplicate:true,message:'Live test already submitted'})}
  const mode=liveTest?'live':(e?'exam':'practice'),duration=Math.max(1,Math.round(num(b.duration,1,e?Math.max(Number(e.duration)||1,Number(b.scheduled_minutes)||0)*60:24*60*60))),scheduledMatterMinutes=e?Math.max(1,Math.min(120,Number(b.scheduled_minutes)||Number(e.duration)||10)):null,evaluationContent=e?trimExamPassageContent(passage.content,e,scheduledMatterMinutes,mode==='exam'?b.matter_word_limit:undefined):(Number(b.scheduled_minutes)>0?trimPracticePassageContent(passage.content,passage.language,Number(b.scheduled_minutes)):passage.content),typed=String(b.typed_text??'').slice(0,evaluationContent.length);
  const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
- const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),qualificationMinutes=(e&&e.speed_based_time_taken)?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
+ const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),isUppCoStandard=e&&['upp-co-english','upp-co-hindi'].includes(String(e.slug||''))&&['wpm_accuracy','all'].includes(String(e.qualification_method||''))&&Number(e.min_words||0)===0&&Number(e.min_chars||0)===0,qualificationMinutes=(e&&(e.speed_based_time_taken||isUppCoStandard))?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
  const standardCount=String(passage.result_count_mode||e?.default_result_count_mode||'word')==='character';
  const typedChars=Array.from(typed).length,passageChars=Array.from(evaluationContent).length,standardTypedWords=typedChars/5,correctStandardWords=Math.max(0,good/5);
  const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
