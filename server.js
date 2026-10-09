@@ -1583,20 +1583,11 @@ function trimPracticePassageContent(content,language,minutes){
  return trimExamPassageContent(content,{duration:30,min_words:words},m,words);
 }
 function practiceSavedResultForReview(row){
- if(!row||row.exam_id!=null||!Number(row.scheduled_seconds)||!row.original_text)return row;
- const original=String(row.original_text),shown=trimPracticePassageContent(original,row.passage_language||row.language||(/[\u0900-\u097F]/.test(original)?'Hindi':'English'),Number(row.scheduled_seconds)/60);
- if(shown.length>=original.length)return row;
- const typed=String(row.typed_text||'').slice(0,shown.length);
- const chars=resyncMetrics(shown,typed),words=wordErrorMetrics(shown,typed);
- const standard=String(row.result_count_mode||row.result_count_mode_snapshot||'word')==='character';
- const mins=Math.max(1/60,Number(row.duration||1)/60),givenWords=shown.trim()?shown.trim().split(/\s+/).length:0;
- row.original_text=shown;row.typed_text=typed;
- row.accuracy=standard?(shown.length?chars.good/shown.length*100:0):(givenWords?words.correct/givenWords*100:0);
- row.gross_wpm=standard?Array.from(typed).length/5/mins:(typed.trim()?typed.trim().split(/\s+/).length:0)/mins;
- row.net_wpm=standard?chars.good/5/mins:words.correct/mins;
- row.correct_chars=chars.good;row.wrong_chars=chars.wrong;
+ // Read-only result views must not overwrite saved scoring metrics.
+ // The exact evaluated original/typed snapshots were stored at submission.
  return row;
 }
+
 // Keep the complete source passage. Trim only the attempt/evaluation copy using
 // the selected duration; shortening stored content loses matter for longer tests.
 
