@@ -1,0 +1,8 @@
+JPTyping targeted patch — only changed/new files
+Base: previously deployed changed-files package + safe_image_loading_only index.html.
+1. public/index.html: preload optimized welcome image, give high fetch priority and intrinsic dimensions. Keep popup logic unchanged.
+2. public/welcome/approved-namaste-lady-optimized.webp: visually similar compressed replacement for 783210 byte PNG. Original PNG not deleted.
+3. Static footer About/Contact links now have crawlable/fallback destinations while retaining click popup.
+NOT changed: server.js, CSP, HSTS, signup, DOB logic, OTP, exam/live/results, database.
+WARNING: Footer CLS 0.915 is NOT guaranteed fixed: footer movement is usually caused by content inserted above it. Requires precise runtime inspection. LCP / SEO scores must be retested after deploy.
+Deploy ONLY if previous DOB/server.js/logo-new.webp updates are already live. If not, apply those separately from previous patch.
