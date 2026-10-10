@@ -1811,6 +1811,27 @@ function resyncMetrics(original,typed,maxLook=32){
  }
  return{good,wrong,typed_units:t.length,progress_original:i}
 }
+// Hindi dashboard word alignment: identical look-ahead rules to public/index.html.
+// English continues using the existing server evaluator unchanged.
+function hindiDashboardWordMetrics(original,typed){
+ const o=String(original||'').trim().split(/\s+/).filter(Boolean),t=String(typed||'').trim().split(/\s+/).filter(Boolean);
+ let i=0,j=0,correct=0,wrong=0,omissions=0,extra=0,substitutions=0;
+ const run=(oi,tj,limit=8)=>{let n=0;while(n<limit&&oi+n<o.length&&tj+n<t.length&&o[oi+n]===t[tj+n])n++;return n};
+ while(j<t.length){
+  if(i>=o.length){extra++;wrong++;j++;continue}
+  if(o[i]===t[j]){correct++;i++;j++;continue}
+  let best={type:'sub',d:1,score:run(i+1,j+1)*40+12};
+  const lim=Math.min(30,Math.max(o.length-i-1,t.length-j-1));
+  for(let d=1;d<=lim&&i+d<o.length;d++)if(o[i+d]===t[j]){const sc=run(i+d,j)*40-d;if(sc>best.score)best={type:'delete',d,score:sc}}
+  for(let d=1;d<=lim&&j+d<t.length;d++)if(o[i]===t[j+d]){const sc=run(i,j+d)*40-d;if(sc>best.score)best={type:'insert',d,score:sc}}
+  if(best.type==='delete'){omissions+=best.d;i+=best.d;continue}
+  if(best.type==='insert'){extra+=best.d;wrong+=best.d;j+=best.d;continue}
+  substitutions++;wrong++;i++;j++;
+ }
+ omissions+=Math.max(0,o.length-i);
+ return {correct,wrong,omissions,extra,substitutions,typed_words:t.length};
+}
+
 function wordErrorMetrics(original,typed){
  const o=String(original||'').trim().split(/\s+/).filter(Boolean),t=String(typed||'').trim().split(/\s+/).filter(Boolean);let i=0,j=0,correct=0,wrong=0,omissions=0,extra=0,substitutions=0;
  const run=(oi,tj,limit=6)=>{let n=0;while(n<limit&&oi+n<o.length&&tj+n<t.length&&o[oi+n]===t[tj+n])n++;return n};
@@ -1922,7 +1943,7 @@ app.post('/api/results',auth,(req,res)=>{
  let accessGate=null;if(e){const folderCfg=examFolderConfig(e);accessGate=examAccessState(req.user,folderCfg);if(accessGate.blocked)return res.status(403).json({error:'This exam sub-folder is blocked by Owner',code:'OWNER_BLOCKED',reason:accessGate.block_reason});if(folderCfg.paid_enabled&&!accessGate.can_start)return res.status(402).json({error:`Free demo access finished. Unlock ${examFolderBaseName(e)||e.name} to continue.`,code:'EXAM_PAYMENT_REQUIRED',exam:{id:e.id,name:examFolderBaseName(e)||e.name,fee_amount:folderCfg.fee_amount,validity_days:folderCfg.validity_days,daily_demo_limit:folderCfg.daily_demo_limit},demo_used:accessGate.demo_used,demo_remaining:accessGate.demo_remaining,bonus_remaining:accessGate.bonus_remaining});}
  const liveTestId=Number(b.live_test_id)||0;let liveTest=null;if(liveTestId){liveTest=db.prepare('SELECT * FROM live_tests WHERE id=? AND active=1').get(liveTestId);if(!liveTest)return res.status(400).json({error:'Invalid live test'});if(Number(liveTest.exam_id)!==Number(e?.id)||Number(liveTest.passage_id)!==Number(passage.id))return res.status(400).json({error:'Live test exam/passage mismatch'});const now=Date.now(),st=parseLiveTime(liveTest.start_at),en=parseLiveTime(liveTest.end_at);if(now<st||now>en+120000)return res.status(403).json({error:'Live test submission window is closed'})}
  const mode=liveTest?'live':(e?'exam':'practice'),duration=Math.max(1,Math.round(num(b.duration,1,e?Math.max(Number(e.duration)||1,Number(b.scheduled_minutes)||0)*60:24*60*60))),scheduledMatterMinutes=e?Math.max(1,Math.min(120,Number(b.scheduled_minutes)||Number(e.duration)||10)):null,evaluationContent=e?trimExamPassageContent(passage.content,e,scheduledMatterMinutes,mode==='exam'?b.matter_word_limit:undefined):(Number(b.scheduled_minutes)>0?trimPracticePassageContent(passage.content,passage.language,Number(b.scheduled_minutes)):passage.content),typed=String(b.typed_text??'').slice(0,evaluationContent.length);
- const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
+ const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=String(e?.language||passage.language||'').toLowerCase()==='hindi'?hindiDashboardWordMetrics(evaluationContent,typed):wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
  const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),qualificationMinutes=(e&&e.speed_based_time_taken)?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
  const standardCount=String(passage.result_count_mode||e?.default_result_count_mode||'word')==='character';
  const typedChars=Array.from(typed).length,passageChars=Array.from(evaluationContent).length,standardTypedWords=typedChars/5,correctStandardWords=Math.max(0,good/5);
