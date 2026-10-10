@@ -3,7 +3,7 @@
 <head>
   <meta name="google-site-verification" content="p0gLiNNGcYCtTq6B4WeXC7L-PjcnBq7DubBJXpJXGBQ" />
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
-<title>Online Typing Test for Government Exams | Shivjee's Typing</title>
+<title>Free Hindi &amp; English Typing Test Online | Shivjee's Typing</title>
 <meta name="description" content="Practice free Hindi and English typing tests for government exams. Check typing speed, WPM, accuracy and mistakes with exam-oriented passages on Shivjee's Typing.">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://jptyping.in/">
@@ -343,6 +343,12 @@ body.owner-full-view .owner-full-page .table-wrap{width:100%!important}
 .result-match-comparison .result-original-error{background:#fca5a5!important;color:#7f1d1d!important;border-radius:2px;padding:1px 2px}
 .result-match-comparison .result-wrong-word{background:#86efac!important;color:#14532d!important;border-radius:2px;padding:1px 2px;box-shadow:none!important}
 @media(max-width:760px){.result-match-comparison{grid-template-columns:1fr!important}.result-match-comparison>div+div{border-left:0!important;border-top:1px solid #e5e7eb!important}}
+
+/* Reserve a viewport for asynchronously rendered public landing content.
+   Prevents footer being painted at the top before #app receives home content.
+   Does not reposition footer or change typing test calculations. */
+body.public-landing #app { min-height: 100svh; }
+@supports not (height: 100svh) { body.public-landing #app { min-height: 100vh; } }
 </style>
 
 

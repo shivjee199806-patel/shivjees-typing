@@ -8,7 +8,7 @@ if(IS_PROD&&(RAW_SECRET.length<32||['shivjees-change-me','change-this-in-product
 const SECRET=RAW_SECRET||crypto.randomBytes(48).toString('hex');
 app.set('trust proxy',1);
 app.disable('x-powered-by');
-app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');res.setHeader('X-Permitted-Cross-Domain-Policies','none');res.setHeader('Content-Security-Policy',"default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");if(IS_PROD)res.setHeader('Strict-Transport-Security','max-age=31536000');next()});
+app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');res.setHeader('X-Permitted-Cross-Domain-Policies','none');res.setHeader('Content-Security-Policy',"default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https:");if(IS_PROD)res.setHeader('Strict-Transport-Security','max-age=31536000');next()});
 // Keep accounts/results in one fixed folder across future ZIP updates.
 const legacyLocalData=path.join(__dirname,'data');
 // Persistent data location. On Railway, mount a Volume at /data (or set DATA_DIR).
