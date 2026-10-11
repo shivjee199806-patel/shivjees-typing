@@ -1356,6 +1356,17 @@ function sendPublicIndex(req,res){
   return res.send(publicIndexBytes);
 }
 app.get(['/','/index.html'],sendPublicIndex);
+// SEO: keep old backup HTML accessible but exclude it from search indexing.
+// This changes response metadata only; application routes and bytes stay intact.
+app.use((req,res,next)=>{
+  const seoPath=String(req.path||'');
+  if(/^\/(?:JP_(?:FIX_)?PUBLIC(?:_PUBLIC)?_INDEX|INDEX_PUBLIC(?:_PUBLIC)?)(?:\.html)?\/?$/i.test(seoPath)
+    || /^\/public(?:\/|$)/i.test(seoPath)
+    || /^\/owner-practice-reminders(?:\.html)?\/?$/i.test(seoPath)){
+    res.setHeader('X-Robots-Tag','noindex, follow');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname,'public'),{etag:false,maxAge:0,extensions:['html']}));
 function issueToken(u){return jwt.sign({id:Number(u.id),av:Number(u.auth_version||0),jti:crypto.randomBytes(16).toString('hex')},SECRET,{expiresIn:'7d'})}
 function auth(req,res,next){const h=req.headers.authorization||'';if(!h.startsWith('Bearer '))return res.status(401).json({error:'Login required'});try{const raw=h.slice(7),tokenUser=jwt.verify(raw,SECRET);if(tokenUser.jti&&db.prepare("SELECT 1 FROM revoked_tokens WHERE jti=? AND datetime(expires_at)>datetime('now')").get(String(tokenUser.jti)))return res.status(401).json({error:'Session revoked. Please login again.'});const live=db.prepare('SELECT id,name,email,role,active,plan,valid_until,phone,father_name,dob,target_exam,phone_verified,is_owner,owner_uid,auth_version FROM users WHERE id=?').get(tokenUser.id);if(!live)return res.status(401).json({error:'Account not found'});if(!live.active)return res.status(403).json({error:'Your account is inactive. Contact admin.'});if(Number(tokenUser.av||0)!==Number(live.auth_version||0))return res.status(401).json({error:'Session revoked. Please login again.'});if(live.role!=='admin'&&live.valid_until&&new Date(live.valid_until+'T23:59:59')<new Date())return res.status(403).json({error:'Your plan has expired. Contact admin to renew.'});req.user=live;req.authToken=tokenUser;req.rawToken=raw;next()}catch(e){return res.status(401).json({error:'Session expired'})}}
@@ -3467,7 +3478,7 @@ app.get('/terms',(req,res)=>res.type('html').send('<!doctype html><html lang="en
 
 // SEO discovery files — must be declared before the SPA catch-all route.
 app.get('/robots.txt',(req,res)=>{
-  res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://jptyping.in/sitemap.xml\n');
+  res.type('text/plain').sendFile(path.join(__dirname,'public','robots.txt'));
 });
 app.get('/sitemap.xml',(req,res)=>{
   res.sendFile(path.join(__dirname,'public','sitemap.xml'));
