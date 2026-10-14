@@ -1925,71 +1925,71 @@ function liveAccessState(user,row){
 }
 app.get('/api/live-tests',auth,(req,res)=>{const rows=db.prepare(`SELECT l.*,e.name exam_name,e.language,e.layout,e.duration,e.required_wpm,e.required_accuracy,p.title passage_title FROM live_tests l JOIN exams e ON e.id=l.exam_id JOIN passages p ON p.id=l.passage_id WHERE l.active=1 ORDER BY datetime(l.start_at) DESC,l.id DESC`).all().map(x=>({...x,access:liveAccessState(req.user,x)}));res.json(rows)});
 app.get('/api/live-tests/:id',auth,(req,res)=>{const x=db.prepare(`SELECT l.*,e.name exam_name,e.slug exam_slug,e.language,e.layout,e.duration,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,e.qualification_method,e.speed_based_time_taken,e.backspace_allowed,e.backspace_mode,e.backspace_limit,e.error_rule,e.description,e.highlight_mode exam_highlight_mode,e.highlight_user_change_allowed,e.auto_scroll exam_auto_scroll,e.duration_word_map,e.qualification_note,p.title passage_title,p.content,p.difficulty,p.highlight_mode passage_highlight_mode,p.auto_scroll,p.result_count_mode,p.created_at passage_created_at FROM live_tests l JOIN exams e ON e.id=l.exam_id JOIN passages p ON p.id=l.passage_id WHERE l.id=? AND l.active=1`).get(Number(req.params.id));if(!x)return res.status(404).json({error:'Live test not found'});const gate=liveAccessState(req.user,x);if(!gate.allowed)return res.status(402).json({error:'Payment required for this Live Typing test',code:'LIVE_PAYMENT_REQUIRED',live:{id:x.id,title:x.title,fee_amount:Number(x.fee_amount)||0,validity_days:Number(x.validity_days)||1}});const now=Date.now(),st=parseLiveTime(x.start_at),en=parseLiveTime(x.end_at);if(now<st-180000)return res.status(403).json({error:'Live Room opens 3 minutes before start'});if(now>en)return res.status(403).json({error:'This live test is over'});x.content=trimExamPassageContent(x.content,x,x.duration);res.json(x)});
-// One-time, auditable legacy qualification alignment for regular (non-special) exams.
-// Only existing records whose saved mode/status disagrees with the exam's primary
-// count are updated; no matter, exam threshold or official special rule is modified.
-function alignHistoricalExamResultModesOnce(){
- const revision='legacy_primary_count_qualification_20261014_v1';
+// Character-count exam audit: no word-count exam records or special scoring are modified.
+// Uses each folder's configured PRIMARY result mode; preserves existing counting formulas.
+function alignCharacterPrimaryHistoricalResultsOnce(){
+ const revision='character_primary_history_only_20261014_v3';
  db.exec(`CREATE TABLE IF NOT EXISTS result_qualification_mode_backups(
   revision TEXT NOT NULL,result_id INTEGER NOT NULL,old_passed INTEGER,
   old_count_mode TEXT,old_gross REAL,old_net REAL,old_accuracy REAL,
   PRIMARY KEY(revision,result_id))`);
  if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(revision))return;
- const rows=db.prepare(`SELECT r.id,r.passed,r.result_count_mode_snapshot,r.original_text,r.typed_text,
-  r.scheduled_seconds,r.duration,r.gross_wpm,r.net_wpm,r.accuracy,r.attempt_status,
+ const query=db.prepare(`SELECT r.id,r.passed,r.result_count_mode_snapshot,r.original_text,r.typed_text,
+  r.duration,r.scheduled_seconds,r.gross_wpm,r.net_wpm,r.accuracy,
   r.required_wpm_snapshot,r.required_accuracy_snapshot,r.min_words_snapshot,r.min_chars_snapshot,
-  r.qualification_method_snapshot,r.live_test_id,
-  e.default_result_count_mode,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,
-  e.qualification_method,e.speed_based_time_taken,e.language
-  FROM results r JOIN exams e ON e.id=r.exam_id
-  WHERE r.live_test_id IS NULL AND COALESCE(r.attempt_status,'submitted')='submitted'
-    AND r.original_text IS NOT NULL AND r.typed_text IS NOT NULL`).all();
- const backup=db.prepare(`INSERT OR IGNORE INTO result_qualification_mode_backups VALUES(?,?,?,?,?,?,?)`);
- const update=db.prepare(`UPDATE results SET passed=?,result_count_mode_snapshot=?,gross_wpm=?,net_wpm=?,accuracy=? WHERE id=?`);
- let changed=0,skipped=0;
+  r.qualification_method_snapshot,
+  e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,e.qualification_method,e.speed_based_time_taken
+  FROM results r JOIN exams e ON r.exam_id=e.id
+  WHERE e.default_result_count_mode='character' AND r.live_test_id IS NULL
+   AND COALESCE(r.attempt_status,'submitted')='submitted'
+   AND r.original_text IS NOT NULL AND r.typed_text IS NOT NULL`);
+ const backup=db.prepare('INSERT OR IGNORE INTO result_qualification_mode_backups VALUES(?,?,?,?,?,?,?)');
+ const update=db.prepare(`UPDATE results SET passed=?,result_count_mode_snapshot='character',
+  gross_wpm=?,net_wpm=?,accuracy=? WHERE id=?`);
+ let updated=0,skipped=0;
  db.transaction(()=>{
-  for(const row of rows){
+  // These two SSC folders were explicitly verified in the prior fix; no other folder mode is changed.
+  db.prepare("UPDATE exams SET default_result_count_mode='character' WHERE slug IN ('ssc-english','ssc-hindi')").run();
+  for(const row of query.all()){
    const method=String(row.qualification_method_snapshot||row.qualification_method||'all');
-   if(method.startsWith('special_'))continue; // Preserve all independently scored official methods.
+   if(method.startsWith('special_')){skipped++;continue}
    const wpm=Number(row.required_wpm_snapshot??row.required_wpm??0),
     reqAcc=Number(row.required_accuracy_snapshot??row.required_accuracy??0),
     reqWords=Number(row.min_words_snapshot??row.min_words??0),
     reqChars=Number(row.min_chars_snapshot??row.min_chars??0);
-   if(!(wpm>0||reqAcc>0||reqWords>0||reqChars>0))continue;
-   const mode=String(row.default_result_count_mode)==='character'?'character':'word';
-   const original=String(row.original_text),typed=String(row.typed_text);
+   if(!(wpm>0||reqAcc>0||reqWords>0||reqChars>0)){skipped++;continue}
+   const original=String(row.original_text||''),typed=String(row.typed_text||'');
    if(!original||!typed){skipped++;continue}
-   const word=String(row.language||'').toLowerCase()==='hindi'?jpHindiWords.stats(original,typed):wordErrorMetrics(original,typed);
-   const align=resyncMetrics(original,typed),typedChars=Array.from(typed).length,givenChars=Array.from(original).length;
-   const givenWords=original.trim()?original.trim().split(/\s+/).length:0;
-   const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
-   const charsMode=mode==='character',grossCount=charsMode?typedChars/5:typedWords,
-    correctCount=charsMode?align.good/5:Number(word.correct||0);
-   const accuracy=charsMode?(givenChars?align.good/givenChars*100:0):(givenWords?Number(word.correct||0)/givenWords*100:0);
-   const elapsed=Math.max(1/60,Number(row.duration||0)/60),scheduled=Math.max(1/60,Number(row.scheduled_seconds||row.duration||0)/60);
+   const aligned=resyncMetrics(original,typed);
+   const typedChars=Array.from(typed).length,originalChars=Array.from(original).length;
+   const standardWords=typedChars/5,correctWords=Math.max(0,aligned.good/5);
+   const accuracy=originalChars?aligned.good/originalChars*100:0;
+   const elapsed=Math.max(1/60,Number(row.duration||0)/60);
+   const scheduled=Math.max(1/60,Number(row.scheduled_seconds||row.duration||0)/60);
    const qualificationMinutes=Number(row.speed_based_time_taken)?elapsed:scheduled;
-   const checks={wpm:wpm<=0||correctCount/qualificationMinutes>=wpm,
-    accuracy:reqAcc<=0||accuracy>=reqAcc,words:reqWords<=0||grossCount>=reqWords,
+   const checks={wpm:wpm<=0||correctWords/qualificationMinutes>=wpm,
+    accuracy:reqAcc<=0||accuracy>=reqAcc,words:reqWords<=0||standardWords>=reqWords,
     chars:reqChars<=0||typedChars>=reqChars};
-   let pass;
-   if(method==='wpm')pass=checks.wpm;
-   else if(method==='accuracy')pass=checks.accuracy;
-   else if(method==='wpm_accuracy')pass=checks.wpm&&checks.accuracy;
-   else if(method==='words_wpm_accuracy')pass=checks.words&&checks.wpm&&checks.accuracy;
-   else if(method==='chars_wpm_accuracy')pass=checks.chars&&checks.wpm&&checks.accuracy;
-   else pass=checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
-   const gross=grossCount/elapsed,net=correctCount/elapsed;
-   // Avoid rewriting already-correct records in their configured primary mode.
-   if(String(row.result_count_mode_snapshot||'word')===mode&&Number(row.passed)===Number(pass))continue;
+   let passed;
+   if(method==='wpm')passed=checks.wpm;
+   else if(method==='accuracy')passed=checks.accuracy;
+   else if(method==='wpm_accuracy')passed=checks.wpm&&checks.accuracy;
+   else if(method==='words_wpm_accuracy')passed=checks.words&&checks.wpm&&checks.accuracy;
+   else if(method==='chars_wpm_accuracy')passed=checks.chars&&checks.wpm&&checks.accuracy;
+   else passed=checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
+   const gross=standardWords/elapsed,net=correctWords/elapsed;
+   if(row.result_count_mode_snapshot==='character'&&Number(row.passed)===Number(passed)&&
+      Math.abs(Number(row.gross_wpm)-gross)<0.001&&Math.abs(Number(row.net_wpm)-net)<0.001&&
+      Math.abs(Number(row.accuracy)-accuracy)<0.001)continue;
    backup.run(revision,row.id,row.passed,row.result_count_mode_snapshot,row.gross_wpm,row.net_wpm,row.accuracy);
-   update.run(pass?1:0,mode,gross,net,accuracy,row.id);
-   changed++;
+   update.run(passed?1:0,gross,net,accuracy,row.id);
+   updated++;
   }
-  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(revision,JSON.stringify({changed,skipped}));
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(revision,JSON.stringify({updated,skipped}));
  })();
- console.log('[historical primary qualification]',changed,'updated;',skipped,'skipped');
+ console.log('[character primary results only]',updated,'updated;',skipped,'skipped');
 }
-try{alignHistoricalExamResultModesOnce()}catch(err){console.error('Historical qualification alignment not completed:',err.message)}
+try{alignCharacterPrimaryHistoricalResultsOnce()}catch(err){console.error('Character-only history alignment failed:',err.message)}
 
 app.post('/api/results',auth,(req,res)=>{
  const b=req.body||{},num=(v,min=0,max=1e9)=>{v=Number(v);return Number.isFinite(v)?Math.min(max,Math.max(min,v)):min};
