@@ -3534,7 +3534,7 @@ async function openResultAnalysis(id){
   // reopening History/Owner Analysis could read stale S.lastTyped/S.lastOriginal and overwrite
   // the correct saved dashboard numbers with 0 or values from another attempt.
   window.__jpSavedResultViewContext={
-   original,typed,elapsed,total:scheduled,mode:String(x.mode||''),attempt_status:String(x.attempt_status||''),language:x.passage_language,examName:x.exam_name,officialCorrectWords:x.official_correct_words,
+   original,typed,elapsed,total:scheduled,mode:String(x.mode||''),attempt_status:String(x.attempt_status||''),language:x.passage_language,officialCorrectWords:x.official_correct_words,
    result_count_mode:String(x.result_count_mode||'word'),
    savedMetrics:{gross:Number(x.gross_wpm),net:Number(x.net_wpm),accuracy:Number(x.accuracy)},
    exam:{required_wpm:Number(x.required_wpm||0),required_accuracy:Number(x.required_accuracy||0),min_words:Number(x.min_words||0),min_chars:Number(x.min_chars||0),qualification_method:String(x.qualification_method||''),speed_based_time_taken:false}
@@ -7078,10 +7078,12 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
   const timeButton=document.getElementById('grossSpeedToggle');
   const initiallyStandard=standard;
   const persistedMetrics=saved?.savedMetrics||(!saved&&typeof window.__jpCurrentResultMetrics==='object'?window.__jpCurrentResultMetrics:null);
-  const sscEnglish=/^ssc english typing$/i.test(String(saved?.examName||liveState?.exam?.name||''));
   function qualification(correctCount,typedCount,accuracy){
-   if(saved&&saved.mode!=='exam'&&saved.mode!=='live')return null;
-   if(!saved&&!(liveState?.mode==='exam'||liveState?.mode==='live'))return null;
+   // Only the VIEW status follows the selected count mode. Original counts and
+   // saved database results are untouched. Special exam rules stay authoritative.
+   if(saved){
+    if(saved.mode!=='exam'||saved.attempt_status==='ended')return null;
+   }else if(liveState?.mode!=='exam')return null;
    const rule=saved?.exam||liveState?.exam||{},qualMinutes=Number(rule.speed_based_time_taken)?usedMinutes:givenMinutes;
    const speed=correctCount/Math.max(1/60,qualMinutes);
    const reqWpm=Number(rule.required_wpm||0),reqAcc=Number(rule.required_accuracy||0),reqWords=Number(rule.min_words||0),reqChars=Number(rule.min_chars||0);
@@ -7097,43 +7099,30 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
   function render(){
    const typedCount=standard?standardTyped:normalTyped,correctCount=standard?standardCorrect:normalCorrect,mins=timeMode==='full'?givenMinutes:usedMinutes;
    const useSavedMetrics=standard===initiallyStandard&&timeMode==='taken'&&persistedMetrics&&[persistedMetrics.gross,persistedMetrics.net,persistedMetrics.accuracy].every(Number.isFinite);
-   const accuracy=sscEnglish?(standard?(normalGiven?Math.max(0,100-(Number(wordStats.full||0)+Number(wordStats.half||0)+Number(wordStats.extra||0)+Number(wordStats.omissions||0))/normalGiven*100):0):(normalGiven?normalCorrect/normalGiven*100:0)):(useSavedMetrics?persistedMetrics.accuracy:(standard?(givenChars?Number(charStats.good||0)/givenChars*100:0):(normalGiven?normalCorrect/normalGiven*100:0)));
+   const accuracy=useSavedMetrics?persistedMetrics.accuracy:(standard?(givenChars?Number(charStats.good||0)/givenChars*100:0):(normalGiven?normalCorrect/normalGiven*100:0));
    typedBox.querySelector('small').textContent=standard?'Standard Words Typed (5 chars = 1 word)':'Total Words Typed';
    typedBox.querySelector('b').textContent=numberText(typedCount,standard);
    correctBox.querySelector('small').textContent=standard?'Correct Standard Words':'Correct Words';
    correctBox.querySelector('b').textContent=numberText(correctCount,standard);
-   grossValue.textContent=((sscEnglish&&standard&&persistedMetrics&&timeMode==='taken')?persistedMetrics.gross:(useSavedMetrics?persistedMetrics.gross:typedCount/Math.max(1/60,mins))).toFixed(2);
-   netValue.textContent=((sscEnglish&&standard&&persistedMetrics&&timeMode==='taken')?persistedMetrics.net:(useSavedMetrics?persistedMetrics.net:correctCount/Math.max(1/60,mins))).toFixed(2);
+   grossValue.textContent=(useSavedMetrics?persistedMetrics.gross:typedCount/Math.max(1/60,mins)).toFixed(2);
+   netValue.textContent=(useSavedMetrics?persistedMetrics.net:correctCount/Math.max(1/60,mins)).toFixed(2);
    if(accuracyBox?.querySelector('b'))accuracyBox.querySelector('b').textContent=accuracy.toFixed(2);
    const formula=document.getElementById('jpAccuracyFormula');
-   if(formula)formula.textContent=sscEnglish?(standard?'5-character mode: 5 keys = 1 standard word; errors and omissions reduce assessed speed.':'Normal mode: correct words ÷ given words.'): standard?`Calculation of Accuracy % = ( ${Number(charStats.good||0)} / ${Math.max(1,givenChars)} given characters ) × 100.`:`Calculation of Accuracy % = ( ${normalCorrect} / ${Math.max(1,normalGiven)} given words ) × 100.`;
+   if(formula)formula.textContent=standard?`Calculation of Accuracy % = ( ${Number(charStats.good||0)} / ${Math.max(1,givenChars)} given characters ) × 100.`:`Calculation of Accuracy % = ( ${normalCorrect} / ${Math.max(1,normalGiven)} given words ) × 100.`;
    const modeButton=document.getElementById('jpWordCountMode'),help=document.getElementById('jpWordCountHelp');
    modeButton.textContent=standard?'OFF • 5 Characters = 1 Word':'ON • Normal Typed Words';
    modeButton.className='btn '+(standard?'btn-white':'btn-primary');modeButton.setAttribute('aria-checked',String(!standard));
-   help.textContent=sscEnglish?'Count mode के अनुसार इस स्क्रीन का Qualified/Not Qualified बदलेगा; पुराना saved record नहीं बदलेगा।':standard?'OFF: हर 5 characters = 1 standard word; accuracy में untyped/omitted characters भी count होंगे।':'ON: Correct Words ÷ Total Given Words; omissions भी accuracy में count होंगे।';
+   help.textContent=standard?'OFF: हर 5 characters = 1 standard word; accuracy में untyped/omitted characters भी count होंगे।':'ON: Correct Words ÷ Total Given Words; omissions भी accuracy में count होंगे।';
    grossBox.dataset.mode=timeMode;
    if(timeButton)timeButton.textContent=timeMode==='full'?'OFF • Full Time Given':'ON • Time Used';
-   // This is the displayed count-mode assessment, not a database mutation.
-   // Specialist exams retain the saved official assessment.
-   const candidateRule=saved?.exam||liveState?.exam||{};
-   let passed=qualification(correctCount,typedCount,accuracy);
-   if(sscEnglish){
-    const reqWpm=Number(candidateRule.required_wpm||35),reqAcc=Number(candidateRule.required_accuracy||90);
-    const mistakeCount=Math.max(0,Number(wordStats.full||0)+Number(wordStats.half||0)+Number(wordStats.extra||0)+Number(wordStats.omissions||0));
-    const sscSpeed=standard?Math.max(0,(standardTyped-mistakeCount)/Math.max(1,givenMinutes)):normalCorrect/Math.max(1,givenMinutes);
-    const sscAccuracy=standard?(normalGiven?Math.max(0,100-mistakeCount/normalGiven*100):0):(normalGiven?normalCorrect/normalGiven*100:0);
-    if((saved?.mode==='exam'||saved?.mode==='live'||liveState?.mode==='exam'||liveState?.mode==='live')&&reqWpm>0){
-     passed=sscSpeed>=reqWpm&&sscAccuracy>=reqAcc;
-     netValue.textContent=sscSpeed.toFixed(2);
-     if(accuracyBox?.querySelector('b'))accuracyBox.querySelector('b').textContent=sscAccuracy.toFixed(2);
-    }
-   }
-   if(saved?.attempt_status==='ended')passed=null;
+   // Change only displayed status for threshold-based exams in chosen count mode.
+   // Saved database qualification and exam-specific special rules remain unchanged.
+   const passed=qualification(correctCount,typedCount,accuracy);
    if(passed!==null&&statusBox){
     statusBox.querySelector('b').textContent=passed?'Qualified':'Not Qualified';statusBox.classList.toggle('status-box-pass',passed);statusBox.classList.toggle('status-box-fail',!passed);
     const note=document.querySelector('.result-note b:last-child');if(note)note.textContent=passed?'QUALIFIED':'NOT QUALIFIED';
     const celebration=document.querySelector('.result-celebration');if(celebration){celebration.classList.toggle('pass',passed);celebration.classList.toggle('fail',!passed);const emoji=celebration.querySelector('.bigemoji'),heading=celebration.querySelector('h2'),strong=celebration.querySelector(':scope > b'),message=celebration.querySelector(':scope > div:last-child');if(emoji)emoji.textContent=passed?'🎉🏆':'😔';if(heading)heading.textContent=passed?'Congratulations!':'Not Qualified';if(strong)strong.textContent=passed?'You are Qualified':'Keep Practicing';if(message)message.textContent=passed?'Excellent work — keep improving your speed and accuracy.':'Review the result below and try again.'}
-    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.accuracy=accuracyBox?.querySelector('b')?.textContent||accuracy.toFixed(2);window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
+    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.accuracy=accuracy.toFixed(2);window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
    }
   }
   document.getElementById('jpWordCountMode').addEventListener('click',()=>{standard=!standard;render()});
