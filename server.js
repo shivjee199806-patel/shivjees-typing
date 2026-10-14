@@ -1925,6 +1925,72 @@ function liveAccessState(user,row){
 }
 app.get('/api/live-tests',auth,(req,res)=>{const rows=db.prepare(`SELECT l.*,e.name exam_name,e.language,e.layout,e.duration,e.required_wpm,e.required_accuracy,p.title passage_title FROM live_tests l JOIN exams e ON e.id=l.exam_id JOIN passages p ON p.id=l.passage_id WHERE l.active=1 ORDER BY datetime(l.start_at) DESC,l.id DESC`).all().map(x=>({...x,access:liveAccessState(req.user,x)}));res.json(rows)});
 app.get('/api/live-tests/:id',auth,(req,res)=>{const x=db.prepare(`SELECT l.*,e.name exam_name,e.slug exam_slug,e.language,e.layout,e.duration,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,e.qualification_method,e.speed_based_time_taken,e.backspace_allowed,e.backspace_mode,e.backspace_limit,e.error_rule,e.description,e.highlight_mode exam_highlight_mode,e.highlight_user_change_allowed,e.auto_scroll exam_auto_scroll,e.duration_word_map,e.qualification_note,p.title passage_title,p.content,p.difficulty,p.highlight_mode passage_highlight_mode,p.auto_scroll,p.result_count_mode,p.created_at passage_created_at FROM live_tests l JOIN exams e ON e.id=l.exam_id JOIN passages p ON p.id=l.passage_id WHERE l.id=? AND l.active=1`).get(Number(req.params.id));if(!x)return res.status(404).json({error:'Live test not found'});const gate=liveAccessState(req.user,x);if(!gate.allowed)return res.status(402).json({error:'Payment required for this Live Typing test',code:'LIVE_PAYMENT_REQUIRED',live:{id:x.id,title:x.title,fee_amount:Number(x.fee_amount)||0,validity_days:Number(x.validity_days)||1}});const now=Date.now(),st=parseLiveTime(x.start_at),en=parseLiveTime(x.end_at);if(now<st-180000)return res.status(403).json({error:'Live Room opens 3 minutes before start'});if(now>en)return res.status(403).json({error:'This live test is over'});x.content=trimExamPassageContent(x.content,x,x.duration);res.json(x)});
+// One-time, auditable legacy qualification alignment for regular (non-special) exams.
+// Only existing records whose saved mode/status disagrees with the exam's primary
+// count are updated; no matter, exam threshold or official special rule is modified.
+function alignHistoricalExamResultModesOnce(){
+ const revision='legacy_primary_count_qualification_20261014_v1';
+ db.exec(`CREATE TABLE IF NOT EXISTS result_qualification_mode_backups(
+  revision TEXT NOT NULL,result_id INTEGER NOT NULL,old_passed INTEGER,
+  old_count_mode TEXT,old_gross REAL,old_net REAL,old_accuracy REAL,
+  PRIMARY KEY(revision,result_id))`);
+ if(db.prepare('SELECT 1 FROM app_meta WHERE key=?').get(revision))return;
+ const rows=db.prepare(`SELECT r.id,r.passed,r.result_count_mode_snapshot,r.original_text,r.typed_text,
+  r.scheduled_seconds,r.duration,r.gross_wpm,r.net_wpm,r.accuracy,r.attempt_status,
+  r.required_wpm_snapshot,r.required_accuracy_snapshot,r.min_words_snapshot,r.min_chars_snapshot,
+  r.qualification_method_snapshot,r.live_test_id,
+  e.default_result_count_mode,e.required_wpm,e.required_accuracy,e.min_words,e.min_chars,
+  e.qualification_method,e.speed_based_time_taken,e.language
+  FROM results r JOIN exams e ON e.id=r.exam_id
+  WHERE r.live_test_id IS NULL AND COALESCE(r.attempt_status,'submitted')='submitted'
+    AND r.original_text IS NOT NULL AND r.typed_text IS NOT NULL`).all();
+ const backup=db.prepare(`INSERT OR IGNORE INTO result_qualification_mode_backups VALUES(?,?,?,?,?,?,?)`);
+ const update=db.prepare(`UPDATE results SET passed=?,result_count_mode_snapshot=?,gross_wpm=?,net_wpm=?,accuracy=? WHERE id=?`);
+ let changed=0,skipped=0;
+ db.transaction(()=>{
+  for(const row of rows){
+   const method=String(row.qualification_method_snapshot||row.qualification_method||'all');
+   if(method.startsWith('special_'))continue; // Preserve all independently scored official methods.
+   const wpm=Number(row.required_wpm_snapshot??row.required_wpm??0),
+    reqAcc=Number(row.required_accuracy_snapshot??row.required_accuracy??0),
+    reqWords=Number(row.min_words_snapshot??row.min_words??0),
+    reqChars=Number(row.min_chars_snapshot??row.min_chars??0);
+   if(!(wpm>0||reqAcc>0||reqWords>0||reqChars>0))continue;
+   const mode=String(row.default_result_count_mode)==='character'?'character':'word';
+   const original=String(row.original_text),typed=String(row.typed_text);
+   if(!original||!typed){skipped++;continue}
+   const word=String(row.language||'').toLowerCase()==='hindi'?jpHindiWords.stats(original,typed):wordErrorMetrics(original,typed);
+   const align=resyncMetrics(original,typed),typedChars=Array.from(typed).length,givenChars=Array.from(original).length;
+   const givenWords=original.trim()?original.trim().split(/\s+/).length:0;
+   const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
+   const charsMode=mode==='character',grossCount=charsMode?typedChars/5:typedWords,
+    correctCount=charsMode?align.good/5:Number(word.correct||0);
+   const accuracy=charsMode?(givenChars?align.good/givenChars*100:0):(givenWords?Number(word.correct||0)/givenWords*100:0);
+   const elapsed=Math.max(1/60,Number(row.duration||0)/60),scheduled=Math.max(1/60,Number(row.scheduled_seconds||row.duration||0)/60);
+   const qualificationMinutes=Number(row.speed_based_time_taken)?elapsed:scheduled;
+   const checks={wpm:wpm<=0||correctCount/qualificationMinutes>=wpm,
+    accuracy:reqAcc<=0||accuracy>=reqAcc,words:reqWords<=0||grossCount>=reqWords,
+    chars:reqChars<=0||typedChars>=reqChars};
+   let pass;
+   if(method==='wpm')pass=checks.wpm;
+   else if(method==='accuracy')pass=checks.accuracy;
+   else if(method==='wpm_accuracy')pass=checks.wpm&&checks.accuracy;
+   else if(method==='words_wpm_accuracy')pass=checks.words&&checks.wpm&&checks.accuracy;
+   else if(method==='chars_wpm_accuracy')pass=checks.chars&&checks.wpm&&checks.accuracy;
+   else pass=checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
+   const gross=grossCount/elapsed,net=correctCount/elapsed;
+   // Avoid rewriting already-correct records in their configured primary mode.
+   if(String(row.result_count_mode_snapshot||'word')===mode&&Number(row.passed)===Number(pass))continue;
+   backup.run(revision,row.id,row.passed,row.result_count_mode_snapshot,row.gross_wpm,row.net_wpm,row.accuracy);
+   update.run(pass?1:0,mode,gross,net,accuracy,row.id);
+   changed++;
+  }
+  db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(revision,JSON.stringify({changed,skipped}));
+ })();
+ console.log('[historical primary qualification]',changed,'updated;',skipped,'skipped');
+}
+try{alignHistoricalExamResultModesOnce()}catch(err){console.error('Historical qualification alignment not completed:',err.message)}
+
 app.post('/api/results',auth,(req,res)=>{
  const b=req.body||{},num=(v,min=0,max=1e9)=>{v=Number(v);return Number.isFinite(v)?Math.min(max,Math.max(min,v)):min};
  const passageId=Number(b.passage_id)||0,passage=passageId?db.prepare('SELECT id,exam_id,title,language,layout,content,active,required_wpm,required_accuracy,min_words,min_chars,duration_override,instructions,qualification_method,result_count_mode,practice_paid_enabled,practice_fee_amount,practice_daily_demo_limit,practice_validity_days FROM passages WHERE id=?').get(passageId):null;
@@ -1936,7 +2002,7 @@ app.post('/api/results',auth,(req,res)=>{
  const mode=liveTest?'live':(e?'exam':'practice'),duration=Math.max(1,Math.round(num(b.duration,1,e?Math.max(Number(e.duration)||1,Number(b.scheduled_minutes)||0)*60:24*60*60))),scheduledMatterMinutes=e?Math.max(1,Math.min(120,Number(b.scheduled_minutes)||Number(e.duration)||10)):null,evaluationContent=e?trimExamPassageContent(passage.content,e,scheduledMatterMinutes,mode==='exam'?b.matter_word_limit:undefined):(Number(b.scheduled_minutes)>0?trimPracticePassageContent(passage.content,passage.language,Number(b.scheduled_minutes)):passage.content),typed=String(b.typed_text??'').slice(0,evaluationContent.length);
  const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=String(e?.language||passage.language).toLowerCase()==='hindi'?jpHindiWords.stats(evaluationContent,typed):wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
  const scheduledMinutes=e?scheduledMatterMinutes:Math.max(1,duration/60),elapsedMinutes=Math.max(1/60,Number(duration||0)/60),qualificationMinutes=(e&&e.speed_based_time_taken)?elapsedMinutes:scheduledMinutes,passageWords=evaluationContent.trim()?evaluationContent.trim().split(/\s+/).length:0;
- const standardCount=String(passage.result_count_mode||e?.default_result_count_mode||'word')==='character';
+ const standardCount=String(e?.default_result_count_mode||passage.result_count_mode||'word')==='character';
  const typedChars=Array.from(typed).length,passageChars=Array.from(evaluationContent).length,standardTypedWords=typedChars/5,correctStandardWords=Math.max(0,good/5);
  const typedWords=typed.trim()?typed.trim().split(/\s+/).length:0;
  // Saved/display WPM must match the Performance Dashboard default (Time Used).
@@ -1951,7 +2017,6 @@ app.post('/api/results',auth,(req,res)=>{
  const backspaces=Math.round(num(b.backspaces,0,1000000)),attemptId=String(b.attempt_id||'').trim().slice(0,100)||null,attemptStatus=b.attempt_status==='ended'?'ended':'submitted';
  const ruleWpm=e?Number(e.required_wpm||0):Number(passage.required_wpm||0),ruleAcc=e?Number(e.required_accuracy||0):Number(passage.required_accuracy||0),ruleWords=e?Number(e.min_words||0):Number(passage.min_words||0),ruleChars=e?Number(e.min_chars||0):Number(passage.min_chars||0),qualMethod=String(e?.qualification_method||passage.qualification_method||'all');
  const hasQualificationRule=ruleWpm>0||ruleAcc>0||ruleWords>0||ruleChars>0;
- const isSscEnglishQualification=String(e?.slug||'')==='ssc-english' && String(e?.language||'').toLowerCase()==='english';
  const isRrbNtpcQualification=qualMethod==='special_rrb_ntpc';
  const isUppMinisterialQualification=qualMethod==='special_upp_ministerial';
  const isDelhiPoliceHcmQualification=qualMethod==='special_delhi_police_hcm';
@@ -1961,20 +2026,10 @@ app.post('/api/results',auth,(req,res)=>{
  const isHpHcClerkQualification=qualMethod==='special_hp_hc_clerk';
  const isUpssscJaQualification=qualMethod==='special_upsssc_ja';
  const specialQualificationRule=/^special_/i.test(qualMethod);
- const qualificationConfigured=!!(isSscEnglishQualification||(hasQualificationRule&&!specialQualificationRule)||isRrbNtpcQualification||isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification);
+ const qualificationConfigured=!!((hasQualificationRule&&!specialQualificationRule)||isRrbNtpcQualification||isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification);
  const checks={wpm:(ruleWpm<=0||qualificationBaseSpeed>=ruleWpm),accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
  let qualOk=true,qualificationSpeed=qualificationBaseSpeed,qualificationFinalMistakes=null,uppMetrics=null,officialAccuracy=null,officialMistakes=null,typingMarks=null;
- if(isSscEnglishQualification){
-   // SSC English Typing: 5 key depressions form one standard word.
-   // Errors are evaluated per word, NOT by resync-matched character accuracy.
-   // The configured required_accuracy is a practice tolerance, not a universal SSC category cutoff.
-   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
-   officialAccuracy=passageWords?Math.max(0,100-officialMistakes/passageWords*100):0;
-   qualificationSpeed=Math.max(0,(standardTypedWords-officialMistakes)/Math.max(1,scheduledMinutes));
-   checks.wpm=ruleWpm<=0||qualificationSpeed>=ruleWpm;
-   checks.accuracy=ruleAcc<=0||officialAccuracy>=ruleAcc;
-   qualOk=checks.wpm&&checks.accuracy;
- }else if(isUppMinisterialQualification){
+ if(isUppMinisterialQualification){
    uppMetrics=uppMinisterialTypingMetrics(evaluationContent,typed,e?.language||passage.language);
    qualificationSpeed=uppMetrics.typed_words/Math.max(1/60,elapsedMinutes);
    officialAccuracy=uppMetrics.total_words?(uppMetrics.correct_words/uppMetrics.total_words*100):0;
@@ -2066,7 +2121,7 @@ app.post('/api/results',auth,(req,res)=>{
  const qualificationStatus=e?(qualificationConfigured?(passed?'qualified':'not_qualified'):(specialQualificationRule?'special_rule_check':'rule_not_configured')):'practice';
  if(attemptId){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=? AND user_id=?').get(attemptId,req.user.id);if(old){if(liveTestId)return res.json({id:old.id,submitted:true,result_pending:true,duplicate:true});return res.json({id:old.id,passed:old.passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}}
  const wt=Array.isArray(b.word_timings)?b.word_timings.slice(0,1000).map(x=>({word:String(x.word||'').slice(0,80),ms:Math.max(0,Math.min(120000,Number(x.ms)||0)),index:Math.max(0,Number(x.index)||0)})):[];
- try{const useOfficialSpeed=isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification;const storedGross=isSscEnglishQualification?standardTypedWords/Math.max(1,scheduledMinutes):(useOfficialSpeed?qualificationSpeed:gross),storedNet=isSscEnglishQualification?qualificationSpeed:(useOfficialSpeed?qualificationSpeed:net),storedAccuracy=(isSscEnglishQualification||isUppMinisterialQualification)?officialAccuracy:accuracy;const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status,scheduled_seconds,result_count_mode_snapshot,exam_name_snapshot,passage_title_snapshot,required_wpm_snapshot,required_accuracy_snapshot,min_words_snapshot,min_chars_snapshot,qualification_method_snapshot,qualification_note_snapshot,full_mistakes,half_mistakes,official_correct_words,official_speed_wpm) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,storedGross,storedNet,storedAccuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus,Math.max(1,Math.round(scheduledMinutes*60)),standardCount?'character':'word',String(e?.name||''),String(passage.title||''),ruleWpm,ruleAcc,ruleWords,ruleChars,qualMethod,String(e?.qualification_note||passage.instructions||''),Number(uppMetrics?.full_mistakes||0),Number(uppMetrics?.half_mistakes||0),uppMetrics?Number(uppMetrics.correct_words):null,useOfficialSpeed?Number(qualificationSpeed):null).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);if(liveTestId)return res.json({id,submitted:true,result_pending:true});res.json({id,passed,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,metrics:{...(String(e?.language||passage.language).toLowerCase()==='hindi'?{original_text:evaluationContent}:{}),gross_wpm:isSscEnglishQualification?storedGross:(String(e?.language||passage.language).toLowerCase()==='hindi'?storedGross:(isUppMinisterialQualification?qualificationSpeed:gross)),net_wpm:isSscEnglishQualification?storedNet:(String(e?.language||passage.language).toLowerCase()==='hindi'?storedNet:(isUppMinisterialQualification?qualificationSpeed:net)),accuracy:isSscEnglishQualification?storedAccuracy:(String(e?.language||passage.language).toLowerCase()==='hindi'?storedAccuracy:(isUppMinisterialQualification?officialAccuracy:accuracy)),correct_chars:good,wrong_chars:wrong,correct_words:isUppMinisterialQualification?uppMetrics.correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,full_mistakes:Number(uppMetrics?.full_mistakes||0),half_mistakes:Number(uppMetrics?.half_mistakes||0),weighted_mistakes:Number(uppMetrics?.weighted_mistakes||0),official_mistakes:officialMistakes,typing_marks:typingMarks,qualification_speed:qualificationSpeed,qualification_final_mistakes:qualificationFinalMistakes,total_passage_words:passageWords,total_passage_chars:passageChars,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}throw err}
+ try{const useOfficialSpeed=isUppMinisterialQualification||isDelhiPoliceHcmQualification||isCourt3PctQualification||isDelhiHcJjaQualification||isDdaJsaQualification||isHpHcClerkQualification||isUpssscJaQualification;const storedGross=useOfficialSpeed?qualificationSpeed:gross,storedNet=useOfficialSpeed?qualificationSpeed:net,storedAccuracy=isUppMinisterialQualification?officialAccuracy:accuracy;const id=db.prepare('INSERT INTO results(user_id,exam_id,passage_id,duration,gross_wpm,net_wpm,accuracy,correct_chars,wrong_chars,backspaces,keystrokes,mode,passed,attempt_id,typed_text,original_text,word_timings,live_test_id,attempt_status,scheduled_seconds,result_count_mode_snapshot,exam_name_snapshot,passage_title_snapshot,required_wpm_snapshot,required_accuracy_snapshot,min_words_snapshot,min_chars_snapshot,qualification_method_snapshot,qualification_note_snapshot,full_mistakes,half_mistakes,official_correct_words,official_speed_wpm) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(req.user.id,e?.id||null,passage.id,duration,storedGross,storedNet,storedAccuracy,good,wrong,backspaces,typed.length,mode,passed,attemptId,typed,evaluationContent,JSON.stringify(wt),liveTestId||null,attemptStatus,Math.max(1,Math.round(scheduledMinutes*60)),standardCount?'character':'word',String(e?.name||''),String(passage.title||''),ruleWpm,ruleAcc,ruleWords,ruleChars,qualMethod,String(e?.qualification_note||passage.instructions||''),Number(uppMetrics?.full_mistakes||0),Number(uppMetrics?.half_mistakes||0),uppMetrics?Number(uppMetrics.correct_words):null,useOfficialSpeed?Number(qualificationSpeed):null).lastInsertRowid;if(accessGate?.source==='bonus')consumeBonusDemo(req.user.id,e.id);if(liveTestId)return res.json({id,submitted:true,result_pending:true});res.json({id,passed,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,speed_based_time_taken:!!e.speed_based_time_taken,checks}:null,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,metrics:{...(String(e?.language||passage.language).toLowerCase()==='hindi'?{original_text:evaluationContent}:{}),gross_wpm:String(e?.language||passage.language).toLowerCase()==='hindi'?storedGross:(isUppMinisterialQualification?qualificationSpeed:gross),net_wpm:String(e?.language||passage.language).toLowerCase()==='hindi'?storedNet:(isUppMinisterialQualification?qualificationSpeed:net),accuracy:String(e?.language||passage.language).toLowerCase()==='hindi'?storedAccuracy:(isUppMinisterialQualification?officialAccuracy:accuracy),correct_chars:good,wrong_chars:wrong,correct_words:isUppMinisterialQualification?uppMetrics.correct_words:wordMetrics.correct,correct_standard_words:correctStandardWords,standard_words_typed:standardTypedWords,result_count_mode:standardCount?'character':'word',wrong_words:wordMetrics.wrong,omissions:wordMetrics.omissions,extra_words:wordMetrics.extra,full_mistakes:Number(uppMetrics?.full_mistakes||0),half_mistakes:Number(uppMetrics?.half_mistakes||0),weighted_mistakes:Number(uppMetrics?.weighted_mistakes||0),official_mistakes:officialMistakes,typing_marks:typingMarks,qualification_speed:qualificationSpeed,qualification_final_mistakes:qualificationFinalMistakes,total_passage_words:passageWords,total_passage_chars:passageChars,scheduled_minutes:scheduledMinutes,keystrokes:typed.length,duration}})}catch(err){if(String(err.message).includes('idx_results_attempt_id')){const old=db.prepare('SELECT id,passed FROM results WHERE attempt_id=?').get(attemptId);return res.json({id:old?.id,passed:old?.passed??passed,duplicate:true,qualification_configured:qualificationConfigured,qualification_status:qualificationStatus,exam:e?{name:e.name,slug:e.slug,required_wpm:ruleWpm,required_accuracy:ruleAcc,min_words:ruleWords,min_chars:ruleChars,qualification_method:qualMethod,qualification_note:String(e.qualification_note||''),qualification_configured:qualificationConfigured,qualification_status:qualificationStatus}:null})}throw err}
 });
 // LIVE ONLY: publication controls do not affect practice or ordinary exams.
 app.get('/api/live-results/me',auth,(req,res)=>{
@@ -2100,36 +2155,6 @@ app.post('/api/live-results/:id/publish',auth,(req,res)=>{
  db.prepare('UPDATE live_tests SET results_published=? WHERE id=?').run(published,id);
  res.json({ok:true,live_test_id:id,results_published:published});
 });
-// Reconcile previously saved SSC English attempts against the same 5-key
-// standard-word examination profile used for new submissions. Only upgrade
-// demonstrably qualifying attempts; never touch other exams, live sessions,
-// incomplete attempts, or original typing snapshots.
-function reconcileOldSscEnglishQualification(){
- try{
-  const attempts=db.prepare(`SELECT r.id,r.typed_text,r.original_text,r.scheduled_seconds,r.duration,
-    COALESCE(r.required_wpm_snapshot,e.required_wpm,35) required_wpm,
-    COALESCE(r.required_accuracy_snapshot,e.required_accuracy,90) required_accuracy
-    FROM results r JOIN exams e ON e.id=r.exam_id
-    WHERE e.slug='ssc-english' AND LOWER(e.language)='english'
-      AND r.mode='exam' AND COALESCE(r.attempt_status,'submitted')='submitted'
-      AND COALESCE(r.passed,0)=0 AND r.original_text IS NOT NULL
-      AND LENGTH(r.original_text)>0 AND r.typed_text IS NOT NULL`).all();
-  const mark=db.prepare('UPDATE results SET passed=1 WHERE id=? AND passed=0');
-  let changed=0;
-  db.transaction(()=>{for(const r of attempts){
-   const metrics=wordErrorMetrics(r.original_text,r.typed_text);
-   const totalWords=String(r.original_text).trim().split(/\s+/).length;
-   const mistakes=Math.max(0,Number(metrics.wrong||0)+Number(metrics.omissions||0));
-   const minutes=Math.max(1,Number(r.scheduled_seconds||r.duration||600)/60);
-   const speed=Math.max(0,(Array.from(r.typed_text).length/5-mistakes)/minutes);
-   const accuracy=totalWords?Math.max(0,100-mistakes/totalWords*100):0;
-   if(speed>=Number(r.required_wpm||35)&&accuracy>=Number(r.required_accuracy||0))changed+=mark.run(r.id).changes;
-  }})();
-  if(changed)console.log('SSC English previously qualifying attempts reconciled:',changed);
- }catch(err){console.error('SSC English old-result reconciliation skipped:',err.message)}
-}
-reconcileOldSscEnglishQualification();
-
 app.get('/api/results/me',auth,(req,res)=>res.json(db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id WHERE r.user_id=? ORDER BY r.id DESC`).all(req.user.id).map(x=>{if(x.live_test_id&&!isMasterOwner(req.user)&&!db.prepare('SELECT results_published FROM live_tests WHERE id=?').get(x.live_test_id)?.results_published)return {id:x.id,live_test_id:x.live_test_id,created_at:x.created_at,attempt_status:x.attempt_status,result_pending:true};return practiceSavedResultForReview(x)})));
 app.get('/api/results/:id',auth,(req,res)=>{const row=db.prepare(`SELECT r.*,COALESCE(NULLIF(r.exam_name_snapshot,''),e.name) exam_name,COALESCE(r.required_wpm_snapshot,e.required_wpm,0) required_wpm,COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0) required_accuracy,COALESCE(r.min_words_snapshot,e.min_words,0) min_words,COALESCE(r.min_chars_snapshot,e.min_chars,0) min_chars,COALESCE(r.qualification_method_snapshot,e.qualification_method) qualification_method,COALESCE(NULLIF(r.qualification_note_snapshot,''),e.qualification_note,'') qualification_note,CASE WHEN r.exam_id IS NULL THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) IN ('special_rrb_ntpc','special_upp_ministerial','special_delhi_police_hcm','special_court_3pct_words','special_delhi_hc_jja_3pct','special_dda_jsa_2025','special_hp_hc_clerk','special_upsssc_ja') THEN 1 WHEN COALESCE(r.qualification_method_snapshot,e.qualification_method) LIKE 'special_%' THEN 0 WHEN COALESCE(r.required_wpm_snapshot,e.required_wpm,0)>0 OR COALESCE(r.required_accuracy_snapshot,e.required_accuracy,0)>0 OR COALESCE(r.min_words_snapshot,e.min_words,0)>0 OR COALESCE(r.min_chars_snapshot,e.min_chars,0)>0 THEN 1 ELSE 0 END qualification_configured,p.language passage_language,COALESCE(NULLIF(r.passage_title_snapshot,''),p.title) passage_title,COALESCE(r.result_count_mode_snapshot,p.result_count_mode,e.default_result_count_mode,'word') result_count_mode,e.default_result_count_mode,e.duration exam_duration,u.name user_name,u.email user_email FROM results r LEFT JOIN exams e ON e.id=r.exam_id LEFT JOIN passages p ON p.id=r.passage_id JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(Number(req.params.id));if(!row)return res.status(404).json({error:'Result not found'});if(req.user.role!=='admin'&&row.user_id!==req.user.id)return res.status(403).json({error:'Not allowed'});if(row.live_test_id&&!isMasterOwner(req.user)&&!db.prepare('SELECT results_published FROM live_tests WHERE id=?').get(row.live_test_id)?.results_published)return res.status(403).json({error:'Live result pending Owner publication',code:'LIVE_RESULT_PENDING'});try{row.word_timings=JSON.parse(row.word_timings||'[]')}catch{row.word_timings=[]}res.json(practiceSavedResultForReview(row))});
 app.get('/api/learning/progress',auth,(req,res)=>{const rows=db.prepare(`SELECT lesson_key,lesson_title,level,COUNT(*) attempts,MAX(score) best_score,MAX(wpm) best_wpm,ROUND(AVG(accuracy),1) avg_accuracy,MAX(created_at) last_practiced FROM learning_attempts WHERE user_id=? GROUP BY lesson_key ORDER BY MAX(id) DESC`).all(req.user.id);const totals=db.prepare(`SELECT COUNT(*) attempts,COUNT(DISTINCT lesson_key) lessons,COALESCE(MAX(wpm),0) best_wpm,COALESCE(ROUND(AVG(accuracy),1),0) avg_accuracy FROM learning_attempts WHERE user_id=?`).get(req.user.id);res.json({rows,totals})});
