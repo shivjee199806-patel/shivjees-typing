@@ -1,4 +1,1 @@
-ONLY FILE TO REPLACE: public/index.html
-Upload/replace this file in your existing repo, commit, and deploy. No other files are changed.
-This patch is based on jptyping_gallery_five_photos_ready.zip.
-Changes: remove rectangle around motivation logo; improve white learner testimonial and stats card text contrast in premium dark theme.
+Replace public/index.html and upload all five public/gallery-featured/classroom-1.jpg through classroom-5.jpg files to your GitHub repository at identical paths. Commit and deploy. No other files need changing. The gallery appears above WHAT OUR LEARNERS SAY.
