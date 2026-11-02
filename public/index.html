@@ -3051,6 +3051,39 @@ body.jp-home-premium-dark.public-landing .learner-showcase .community b{
 @media(max-width:620px){.jp-home-gallery{padding:20px 0 23px!important}.jp-home-gallery-frame{width:96%!important;height:clamp(245px,71vw,400px)!important;border-radius:16px!important}.jp-home-gallery-arrow{width:36px!important;height:36px!important;font-size:22px!important}.jp-home-gallery-arrow.prev{left:7px!important}.jp-home-gallery-arrow.next{right:7px!important}}
 @media(prefers-reduced-motion:reduce){.jp-home-gallery-backdrop,.jp-home-gallery-frame .jp-home-gallery-slide{transition:none!important}}
 </style>
+<style id="jpMockTestsHighlight">
+/* Scoped exclusively to the separate mock site's navigation link. */
+body .topbar #topnav a.jp-mock-tests-link,
+body #side a.jp-mock-tests-link{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;
+ position:relative!important;isolation:isolate;overflow:hidden!important;
+ padding:10px 17px!important;border:1.5px solid #f8d77a!important;border-radius:13px!important;
+ background:linear-gradient(115deg,#5523c9 0%,#7837e2 48%,#176cd4 100%)!important;
+ color:#fff!important;font-weight:900!important;letter-spacing:.25px!important;text-decoration:none!important;
+ box-shadow:0 4px 15px rgba(103,45,205,.30),inset 0 1px 0 rgba(255,255,255,.30)!important;
+ transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important;
+}
+body .topbar #topnav a.jp-mock-tests-link::before,
+body #side a.jp-mock-tests-link::before{
+ content:"✦"!important;color:#ffe48d!important;font-size:18px!important;line-height:1!important;
+ text-shadow:0 0 9px rgba(255,222,112,.45);margin:0!important;
+}
+body .topbar #topnav a.jp-mock-tests-link::after,
+body #side a.jp-mock-tests-link::after{
+ content:"↗"!important;display:inline-flex!important;align-items:center;justify-content:center;
+ width:21px;height:21px;border-radius:7px;background:rgba(255,255,255,.18);
+ color:#fff!important;font-size:14px!important;line-height:1;position:static!important;
+}
+body .topbar #topnav a.jp-mock-tests-link:hover,
+body #side a.jp-mock-tests-link:hover{
+ transform:translateY(-2px)!important;filter:brightness(1.1);
+ box-shadow:0 7px 20px rgba(103,45,205,.40),0 0 0 3px rgba(248,215,122,.20)!important;
+}
+body .topbar #topnav a.jp-mock-tests-link:focus-visible,
+body #side a.jp-mock-tests-link:focus-visible{outline:3px solid #f5b82e!important;outline-offset:3px!important}
+body #side a.jp-mock-tests-link{display:flex!important;margin:7px 0!important}
+@media(prefers-reduced-motion:reduce){body .topbar #topnav a.jp-mock-tests-link,body #side a.jp-mock-tests-link{transition:none!important;transform:none!important}}
+</style>
 </head>
 
 
@@ -3063,7 +3096,7 @@ body.jp-home-premium-dark.public-landing .learner-showcase .community b{
 <header class="topbar">
 <button class="menuBtn" onclick="toggleSide()">☰</button>
 <a class="brand" href="#home"><img src="/logo-new.webp" alt="Shivjee's Typing" width="46" height="46" decoding="async"><div><strong>Shivjee's Typing</strong><small>Government Exam Typing Platform</small></div></a>
-<nav class="topnav" id="topnav"><a data-route="home" href="#home">Home</a><a href="/#about" onclick="showHomeAbout(event)">About</a><a href="#how" onclick="setTimeout(()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'}),30)">How to Learn</a><a href="#motivation" onclick="setTimeout(()=>document.getElementById('motivation')?.scrollIntoView({behavior:'smooth'}),30)">Motivation</a><a id="jpTypingTryNav" class="jp-typing-try-nav" href="/#home" onclick="jpOpenQuickTypingTest(event);return false">⚡ Test Your Typing Here</a><a data-route="gallery" href="#gallery">Gallery</a></nav>
+<nav class="topnav" id="topnav"><a data-route="home" href="#home">Home</a><a href="/#about" onclick="showHomeAbout(event)">About</a><a href="#how" onclick="setTimeout(()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'}),30)">How to Learn</a><a href="#motivation" onclick="setTimeout(()=>document.getElementById('motivation')?.scrollIntoView({behavior:'smooth'}),30)">Motivation</a><a id="jpTypingTryNav" class="jp-typing-try-nav" href="/#home" onclick="jpOpenQuickTypingTest(event);return false">⚡ Test Your Typing Here</a><a data-route="gallery" href="#gallery">Gallery</a><a class="jp-mock-tests-link" href="https://mocks.jptyping.in/" target="_blank" rel="noopener noreferrer">Mock Tests</a></nav>
 <div class="top-actions" id="topActions"><button id="jpGuestHomeThemeToggle" class="btn btn-white jp-home-theme-toggle" type="button" onclick="toggleHomeTheme()" title="Switch Home Theme">◐ Theme</button><button class="btn btn-white jp-auth-btn jp-auth-login-btn" onclick="auth('login')"><span class="jp-auth-ico-wrap"><span class="jp-auth-ico">👤</span></span><span class="jp-auth-label">Login</span></button><button class="btn btn-white jp-auth-btn jp-auth-signup-btn" onclick="auth('register')"><span class="jp-auth-ico-wrap"><span class="jp-auth-ico">✦</span></span><span class="jp-auth-label">Sign Up</span></button></div>
 </header>
 <div class="mobile-overlay" id="overlay" onclick="toggleSide(false)"></div>
@@ -3073,6 +3106,7 @@ body.jp-home-premium-dark.public-landing .learner-showcase .community b{
 <div class="side-label">Main</div>
 <a data-route="home" href="#home"><span class="ico">⌂</span>Home</a>
 <a data-route="exams" href="#exams"><span class="ico">▣</span>Online Exams</a>
+<a class="jp-mock-tests-link" href="https://mocks.jptyping.in/" target="_blank" rel="noopener noreferrer">Mock Tests</a>
 <a data-route="practice" href="#practice"><span class="ico">⌨</span>Free Practice</a>
 <a data-route="learning" href="#learning"><span class="ico">🎯</span>Typing Learning</a><a data-route="certificates" href="#certificates"><span class="ico">🏅</span>My Certificates</a>
 <a data-route="leaderboard" href="#leaderboard"><span class="ico">🏆</span>Leaderboard</a>
@@ -3164,14 +3198,14 @@ function layout(){
  applyTheme(localStorage.getItem('st_theme')||'green');
  const topnav=document.getElementById('topnav');
  if(guest){
-  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="/#about" onclick="showHomeAbout(event)">About</a><a href="#how" onclick="setTimeout(()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'}),30)">How to Learn</a><a href="#motivation" onclick="setTimeout(()=>document.getElementById('motivation')?.scrollIntoView({behavior:'smooth'}),30)">Motivation</a><a id="jpTypingTryNav" class="jp-typing-try-nav" href="/#home" onclick="jpOpenQuickTypingTest(event);return false">⚡ Test Your Typing Here</a><a data-route="gallery" href="#gallery">Gallery</a>`;
+  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="/#about" onclick="showHomeAbout(event)">About</a><a href="#how" onclick="setTimeout(()=>document.getElementById('how')?.scrollIntoView({behavior:'smooth'}),30)">How to Learn</a><a href="#motivation" onclick="setTimeout(()=>document.getElementById('motivation')?.scrollIntoView({behavior:'smooth'}),30)">Motivation</a><a id="jpTypingTryNav" class="jp-typing-try-nav" href="/#home" onclick="jpOpenQuickTypingTest(event);return false">⚡ Test Your Typing Here</a><a data-route="gallery" href="#gallery">Gallery</a><a class="jp-mock-tests-link" href="https://mocks.jptyping.in/" target="_blank" rel="noopener noreferrer">Mock Tests</a>`;
   document.getElementById('topActions').innerHTML=`<button id="jpGuestHomeThemeToggle" class="btn btn-white jp-home-theme-toggle" type="button" onclick="toggleHomeTheme()" title="Switch Home Theme">◐ Theme</button><button class="btn btn-white jp-auth-btn jp-auth-login-btn" onclick="auth('login')"><span class="jp-auth-ico-wrap"><span class="jp-auth-ico">👤</span></span><span class="jp-auth-label">Login</span></button><button class="btn btn-white jp-auth-btn jp-auth-signup-btn" onclick="auth('register')"><span class="jp-auth-ico-wrap"><span class="jp-auth-ico">✦</span></span><span class="jp-auth-label">Sign Up</span></button>`;markHomeThemeChoice();
   document.getElementById('adminNav').innerHTML='';
   requestAnimationFrame(()=>{const n=document.getElementById('topnav');if(n)n.scrollLeft=0});
  }else{
-  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="${S.user.role==='admin'?'#admin':'#dashboard'}">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
+  topnav.innerHTML=`<a data-route="home" href="#home">Home</a><a href="javascript:void(0)" onclick="showAboutShivjee(event)">About</a><a data-route="live" href="#live"><span class="live-dot" style="margin-right:5px;vertical-align:middle"></span>Live Typing</a><a data-route="dashboard" href="${S.user.role==='admin'?'#admin':'#dashboard'}">Dashboard</a><a data-route="exams" href="#exams">Exams</a><a data-route="practice" href="#practice">Practice</a><a data-route="learning" href="#learning">Learning</a><a data-route="gallery" href="#gallery">Gallery</a><a class="jp-mock-tests-link" href="https://mocks.jptyping.in/" target="_blank" rel="noopener noreferrer">Mock Tests</a>${jpPricingNavLink()}${S.user.role!=='admin'?'<a class="jp-topnav-download-app" href="javascript:void(0)" onclick="downloadMobileApp()">📱 Download App</a>':''}`;
   document.getElementById('topActions').innerHTML=`<button id="jpNotifBell" class="jp-notif-bell" type="button" title="Notifications" onclick="goToRoute('notifications')"><span>🔔</span><b id="jpTopNotifBadge" style="display:none">0</b></button>${jpCandidateDoubtTopButton()}<div class="profile-menu-wrap"><div class="user-chip profile-menu-button" onclick="toggleProfileMenu(event)"><div class="avatar">${initials(S.user.name)}</div><span>${esc(S.user.name.split(' ')[0])}</span><span style="font-size:10px">▼</span></div><div id="profileDropdown" class="profile-dropdown"><div class="pd-head"><b>${esc(S.user.name)}</b><small>${esc(S.user.email||'')}</small></div><button onclick="goToRoute('dashboard');closeProfileMenu()">📊 My Dashboard</button><button onclick="goToRoute('history');closeProfileMenu()">🕘 Test History</button><button onclick="goToRoute('notifications');closeProfileMenu()">🔔 Notifications</button><button onclick="goToRoute('doubts');closeProfileMenu()">💬 Doubt Session</button><div class="theme-panel"><small>Home Theme</small><div class="home-theme-options"><button class="home-theme-choice" data-home-theme="original" onclick="setHomeTheme('original')">Original</button><button class="home-theme-choice" data-home-theme="sky" onclick="setHomeTheme('sky')">Clean Sky</button><button class="home-theme-choice" data-home-theme="premium" onclick="setHomeTheme('premium')">Premium</button></div></div><div class="theme-panel"><small>Candidate Dashboard</small><div class="home-theme-options"><button class="dashboard-theme-choice" data-dashboard-theme="existing" onclick="setDashboardTheme('existing')">Existing</button><button class="dashboard-theme-choice" data-dashboard-theme="sky" onclick="setDashboardTheme('sky')">Clean Sky</button></div></div><div class="theme-panel"><small>Eye Comfort Theme</small><div class="theme-swatches"><button class="theme-swatch" style="--sw:#f97316" title="Orange Navy" onclick="setTheme('orange')"></button><button class="theme-swatch" style="--sw:#155eef" title="Blue" onclick="setTheme('blue')"></button><button class="theme-swatch" style="--sw:#079455" title="Green" onclick="setTheme('green')"></button><button class="theme-swatch" style="--sw:#7c3aed" title="Purple" onclick="setTheme('purple')"></button><button class="theme-swatch" style="--sw:#111827" title="Dark" onclick="setTheme('dark')"></button></div></div><button onclick="logout()">🚪 Logout</button></div></div>`;
-  document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
+  document.getElementById('adminNav').innerHTML=S.user.role==='admin'?`<div class="side-label" style="margin-top:22px">Owner</div><a data-route="admin" href="#admin"><span class="ico">⚙</span>Admin Dashboard</a><a class="jp-mock-tests-link" href="https://mocks.jptyping.in/" onclick="jpOpenMockOwnerControl(event)"><span class="ico">✦</span>Mock Site Control</a><a data-route="users" href="#users"><span class="ico">👥</span>Users</a><a data-route="owner" href="#owner"><span class="ico">🛠</span>Owner Control</a><a data-route="owner-certificates" href="#owner-certificates"><span class="ico">🏅</span>Certificates</a><a data-route="database" href="#database"><span class="ico">🗄</span>Database</a>`:`<a class="jp-mobile-download-app" href="javascript:void(0)" onclick="downloadMobileApp();toggleSide(false)"><span class="ico">📱</span>Download App</a>`;
  }
  markThemeSwatch();
  // layout rebuilds the links; restore their active state after every rebuild.
@@ -7898,6 +7932,12 @@ document.addEventListener('click',event=>{
    return prevOwnerTab(name,btn);
  };
 })();
+</script>
+<script id="jpMockOwnerControl">
+window.jpOpenMockOwnerControl=async function(event){
+ event.preventDefault();const tab=window.open('about:blank','_blank');if(tab)tab.opener=null;
+ try{const result=await api('/api/admin/mock-control/launch',{method:'POST',body:'{}'});if(tab)tab.location.replace(result.url);else location.assign(result.url)}catch(err){if(tab)tab.close();showToast(err.message||'Mock control connection unavailable')}
+};
 </script>
 </body>
 </html>
