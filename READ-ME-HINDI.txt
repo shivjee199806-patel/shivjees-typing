@@ -1,0 +1,11 @@
+Gemini update — only mock app files
+
+Extract ZIP. GitHub repository root पर examnova-mocks folder upload करें और Commit changes करें। इसके अंदर केवल server.js, draft-engine.js और public/app.js replace होंगे। Typing root की server.js/public/index.html नहीं बदलनी हैं।
+
+Railway में humble-clarity → Variables → GEMINI_API_KEY की existing value copy करें। नई spectacular-achievement → Variables में GEMINI_API_KEY उसी value से ADD करें। API key chat या GitHub पर न डालें। Deploy करें। पुराना MOCK_CONTROL_SECRET / JP_TYPING_URL न बदलें।
+
+GEMINI_API_KEY होने पर Gemini को priority मिलेगी; OpenAI credit की जरूरत नहीं। Default model gemini-3.8-flash है; जरूरत होने पर mock service में GEMINI_MODEL से available generateContent model चुनें। Gemini key की validity/quota अभी live verify नहीं हुई है। Gemini भी quota/rate limits लागू कर सकता है।
+
+Owner panel से mock admin फिर खोलें। Paused है तो Resume generation करें, और एक failed mock पर Generate / Retry करें। Provider status Gemini दिखना चाहिए। पुराने generic AI HTTP errors Gemini restart पर queued होंगे।
+
+Tests: publish/preview/attempt/edit/delete/restart + all-15-exam OpenAI/Gemini simulated responses pass. No real provider call without user's private key.

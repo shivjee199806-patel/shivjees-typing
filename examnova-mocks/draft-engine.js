@@ -7,7 +7,8 @@ module.exports=function(db,blueprints,day){
  INSERT OR IGNORE INTO generation_settings(id) VALUES(1);
  CREATE TABLE IF NOT EXISTS exam_generation(exam_id INTEGER PRIMARY KEY REFERENCES exams(id),syllabus TEXT NOT NULL DEFAULT '',pattern_json TEXT);`);
  db.prepare("UPDATE mock_jobs SET status='queued' WHERE status='generating'").run();
- let busy=false;
+ let busy=false,nextCall=0;
+ const provider=()=>process.env.GEMINI_API_KEY?'Gemini':'OpenAI';
  const norm=s=>s.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
  const questions=id=>db.prepare('SELECT q.* FROM mock_questions m JOIN questions q ON q.id=m.question_id WHERE m.test_id=? ORDER BY m.position').all(id).map(q=>({...q,options:JSON.parse(q.options_json),optionExplanations:JSON.parse(q.option_explanations_json),revisionNotes:q.revision_notes}));
  function save(t,topic,q,reuse=false){
@@ -25,16 +26,26 @@ module.exports=function(db,blueprints,day){
   for(let i=0;i<factCount;i++)save(t,'General Awareness',factual(i),true);
   db.prepare("INSERT OR REPLACE INTO mock_jobs(test_id,status,error) VALUES(?,'ready','Offline practice starter: limited subtopics; review exam coverage before publishing.')").run(t.id);
  }
- async function tick(){if(busy||!db.prepare('SELECT enabled FROM generation_settings').get().enabled)return;enqueue();if(!process.env.OPENAI_API_KEY){db.prepare("UPDATE mock_jobs SET status='needs_key',error='OPENAI_API_KEY जोड़ें और server restart करें; सभी परीक्षाओं के नए MCQ बनाने के लिए AI सेवा आवश्यक है।' WHERE status='queued'").run();return}
+ async function tick(){if(busy||Date.now()<nextCall||!db.prepare('SELECT enabled FROM generation_settings').get().enabled)return;enqueue();if(!process.env.GEMINI_API_KEY&&!process.env.OPENAI_API_KEY){db.prepare("UPDATE mock_jobs SET status='needs_key',error='GEMINI_API_KEY या OPENAI_API_KEY जोड़ें और server restart करें; सभी परीक्षाओं के नए MCQ बनाने के लिए AI सेवा आवश्यक है।' WHERE status='queued'").run();return}
  const job=db.prepare("SELECT t.*,e.name FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id WHERE j.status IN ('queued','needs_key') AND t.published=0 ORDER BY t.id LIMIT 1").get();if(!job)return;busy=true;
  db.prepare("UPDATE mock_jobs SET status='generating',error='' WHERE test_id=?").run(job.id);
  try{
   const section=JSON.parse(job.sections_json).find(s=>questions(job.id).filter(q=>q.topic===s.topic).length<s.count);
   if(section){const n=Math.min(12,section.count-questions(job.id).filter(q=>q.topic===section.topic).length),policy=db.prepare('SELECT syllabus FROM exam_generation WHERE exam_id=?').get(job.exam_id)?.syllabus||'';
    const avoid=db.prepare('SELECT stem FROM questions WHERE exam_id=? ORDER BY id DESC LIMIT 100').all(job.exam_id).map(x=>x.stem);
-   const r=await fetch(process.env.QUESTION_API_URL||'https://api.openai.com/v1/chat/completions',{method:'POST',signal:AbortSignal.timeout(90000),headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.QUESTION_MODEL||'gpt-4.1-mini',response_format:{type:'json_object'},messages:[{role:'system',content:'Write original competitive exam practice MCQs, not official PYQs. Do not invent current facts. Hindi-first bilingual except language-specific sections. Return JSON only.'},{role:'user',content:JSON.stringify({exam:job.name,section:section.topic,pattern:JSON.parse(job.sections_json),minutes:job.minutes,marks:job.positive,negative:job.negative,syllabus:policy||'Use established core syllabus of named exam and section. Avoid uncertain current affairs. Match actual exam difficulty, not advanced material.',constraints:job.name.includes('Computer Operator')?'Exclude CPU scheduling, deadlocks, threads, paging, segmentation, virtual memory, IPC. Include basic data structures.':'',difficulty:'moderate to hard within exam level; broad varied subtopics, plausible distractors; never fill an entire section with one template',avoid,count:n,format:{questions:[{stem:'question',options:['a','b','c','d'],correctIndex:0,explanation:'detailed solution',optionExplanations:['reason A','reason B','reason C','reason D'],revisionNotes:'related concept notes'}]}})}]})});
-   if(!r.ok)throw Error(`AI service HTTP ${r.status}; check key, quota and model.`);
-   const body=await r.json(),items=JSON.parse(body.choices?.[0]?.message?.content||'{}').questions;
+   const request={model:process.env.QUESTION_MODEL||'gpt-4.1-mini',response_format:{type:'json_object'},messages:[{role:'system',content:'Write original competitive exam practice MCQs, not official PYQs. Do not invent current facts. Hindi-first bilingual except language-specific sections. Return JSON only.'},{role:'user',content:JSON.stringify({exam:job.name,section:section.topic,pattern:JSON.parse(job.sections_json),minutes:job.minutes,marks:job.positive,negative:job.negative,syllabus:policy||'Use established core syllabus of named exam and section. Avoid uncertain current affairs. Match actual exam difficulty, not advanced material.',constraints:job.name.includes('Computer Operator')?'Exclude CPU scheduling, deadlocks, threads, paging, segmentation, virtual memory, IPC. Include basic data structures.':'',difficulty:'moderate to hard within exam level; broad varied subtopics, plausible distractors; never fill an entire section with one template',avoid,count:n,format:{questions:[{stem:'question',options:['a','b','c','d'],correctIndex:0,explanation:'detailed solution',optionExplanations:['reason A','reason B','reason C','reason D'],revisionNotes:'related concept notes'}]}})}]};
+   const gemini=provider()==='Gemini',model=gemini?(process.env.GEMINI_MODEL||'gemini-3.8-flash'):request.model;
+   const endpoint=gemini?'https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent':(process.env.QUESTION_API_URL||'https://api.openai.com/v1/chat/completions');
+   const payload=gemini?{systemInstruction:{parts:[{text:request.messages[0].content}]},contents:[{role:'user',parts:[{text:request.messages[1].content}]}],generationConfig:{responseMimeType:'application/json',maxOutputTokens:24000}}:request;
+   nextCall=Date.now()+15000;
+   const r=await fetch(endpoint,{method:'POST',signal:AbortSignal.timeout(120000),headers:{'Content-Type':'application/json',...(gemini?{'x-goog-api-key':process.env.GEMINI_API_KEY}:{Authorization:'Bearer '+process.env.OPENAI_API_KEY})},body:JSON.stringify(payload)});
+   if(!r.ok){let code='';try{const detail=await r.json();code=String(detail.error?.status||detail.error?.code||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,70)}catch{}
+    if(r.status===429)nextCall=Date.now()+60000;
+    throw Error(`${provider()} HTTP ${r.status}${code?' ('+code+')':''}; ${r.status===429?'quota/rate limit; wait or check API billing.':r.status===404?'check GEMINI_MODEL / QUESTION_MODEL availability.':'check API key permissions.'}`);
+   }
+   const body=await r.json();const output=gemini?(body.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join(''):body.choices?.[0]?.message?.content;
+   if(!output)throw Error(provider()+' returned no question text; check content blocking or model output.');
+   const items=JSON.parse(output.replace(/^\s*```(?:json)?\s*/,'').replace(/\s*```\s*$/,'')).questions;
    // Deletion/pause may occur while waiting for provider. Never resurrect the draft.
    if(!db.prepare('SELECT 1 FROM mock_jobs WHERE test_id=?').get(job.id))return;
    let saved=0;for(const q of (Array.isArray(items)?items:[]).slice(0,n))if(questions(job.id).filter(x=>x.topic===section.topic).length<JSON.parse(db.prepare('SELECT sections_json FROM tests WHERE id=?').get(job.id).sections_json).find(x=>x.topic===section.topic)?.count&&save(job,section.topic,q))saved++;
@@ -45,6 +56,6 @@ module.exports=function(db,blueprints,day){
  }
  function list(){return db.prepare('SELECT t.*,e.name exam_name,j.status,j.error,j.updated_at FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id ORDER BY t.id DESC LIMIT 200').all().map(t=>({...t,sections:JSON.parse(t.sections_json),generated:questions(t.id).length,ready:complete(t)}))}
  function remove(id){const t=db.prepare('SELECT * FROM tests WHERE id=?').get(id);if(!t)throw Error('Mock not found');if(t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(id))throw Error('Unpublish first; attempted tests are retained for result history.');db.exec('BEGIN IMMEDIATE');try{db.prepare('DELETE FROM mock_jobs WHERE test_id=?').run(id);db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_daily SELECT day,exam_id,type FROM daily_drafts WHERE test_id=?').run(id);db.prepare('DELETE FROM daily_drafts WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_test_titles(title) VALUES(?)').run(t.title);db.prepare('DELETE FROM tests WHERE id=?').run(id);db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}}
- db.exec('CREATE TABLE IF NOT EXISTS starter_state(id INTEGER PRIMARY KEY)');bootstrap();db.prepare('INSERT OR IGNORE INTO starter_state VALUES(1)').run();enqueue();const timer=setInterval(()=>void tick(),3000);timer.unref();void tick();
+ db.exec('CREATE TABLE IF NOT EXISTS starter_state(id INTEGER PRIMARY KEY)');bootstrap();db.prepare('INSERT OR IGNORE INTO starter_state VALUES(1)').run();enqueue();if(process.env.GEMINI_API_KEY)db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND error LIKE 'AI service HTTP %'").run();const timer=setInterval(()=>void tick(),3000);timer.unref();void tick();
  return {questions,complete,list,remove,tick,enqueue};
 };
