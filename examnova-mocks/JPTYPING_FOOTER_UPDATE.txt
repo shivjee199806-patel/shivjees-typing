@@ -1,0 +1,1 @@
+Footer now follows jptyping.in information structure: brand, Quick Links, Student Area, Information, Exam Guides & Tools. Only existing routes and actual external links are used. No invented privacy/terms pages.

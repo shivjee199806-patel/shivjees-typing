@@ -1,0 +1,20 @@
+ExamNova Admin API Repair – 02 Nov 2026
+
+Screenshot mein Login safal tha, error 'API route not found' tha.
+
+Is update mein:
+1. Admin click par Daily Drafts ya Question Bank fail hone se Admin page block nahi hota.
+2. API 404 mein failed HTTP method aur URL dikhte hain.
+3. Server 404 mein running build dikhata hai.
+4. Admin daily/questions/history/incomplete endpoints live local server par check hue.
+
+Windows:
+- Purane server ko Ctrl+C se band karein.
+- Purana data/examnova.sqlite backup lekar isi new project ke data folder mein copy karein. Server band rakhein.
+- Naya folder kholen; npm start chalayein.
+- http://localhost:3000/api/status se build verify karein.
+- Chrome mein Ctrl+Shift+R, logout/login, phir Admin click karein.
+
+Agar error aaye to usmein API route ka exact address hoga; wahi screenshot bhejein.
+
+IMPORTANT: Database file is intentionally excluded from this ZIP to avoid overwriting personal data.

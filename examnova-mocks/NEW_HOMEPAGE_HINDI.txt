@@ -1,0 +1,19 @@
+ExamNova approved homepage update — 1 November 2026
+
+यह ZIP पिछले approved design के अनुरूप Public Homepage में वापस जोड़ती है:
+- Purple-Blue student hero banner, yellow Start button, book/star logo
+- 6 feature buttons
+- Motivational card and Popular Exams 6 tiles
+- Purple statistics strip (only real catalog counts and feature labels; no made-up students/rating counts)
+- ExamNova क्यों चुनें? four benefit tiles
+- Separate Public Home, Login, Register and Student Dashboard
+- Login only: Exam catalogue, Test Series, My Tests, Performance, Live Tests
+- Active navigation and hover states
+
+चलाएँ:
+1. पुराना server Ctrl+C से बंद करें
+2. ZIP को नई जगह extract करें
+3. ExamNova-FullStack folder में npm start
+4. http://localhost:3000 (Ctrl+Shift+R)
+
+ध्यान दें: 14 अन्य परीक्षाओं के Pending question banks इस design update में नहीं भरे गए। UI preview generated image और rendered HTML में font/spacing के छोटे अंतर हो सकते हैं।

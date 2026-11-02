@@ -1,0 +1,11 @@
+MAHATVAPOORN: Agar ab bhi 0 listed dikhe, PURANA server chal raha ho sakta hai.
+1) Old PowerShell window me Ctrl+C karein.
+2) Is new ZIP ko NEW folder me extract karein.
+3) ExamNova-FullStack folder ke andar CHECK_MOCKS_WINDOWS.bat double click karein.
+4) Ye port 3100 par naya server chalayega; purana port 3000 confuse nahi karega.
+5) Browser me http://localhost:3100/api/status open karein. total 60 hona chahiye.
+6) SITE kholen: http://localhost:3100 aur Ctrl+Shift+R.
+7) Kisi exam me Full Tests (2) aur Mini Tests (2) dekhein.
+NOTE: Yeh 60 draft mock SLOTS hain; questions incomplete hone ke karan Start Test disabled hai.
+Your existing data is in old folder/data/examnova.sqlite. To preserve it, first STOP both servers,
+then copy old data folder to new folder. The new server seeds missing mocks on start.

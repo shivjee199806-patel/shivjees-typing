@@ -1,0 +1,1 @@
+पहले पुराना server Ctrl+C से बंद करें। नई ZIP अलग directory में extract करें। PowerShell में npm start चलाएं। Browser में http://localhost:3000/api/status खोलें। coReady: 4 और coQuestions: 160 या अधिक होना चाहिए। UP Police CO Full/Mini चुनें। अन्य 14 परीक्षाओं के question banks अभी Pending हैं।

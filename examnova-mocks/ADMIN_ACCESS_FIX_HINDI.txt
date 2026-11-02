@@ -1,0 +1,14 @@
+ExamNova - apne maujooda student account ko Admin banana
+
+1. PowerShell me server Ctrl+C se band karein.
+2. Usi ExamNova-FullStack folder me MAKE_ADMIN_WINDOWS.bat par double click karein.
+3. Jis email se ExamNova me login karte hain, wahi poora email enter karein.
+4. "Admin role enabled" message aaye to npm start karein.
+5. Browser me Logout karke usi email/password se Login karein.
+6. Upar 'Admin' button dikhega. Usse Admin Studio kholen.
+
+IMPORTANT: Agar 'No existing account' aaye, galat email ya galat
+project folder chala rahe hain. Server ko dekhein ki db path kya hai.
+Existing database, tests, attempts aur passwords change nahi hote.
+Admin promotion purane login tokens ko invalidate karti hai.
+This is a LOCAL owner utility, not a public web admin endpoint.

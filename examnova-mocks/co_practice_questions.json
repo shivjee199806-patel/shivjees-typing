@@ -1,0 +1,2082 @@
+[
+ {
+  "topic": "Computer",
+  "stem": "SQL में rows चुनने के लिए कौन-सा statement उपयोग होता है?",
+  "options": [
+   "DELETE",
+   "UPDATE",
+   "INSERT",
+   "SELECT"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: SELECT",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Relational database में Primary Key का मुख्य कार्य क्या है?",
+  "options": [
+   "डेटा encrypt करना",
+   "हर row की अद्वितीय पहचान",
+   "टेबल को sort करना",
+   "सभी rows हटाना"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: हर row की अद्वितीय पहचान",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SQL में केवल unique परिणाम निकालने का keyword?",
+  "options": [
+   "ORDER",
+   "GROUP",
+   "WHERE",
+   "DISTINCT"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: DISTINCT",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SQL में rows की संख्या निकालने का aggregate?",
+  "options": [
+   "AVG()",
+   "MAX()",
+   "COUNT()",
+   "SUM()"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: COUNT()",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "किस normal form में partial dependency हटाई जाती है?",
+  "options": [
+   "BCNF",
+   "1NF",
+   "2NF",
+   "3NF"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 2NF",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Foreign key किससे संबंध बनाती है?",
+  "options": [
+   "DNS server से",
+   "दूसरी table की key से",
+   "RAM address से",
+   "file extension से"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: दूसरी table की key से",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SQL में grouping का keyword?",
+  "options": [
+   "ORDER BY",
+   "GROUP BY",
+   "UNION",
+   "WHERE"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: GROUP BY",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SQL में NULL जाँचने का सही तरीका?",
+  "options": [
+   "= NULL",
+   "== NULL",
+   "LIKE NULL",
+   "IS NULL"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: IS NULL",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "OSI model की कुल layers कितनी हैं?",
+  "options": [
+   "5",
+   "4",
+   "7",
+   "8"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 7",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "OSI में routing का काम किस layer का है?",
+  "options": [
+   "Physical",
+   "Session",
+   "Presentation",
+   "Network"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Network",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "TCP किस प्रकार का protocol है?",
+  "options": [
+   "Connection-oriented",
+   "Connectionless only",
+   "Application markup",
+   "Encryption algorithm"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Connection-oriented",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "DNS का मुख्य कार्य क्या है?",
+  "options": [
+   "Domain name को IP address में बदलना",
+   "स्क्रीन capture करना",
+   "RAM साफ करना",
+   "फाइल compress करना"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Domain name को IP address में बदलना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "IPv4 address कितने bits का होता है?",
+  "options": [
+   "128",
+   "32",
+   "16",
+   "64"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: 32",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "IPv6 address कितने bits का होता है?",
+  "options": [
+   "128",
+   "32",
+   "64",
+   "48"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: 128",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "HTTP का default port?",
+  "options": [
+   "21",
+   "25",
+   "80",
+   "443"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 80",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "HTTPS का default port?",
+  "options": [
+   "110",
+   "53",
+   "443",
+   "80"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 443",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SSH का default port?",
+  "options": [
+   "23",
+   "22",
+   "25",
+   "20"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: 22",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SMTP का उपयोग किस लिए होता है?",
+  "options": [
+   "ईमेल भेजना",
+   "वेबपेज render करना",
+   "फाइल प्रिंट करना",
+   "IP allocate करना"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: ईमेल भेजना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "LAN का पूर्ण रूप?",
+  "options": [
+   "Local Admin Network",
+   "Local Area Network",
+   "Long Access Node",
+   "Logical Area Number"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: Local Area Network",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Star topology में node किससे जुड़ती हैं?",
+  "options": [
+   "केवल modem से",
+   "हर node से सीधे",
+   "सिर्फ ring से",
+   "केंद्रीय switch/hub"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: केंद्रीय switch/hub",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Firewall का उद्देश्य?",
+  "options": [
+   "डेटाबेस normalize करना",
+   "Keyboard speed बढ़ाना",
+   "image crop करना",
+   "Network traffic को नियमों से filter करना"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Network traffic को नियमों से filter करना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "VPN का पूर्ण रूप?",
+  "options": [
+   "Virtual Print Number",
+   "Virtual Private Network",
+   "Verified Public Node",
+   "Voice Private Name"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: Virtual Private Network",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Phishing किससे जुड़ा है?",
+  "options": [
+   "RAM upgrade करना",
+   "धोखे से संवेदनशील जानकारी लेना",
+   "CPU overclocking",
+   "डेटा indexing"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: धोखे से संवेदनशील जानकारी लेना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "AES का block size कितने bits है?",
+  "options": [
+   "192",
+   "64",
+   "128",
+   "256"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 128",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SHA-256 digest की लंबाई कितनी है?",
+  "options": [
+   "256 bits",
+   "64 bits",
+   "512 bits",
+   "128 bits"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: 256 bits",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Symmetric cryptography में क्या प्रयोग होता है?",
+  "options": [
+   "बिना key",
+   "सिर्फ public key",
+   "दो अलग public keys",
+   "Encryption और decryption के लिए वही key"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Encryption और decryption के लिए वही key",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "HTML में hyperlink के लिए tag?",
+  "options": [
+   "<p>",
+   "<a>",
+   "<div>",
+   "<br>"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: <a>",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "HTML में form बनाने का tag?",
+  "options": [
+   "<table>",
+   "<link>",
+   "<meta>",
+   "<form>"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: <form>",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "JavaScript में constant declare करने का keyword?",
+  "options": [
+   "def",
+   "static",
+   "integer",
+   "const"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: const",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "HTML में सबसे बड़ा heading tag?",
+  "options": [
+   "<h6>",
+   "<h1>",
+   "<heading>",
+   "<title>"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: <h1>",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "CSS का पूर्ण रूप?",
+  "options": [
+   "Cascading Style Sheets",
+   "Code Sheet System",
+   "Computer Style Script",
+   "Color System Source"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Cascading Style Sheets",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Spreadsheet में absolute cell reference का उदाहरण?",
+  "options": [
+   "A1",
+   "A$",
+   "1A",
+   "$A$1"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: $A$1",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Excel में जोड़ के लिए function?",
+  "options": [
+   "COUNT()",
+   "IF()",
+   "LEN()",
+   "SUM()"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: SUM()",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "PowerPoint में presentation की इकाई?",
+  "options": [
+   "Tuple",
+   "Sheet",
+   "Record",
+   "Slide"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Slide",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "LibreOffice Writer किस प्रकार का software है?",
+  "options": [
+   "Compiler",
+   "Database engine",
+   "Web server",
+   "Word processor"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Word processor",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Linux में directory content दिखाने की command?",
+  "options": [
+   "mkdir",
+   "cd",
+   "pwd",
+   "ls"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: ls",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Linux में current directory path देखने की command?",
+  "options": [
+   "rm",
+   "pwd",
+   "mv",
+   "cat"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: pwd",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Linux में directory बदलने की command?",
+  "options": [
+   "cd",
+   "grep",
+   "ls",
+   "ps"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: cd",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Linux में file content दिखाने की command?",
+  "options": [
+   "mkdir",
+   "chmod",
+   "touch",
+   "cat"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: cat",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Linux में permissions बदलने की command?",
+  "options": [
+   "chmod",
+   "ping",
+   "date",
+   "whoami"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: chmod",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "ROM किस प्रकार की memory है?",
+  "options": [
+   "Volatile",
+   "केवल virtual",
+   "केवल cache",
+   "Non-volatile"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Non-volatile",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Cache memory मुख्यतः किस लिए होती है?",
+  "options": [
+   "प्रिंटर control",
+   "केवल monitor refresh",
+   "बार-बार उपयोग डेटा तेज़ उपलब्ध कराने हेतु",
+   "लंबी backup storage"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: बार-बार उपयोग डेटा तेज़ उपलब्ध कराने हेतु",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "ALU का मुख्य कार्य?",
+  "options": [
+   "Arithmetic और logic operations",
+   "Web hosting",
+   "Sound recording",
+   "Disk formatting"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Arithmetic और logic operations",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Compiler का कार्य?",
+  "options": [
+   "Source code को translate करना",
+   "Monitor brightness बढ़ाना",
+   "RAM साफ करना",
+   "Web search करना"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Source code को translate करना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Stack का मूल नियम?",
+  "options": [
+   "Random only",
+   "FIFO",
+   "LIFO",
+   "Priority only"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: LIFO",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Queue का मूल नियम?",
+  "options": [
+   "Stack only",
+   "Binary only",
+   "FIFO",
+   "LIFO"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: FIFO",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Array में elements किस प्रकार stored होते हैं?",
+  "options": [
+   "Contiguous memory locations",
+   "सिर्फ cache lines",
+   "केवल linked nodes",
+   "अलग-अलग file servers"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Contiguous memory locations",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Binary search की शर्त?",
+  "options": [
+   "Data sorted होना चाहिए",
+   "हमेशा unsorted data",
+   "केवल linked list",
+   "केवल 2 elements"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Data sorted होना चाहिए",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "XOR में output 1 कब होता है?",
+  "options": [
+   "दोनों 1 हों",
+   "जब inputs अलग हों",
+   "दोनों 0 हों",
+   "हमेशा 1"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: जब inputs अलग हों",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "De Morgan नियम: NOT(A AND B) किसके बराबर?",
+  "options": [
+   "A AND B",
+   "A OR B",
+   "(NOT A) AND (NOT B)",
+   "(NOT A) OR (NOT B)"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: (NOT A) OR (NOT B)",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Boolean identity A + 0 = ?",
+  "options": [
+   "A",
+   "0",
+   "A̅",
+   "1"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: A",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Boolean identity A · 1 = ?",
+  "options": [
+   "1",
+   "A",
+   "0",
+   "A̅"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: A",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Flowchart में decision symbol किस आकार का होता है?",
+  "options": [
+   "Parallelogram",
+   "Diamond",
+   "Rectangle",
+   "Circle"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: Diamond",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "URL का पूर्ण रूप?",
+  "options": [
+   "Unified Record Line",
+   "Uniform Resource Locator",
+   "Universal Router Link",
+   "Unique Reference Logic"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: Uniform Resource Locator",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "IoT का अर्थ क्या है?",
+  "options": [
+   "Index of Tables",
+   "Input of Text",
+   "Internet over Telephone",
+   "Internet of Things"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: Internet of Things",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Artificial Intelligence में machine learning क्या है?",
+  "options": [
+   "Monitor resolution",
+   "सिर्फ CPU manufacture",
+   "डेटा से patterns सीखने की विधि",
+   "केवल keyboard input"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: डेटा से patterns सीखने की विधि",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Green computing का मुख्य उद्देश्य?",
+  "options": [
+   "कंप्यूटर का रंग बदलना",
+   "IT के ऊर्जा और पर्यावरण प्रभाव घटाना",
+   "RAM clock बढ़ाना",
+   "नेटवर्क ports बंद करना"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: IT के ऊर्जा और पर्यावरण प्रभाव घटाना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Unicode का मुख्य लाभ?",
+  "options": [
+   "अनेक भाषाओं के अक्षरों का एक समान encoding",
+   "सिर्फ English support",
+   "केवल image encoding",
+   "केवल audio compression"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: अनेक भाषाओं के अक्षरों का एक समान encoding",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "E-commerce का आशय?",
+  "options": [
+   "इंटरनेट पर व्यापारिक लेन-देन",
+   "सिर्फ email लिखना",
+   "RAM खरीदना",
+   "केवल LAN बनाना"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: इंटरनेट पर व्यापारिक लेन-देन",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "Cloud computing में संसाधन सामान्यतः कैसे मिलते हैं?",
+  "options": [
+   "Network के माध्यम से on-demand",
+   "केवल offline CD से",
+   "केवल keyboard से",
+   "सिर्फ floppy से"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: Network के माध्यम से on-demand",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "SQL UPDATE का उपयोग?",
+  "options": [
+   "नया database install",
+   "backup encrypt करना",
+   "मौजूदा rows के मान बदलना",
+   "टेबल हटाना"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: मौजूदा rows के मान बदलना",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 13 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1110",
+   "1101",
+   "1111",
+   "1100"
+  ],
+  "correctIndex": 1,
+  "explanation": "13 को 2 की घातों में विभाजित करने पर 1101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 19 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10101",
+   "10100",
+   "10011",
+   "10010"
+  ],
+  "correctIndex": 2,
+  "explanation": "19 को 2 की घातों में विभाजित करने पर 10011 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 25 का सही binary रूप कौन-सा है?",
+  "options": [
+   "11010",
+   "11001",
+   "11000",
+   "11011"
+  ],
+  "correctIndex": 1,
+  "explanation": "25 को 2 की घातों में विभाजित करने पर 11001 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 29 का सही binary रूप कौन-सा है?",
+  "options": [
+   "11110",
+   "11100",
+   "11101",
+   "11111"
+  ],
+  "correctIndex": 2,
+  "explanation": "29 को 2 की घातों में विभाजित करने पर 11101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 37 का सही binary रूप कौन-सा है?",
+  "options": [
+   "100100",
+   "100101",
+   "100110",
+   "100111"
+  ],
+  "correctIndex": 1,
+  "explanation": "37 को 2 की घातों में विभाजित करने पर 100101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 43 का सही binary रूप कौन-सा है?",
+  "options": [
+   "101101",
+   "101011",
+   "101100",
+   "101010"
+  ],
+  "correctIndex": 1,
+  "explanation": "43 को 2 की घातों में विभाजित करने पर 101011 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 52 का सही binary रूप कौन-सा है?",
+  "options": [
+   "110100",
+   "110011",
+   "110110",
+   "110101"
+  ],
+  "correctIndex": 0,
+  "explanation": "52 को 2 की घातों में विभाजित करने पर 110100 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 61 का सही binary रूप कौन-सा है?",
+  "options": [
+   "111100",
+   "111111",
+   "111110",
+   "111101"
+  ],
+  "correctIndex": 3,
+  "explanation": "61 को 2 की घातों में विभाजित करने पर 111101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 73 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1001011",
+   "1001001",
+   "1001000",
+   "1001010"
+  ],
+  "correctIndex": 1,
+  "explanation": "73 को 2 की घातों में विभाजित करने पर 1001001 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 85 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1010111",
+   "1010100",
+   "1010110",
+   "1010101"
+  ],
+  "correctIndex": 3,
+  "explanation": "85 को 2 की घातों में विभाजित करने पर 1010101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 97 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1100000",
+   "1100010",
+   "1100001",
+   "1100011"
+  ],
+  "correctIndex": 2,
+  "explanation": "97 को 2 की घातों में विभाजित करने पर 1100001 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 106 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1101100",
+   "1101001",
+   "1101011",
+   "1101010"
+  ],
+  "correctIndex": 3,
+  "explanation": "106 को 2 की घातों में विभाजित करने पर 1101010 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 117 का सही binary रूप कौन-सा है?",
+  "options": [
+   "1110101",
+   "1110100",
+   "1110111",
+   "1110110"
+  ],
+  "correctIndex": 0,
+  "explanation": "117 को 2 की घातों में विभाजित करने पर 1110101 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 129 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10000011",
+   "10000001",
+   "10000010",
+   "10000000"
+  ],
+  "correctIndex": 1,
+  "explanation": "129 को 2 की घातों में विभाजित करने पर 10000001 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 143 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10010001",
+   "10010000",
+   "10001111",
+   "10001110"
+  ],
+  "correctIndex": 2,
+  "explanation": "143 को 2 की घातों में विभाजित करने पर 10001111 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 156 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10011110",
+   "10011100",
+   "10011101",
+   "10011011"
+  ],
+  "correctIndex": 1,
+  "explanation": "156 को 2 की घातों में विभाजित करने पर 10011100 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 171 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10101100",
+   "10101010",
+   "10101101",
+   "10101011"
+  ],
+  "correctIndex": 3,
+  "explanation": "171 को 2 की घातों में विभाजित करने पर 10101011 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 187 का सही binary रूप कौन-सा है?",
+  "options": [
+   "10111100",
+   "10111101",
+   "10111010",
+   "10111011"
+  ],
+  "correctIndex": 3,
+  "explanation": "187 को 2 की घातों में विभाजित करने पर 10111011 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "Computer",
+  "stem": "दशमलव 201 का सही binary रूप कौन-सा है?",
+  "options": [
+   "11001001",
+   "11001000",
+   "11001011",
+   "11001010"
+  ],
+  "correctIndex": 0,
+  "explanation": "201 को 2 की घातों में विभाजित करने पर 11001001 मिलता है।",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत का संविधान कब लागू हुआ?",
+  "options": [
+   "2 अक्टूबर 1950",
+   "15 अगस्त 1947",
+   "26 नवंबर 1949",
+   "26 जनवरी 1950"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: 26 जनवरी 1950",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत का संविधान कब अंगीकृत हुआ?",
+  "options": [
+   "15 अगस्त 1947",
+   "26 जनवरी 1950",
+   "26 नवंबर 1949",
+   "1 जनवरी 1950"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 26 नवंबर 1949",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "मौलिक अधिकार संविधान के किस भाग में हैं?",
+  "options": [
+   "भाग V",
+   "भाग III",
+   "भाग II",
+   "भाग IV"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: भाग III",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "राज्य के नीति निदेशक तत्व किस भाग में हैं?",
+  "options": [
+   "भाग VI",
+   "भाग III",
+   "भाग IV",
+   "भाग I"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: भाग IV",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत का सर्वोच्च न्यायालय कहाँ है?",
+  "options": [
+   "प्रयागराज",
+   "नई दिल्ली",
+   "लखनऊ",
+   "मुंबई"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: नई दिल्ली",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत में GST कब लागू हुआ?",
+  "options": [
+   "15 अगस्त 2018",
+   "1 अप्रैल 2015",
+   "1 जनवरी 2016",
+   "1 जुलाई 2017"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: 1 जुलाई 2017",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "लोकसभा के सदस्यों का सामान्य कार्यकाल कितना है?",
+  "options": [
+   "7 वर्ष",
+   "5 वर्ष",
+   "4 वर्ष",
+   "6 वर्ष"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: 5 वर्ष",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत के प्रथम राष्ट्रपति कौन थे?",
+  "options": [
+   "जवाहरलाल नेहरू",
+   "डॉ. राजेंद्र प्रसाद",
+   "बी. आर. अंबेडकर",
+   "डॉ. सर्वपल्ली राधाकृष्णन"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: डॉ. राजेंद्र प्रसाद",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "यूपी की राजधानी क्या है?",
+  "options": [
+   "लखनऊ",
+   "वाराणसी",
+   "आगरा",
+   "कानपुर"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: लखनऊ",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "प्रयागराज में किन दो प्रमुख नदियों का संगम है?",
+  "options": [
+   "यमुना और नर्मदा",
+   "गंगा और गोदावरी",
+   "कावेरी और कृष्णा",
+   "गंगा और यमुना"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: गंगा और यमुना",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "सांची स्तूप किस राज्य में स्थित है?",
+  "options": [
+   "राजस्थान",
+   "बिहार",
+   "मध्य प्रदेश",
+   "उत्तर प्रदेश"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: मध्य प्रदेश",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "अजंता गुफाएँ किस राज्य में हैं?",
+  "options": [
+   "गुजरात",
+   "ओडिशा",
+   "महाराष्ट्र",
+   "कर्नाटक"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: महाराष्ट्र",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "पृथ्वी के वायुमंडल में सबसे अधिक गैस?",
+  "options": [
+   "आर्गन",
+   "नाइट्रोजन",
+   "कार्बन डाइऑक्साइड",
+   "ऑक्सीजन"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: नाइट्रोजन",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "ओजोन परत मुख्यतः किससे रक्षा करती है?",
+  "options": [
+   "ध्वनि तरंगें",
+   "पराबैंगनी विकिरण",
+   "रेडियोधर्मिता के सभी रूप",
+   "गुरुत्वाकर्षण"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: पराबैंगनी विकिरण",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "मानव रक्त में ऑक्सीजन वहन करने वाला प्रोटीन?",
+  "options": [
+   "केराटिन",
+   "एमाइलेज",
+   "इंसुलिन",
+   "हीमोग्लोबिन"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: हीमोग्लोबिन",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "विटामिन C की कमी से कौन-सा रोग होता है?",
+  "options": [
+   "घेंघा",
+   "स्कर्वी",
+   "बेरीबेरी",
+   "रिकेट्स"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: स्कर्वी",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "प्रकाश संश्लेषण में पौधे कौन-सी गैस लेते हैं?",
+  "options": [
+   "कार्बन डाइऑक्साइड",
+   "हीलियम",
+   "ऑक्सीजन",
+   "हाइड्रोजन"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: कार्बन डाइऑक्साइड",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "मानव शरीर की सबसे बड़ी ग्रंथि?",
+  "options": [
+   "पीयूष",
+   "अग्न्याशय",
+   "थायरॉइड",
+   "यकृत"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: यकृत",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "चंद्रमा पर पहली मानव लैंडिंग किस मिशन में हुई?",
+  "options": [
+   "Vostok 1",
+   "Sputnik 1",
+   "Apollo 11",
+   "Apollo 8"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: Apollo 11",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "अंतरिक्ष में जाने वाले प्रथम भारतीय?",
+  "options": [
+   "सुनीता विलियम्स",
+   "विक्रम साराभाई",
+   "राकेश शर्मा",
+   "कल्पना चावला"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: राकेश शर्मा",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारतीय रिज़र्व बैंक की स्थापना किस वर्ष हुई?",
+  "options": [
+   "1969",
+   "1947",
+   "1950",
+   "1935"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: 1935",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत का केंद्रीय बैंक कौन है?",
+  "options": [
+   "स्टेट बैंक ऑफ इंडिया",
+   "नाबार्ड",
+   "भारतीय रिज़र्व बैंक",
+   "सेबी"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: भारतीय रिज़र्व बैंक",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "हरित क्रांति मुख्यतः किससे संबंधित है?",
+  "options": [
+   "मत्स्य पालन",
+   "खनिज निर्यात",
+   "दुग्ध उत्पादन",
+   "कृषि उत्पादन वृद्धि"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: कृषि उत्पादन वृद्धि",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "श्वेत क्रांति किससे संबंधित है?",
+  "options": [
+   "कपास",
+   "दुग्ध उत्पादन",
+   "तेल",
+   "गेहूँ"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: दुग्ध उत्पादन",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "क्षेत्रफल में भारत का सबसे बड़ा राज्य?",
+  "options": [
+   "राजस्थान",
+   "महाराष्ट्र",
+   "मध्य प्रदेश",
+   "उत्तर प्रदेश"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: राजस्थान",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत में कर्क रेखा कितने राज्यों से गुजरती है?",
+  "options": [
+   "9",
+   "6",
+   "8",
+   "7"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 8",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भूमध्य रेखा का अक्षांश कितना है?",
+  "options": [
+   "66.5° दक्षिण",
+   "90° उत्तर",
+   "0°",
+   "23.5° उत्तर"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 0°",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "नर्मदा नदी का जल किस सागर में गिरता है?",
+  "options": [
+   "अरब सागर",
+   "लाल सागर",
+   "बंगाल की खाड़ी",
+   "कैस्पियन सागर"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: अरब सागर",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "गांधी जी का दांडी मार्च कब शुरू हुआ?",
+  "options": [
+   "15 अगस्त 1942",
+   "26 जनवरी 1930",
+   "12 मार्च 1930",
+   "2 अक्टूबर 1929"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 12 मार्च 1930",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत छोड़ो आंदोलन किस वर्ष आरंभ हुआ?",
+  "options": [
+   "1930",
+   "1919",
+   "1947",
+   "1942"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: 1942",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "जलियांवाला बाग हत्याकांड किस वर्ष हुआ?",
+  "options": [
+   "1919",
+   "1905",
+   "1922",
+   "1935"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: 1919",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारत के राष्ट्रीय गीत वंदे मातरम् के रचयिता?",
+  "options": [
+   "बंकिम चंद्र चट्टोपाध्याय",
+   "रवीन्द्रनाथ टैगोर",
+   "महादेवी वर्मा",
+   "जयशंकर प्रसाद"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: बंकिम चंद्र चट्टोपाध्याय",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "भारतीय राष्ट्रीय गान के रचयिता?",
+  "options": [
+   "प्रेमचंद",
+   "बंकिम चंद्र",
+   "सुभद्रा कुमारी चौहान",
+   "रवीन्द्रनाथ टैगोर"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: रवीन्द्रनाथ टैगोर",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "UNO का मुख्यालय कहाँ है?",
+  "options": [
+   "जेनेवा",
+   "न्यूयॉर्क",
+   "पेरिस",
+   "लंदन"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: न्यूयॉर्क",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "विश्व पर्यावरण दिवस कब मनाया जाता है?",
+  "options": [
+   "8 मार्च",
+   "5 जून",
+   "10 दिसंबर",
+   "22 अप्रैल"
+  ],
+  "correctIndex": 1,
+  "explanation": "सही उत्तर: 5 जून",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "मानवाधिकार दिवस कब मनाया जाता है?",
+  "options": [
+   "10 दिसंबर",
+   "26 जनवरी",
+   "14 नवंबर",
+   "5 जून"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: 10 दिसंबर",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "पंचायती राज से संबंधित संविधान संशोधन?",
+  "options": [
+   "86वाँ",
+   "44वाँ",
+   "73वाँ",
+   "42वाँ"
+  ],
+  "correctIndex": 2,
+  "explanation": "सही उत्तर: 73वाँ",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "नगर निकायों से संबंधित संविधान संशोधन?",
+  "options": [
+   "73वाँ",
+   "61वाँ",
+   "52वाँ",
+   "74वाँ"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: 74वाँ",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "उत्तर प्रदेश का उच्च न्यायालय कहाँ स्थित है?",
+  "options": [
+   "प्रयागराज",
+   "मेरठ",
+   "लखनऊ",
+   "कानपुर"
+  ],
+  "correctIndex": 0,
+  "explanation": "सही उत्तर: प्रयागराज",
+  "verified": false
+ },
+ {
+  "topic": "General Awareness",
+  "stem": "गंगा नदी का उद्गम किस हिमनद से माना जाता है?",
+  "options": [
+   "सियाचिन",
+   "ज़ेमू",
+   "पिंडारी",
+   "गंगोत्री हिमनद"
+  ],
+  "correctIndex": 3,
+  "explanation": "सही उत्तर: गंगोत्री हिमनद",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 3, 5, 7, 9, ?",
+  "options": [
+   "9",
+   "12",
+   "13",
+   "11"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 2 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 5, 8, 11, 14, ?",
+  "options": [
+   "17",
+   "18",
+   "14",
+   "20"
+  ],
+  "correctIndex": 0,
+  "explanation": "हर कदम में 3 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 7, 11, 15, 19, ?",
+  "options": [
+   "19",
+   "23",
+   "24",
+   "27"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 4 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 9, 14, 19, 24, ?",
+  "options": [
+   "24",
+   "34",
+   "29",
+   "30"
+  ],
+  "correctIndex": 2,
+  "explanation": "हर कदम में 5 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 11, 17, 23, 29, ?",
+  "options": [
+   "35",
+   "29",
+   "36",
+   "41"
+  ],
+  "correctIndex": 0,
+  "explanation": "हर कदम में 6 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 13, 20, 27, 34, ?",
+  "options": [
+   "34",
+   "48",
+   "42",
+   "41"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 7 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 15, 23, 31, 39, ?",
+  "options": [
+   "39",
+   "48",
+   "55",
+   "47"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 8 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 17, 19, 21, 23, ?",
+  "options": [
+   "26",
+   "23",
+   "27",
+   "25"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 2 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 19, 22, 25, 28, ?",
+  "options": [
+   "32",
+   "31",
+   "28",
+   "34"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 3 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 21, 25, 29, 33, ?",
+  "options": [
+   "33",
+   "37",
+   "38",
+   "41"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 4 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 23, 28, 33, 38, ?",
+  "options": [
+   "38",
+   "43",
+   "44",
+   "48"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 5 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 25, 31, 37, 43, ?",
+  "options": [
+   "49",
+   "50",
+   "55",
+   "43"
+  ],
+  "correctIndex": 0,
+  "explanation": "हर कदम में 6 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 27, 34, 41, 48, ?",
+  "options": [
+   "48",
+   "55",
+   "56",
+   "62"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 7 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 29, 37, 45, 53, ?",
+  "options": [
+   "62",
+   "61",
+   "69",
+   "53"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 8 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 31, 33, 35, 37, ?",
+  "options": [
+   "37",
+   "41",
+   "40",
+   "39"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 2 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 33, 36, 39, 42, ?",
+  "options": [
+   "46",
+   "48",
+   "45",
+   "42"
+  ],
+  "correctIndex": 2,
+  "explanation": "हर कदम में 3 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 35, 39, 43, 47, ?",
+  "options": [
+   "55",
+   "52",
+   "47",
+   "51"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 4 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 37, 42, 47, 52, ?",
+  "options": [
+   "52",
+   "57",
+   "62",
+   "58"
+  ],
+  "correctIndex": 1,
+  "explanation": "हर कदम में 5 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 39, 45, 51, 57, ?",
+  "options": [
+   "57",
+   "69",
+   "64",
+   "63"
+  ],
+  "correctIndex": 3,
+  "explanation": "हर कदम में 6 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "श्रृंखला में अगली संख्या क्या होगी: 41, 48, 55, 62, ?",
+  "options": [
+   "69",
+   "70",
+   "76",
+   "62"
+  ],
+  "correctIndex": 0,
+  "explanation": "हर कदम में 7 जोड़ते हैं।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=4 का मान?",
+  "options": [
+   "16",
+   "19",
+   "21",
+   "18"
+  ],
+  "correctIndex": 3,
+  "explanation": "4² + 2 = 18",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=5 का मान?",
+  "options": [
+   "27",
+   "28",
+   "30",
+   "25"
+  ],
+  "correctIndex": 0,
+  "explanation": "5² + 2 = 27",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=6 का मान?",
+  "options": [
+   "41",
+   "38",
+   "39",
+   "36"
+  ],
+  "correctIndex": 1,
+  "explanation": "6² + 2 = 38",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=7 का मान?",
+  "options": [
+   "49",
+   "52",
+   "51",
+   "54"
+  ],
+  "correctIndex": 2,
+  "explanation": "7² + 2 = 51",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=8 का मान?",
+  "options": [
+   "64",
+   "67",
+   "69",
+   "66"
+  ],
+  "correctIndex": 3,
+  "explanation": "8² + 2 = 66",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=9 का मान?",
+  "options": [
+   "86",
+   "83",
+   "84",
+   "81"
+  ],
+  "correctIndex": 1,
+  "explanation": "9² + 2 = 83",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=10 का मान?",
+  "options": [
+   "102",
+   "105",
+   "103",
+   "100"
+  ],
+  "correctIndex": 0,
+  "explanation": "10² + 2 = 102",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=11 का मान?",
+  "options": [
+   "123",
+   "126",
+   "121",
+   "124"
+  ],
+  "correctIndex": 0,
+  "explanation": "11² + 2 = 123",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=12 का मान?",
+  "options": [
+   "146",
+   "147",
+   "144",
+   "149"
+  ],
+  "correctIndex": 0,
+  "explanation": "12² + 2 = 146",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "यदि CODE नियम f(x)=x²+2 है, तो x=13 का मान?",
+  "options": [
+   "171",
+   "169",
+   "174",
+   "172"
+  ],
+  "correctIndex": 0,
+  "explanation": "13² + 2 = 171",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 3 किमी उत्तर और 2 किमी दक्षिण की बजाय फिर 2 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "4",
+   "6",
+   "5",
+   "8"
+  ],
+  "correctIndex": 2,
+  "explanation": "एक ही दिशा में कुल दूरी 3+2 = 5 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 4 किमी उत्तर और 3 किमी दक्षिण की बजाय फिर 3 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "6",
+   "7",
+   "10",
+   "8"
+  ],
+  "correctIndex": 1,
+  "explanation": "एक ही दिशा में कुल दूरी 4+3 = 7 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 5 किमी उत्तर और 4 किमी दक्षिण की बजाय फिर 4 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "10",
+   "8",
+   "12",
+   "9"
+  ],
+  "correctIndex": 3,
+  "explanation": "एक ही दिशा में कुल दूरी 5+4 = 9 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 6 किमी उत्तर और 2 किमी दक्षिण की बजाय फिर 2 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "7",
+   "8",
+   "9",
+   "11"
+  ],
+  "correctIndex": 1,
+  "explanation": "एक ही दिशा में कुल दूरी 6+2 = 8 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 7 किमी उत्तर और 3 किमी दक्षिण की बजाय फिर 3 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "10",
+   "11",
+   "13",
+   "9"
+  ],
+  "correctIndex": 0,
+  "explanation": "एक ही दिशा में कुल दूरी 7+3 = 10 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 8 किमी उत्तर और 4 किमी दक्षिण की बजाय फिर 4 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "13",
+   "12",
+   "11",
+   "15"
+  ],
+  "correctIndex": 1,
+  "explanation": "एक ही दिशा में कुल दूरी 8+4 = 12 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 9 किमी उत्तर और 2 किमी दक्षिण की बजाय फिर 2 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "11",
+   "14",
+   "10",
+   "12"
+  ],
+  "correctIndex": 0,
+  "explanation": "एक ही दिशा में कुल दूरी 9+2 = 11 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 10 किमी उत्तर और 3 किमी दक्षिण की बजाय फिर 3 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "16",
+   "13",
+   "14",
+   "12"
+  ],
+  "correctIndex": 1,
+  "explanation": "एक ही दिशा में कुल दूरी 10+3 = 13 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 11 किमी उत्तर और 4 किमी दक्षिण की बजाय फिर 4 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "18",
+   "15",
+   "16",
+   "14"
+  ],
+  "correctIndex": 1,
+  "explanation": "एक ही दिशा में कुल दूरी 11+4 = 15 किमी।",
+  "verified": false
+ },
+ {
+  "topic": "Reasoning",
+  "stem": "एक व्यक्ति 12 किमी उत्तर और 2 किमी दक्षिण की बजाय फिर 2 किमी उत्तर जाता है। प्रारंभ बिंदु से उत्तर में कुल दूरी?",
+  "options": [
+   "15",
+   "17",
+   "13",
+   "14"
+  ],
+  "correctIndex": 3,
+  "explanation": "एक ही दिशा में कुल दूरी 12+2 = 14 किमी।",
+  "verified": false
+ }
+]

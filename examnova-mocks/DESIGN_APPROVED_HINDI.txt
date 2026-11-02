@@ -1,0 +1,1 @@
+यह homepage उपयोगकर्ता द्वारा स्वीकृत ExamNova preview पर आधारित है। Public homepage में purple hero, छात्रा, features, exam categories, footer और branding जोड़े गए हैं। Test backend सुरक्षित रखा गया है। Sample visual में दिये गए अप्रमाणित 500+ / 50,000+ आँकड़े लाइव वेबसाइट पर नहीं दिखाये गए हैं।

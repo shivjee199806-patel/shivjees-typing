@@ -1,0 +1,2 @@
+ExamNova v3
+UP Police Computer Operator: 160 self-authored practice MCQs: Computer 80, GK 40, Reasoning 40. 2 Full (160) and 2 Mini (80) tests playable. Question bank is shared between mocks: questions can repeat BETWEEN tests, but not within a test. These are not official PYQs. Other 14 exams: 56 mock slots still Pending; no invented question banks. Existing user database and attempts are preserved. Requires Node.js with node:sqlite support.

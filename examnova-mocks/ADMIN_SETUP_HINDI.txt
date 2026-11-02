@@ -1,0 +1,26 @@
+ExamNova Admin Control — Windows
+
+1. पहली बार अपना admin account निर्धारित करें। PowerShell में प्रोजेक्ट folder से:
+   $env:ADMIN_EMAIL="owner@example.com"
+   $env:ADMIN_PASSWORD="YOUR_STRONG_PASSWORD_HERE"
+   npm start
+
+2. Browser में http://localhost:3000 जाएं। Login में वही admin email और password दें।
+   पहले startup पर admin user बनाया जाएगा। अगर वही email पहले से regular account है,
+   स्वतः admin नहीं बनेगा। एक नया admin email चुनें या database admin record को सुरक्षित ढंग से migrate करें।
+
+3. Admin navigation से:
+   - Add Exam : नई परीक्षा
+   - Add MCQ : subject/topic, 4 choices, correct answer, explanation
+   - Create Mock : Full/Mini, question count, duration, positive/negative marks, section distribution
+   - All Mock Tests : Pending -> Publish, या Publish -> Unpublish
+
+4. Publish तभी होगा जब पूरी परीक्षा में पर्याप्त प्रश्न हों; sectionwise tests के लिए
+   प्रत्येक Topic में पर्याप्त प्रश्न चाहिए। Pending mock में कोई प्रश्न नहीं है तो
+   पहले MCQs जोड़ें। Topic names section plan से 100% match होने चाहिए।
+
+5. पुराने 'data/examnova.sqlite' को सुरक्षित backup में रखें। नई zip से बदलते समय
+   पुराने database को delete न करें; इसी में users, questions, attempts, tests होते हैं।
+
+Note: किसी भी परीक्षा के official syllabus, scoring/sectional timing, verified questions
+को admin को अलग से जाँचना होगा। This is a self-hosted admin console, not a full CMS.
