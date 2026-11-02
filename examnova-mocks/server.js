@@ -17,6 +17,9 @@ for(const [table,column,definition] of [['tests','behavior_json',"TEXT NOT NULL 
 }
 const allowedModes=new Set(['global','sectional']);
 
+// Timing uses server elapsed time between focused-question heartbeats.
+for(const [name,type] of [['timing_json',"TEXT NOT NULL DEFAULT '{}'"],['focus_q','INTEGER'],['focus_at','INTEGER']])if(!db.prepare('PRAGMA table_info(attempts)').all().some(c=>c.name===name))db.exec('ALTER TABLE attempts ADD COLUMN '+name+' '+type);
+function questionTimes(a){const times=JSON.parse(a.timing_json||'{}');if(a.focus_q&&a.focus_at){const end=Math.min(Date.now(),a.deadline);times[a.focus_q]=(times[a.focus_q]||0)+Math.max(0,Math.min(15000,end-a.focus_at));}return times}
 // Backward-compatible analysis fields for existing SQLite installations.
 for(const [col,definition] of [['option_explanations_json',"TEXT NOT NULL DEFAULT '[]'"],['revision_notes',"TEXT NOT NULL DEFAULT ''"]]){
  const columns=db.prepare('PRAGMA table_info(questions)').all().map(x=>x.name);
@@ -53,13 +56,218 @@ const email=(process.env.ADMIN_EMAIL||'admin@examnova.local').toLowerCase(), pw=
 const hashPw=s=>{const salt=crypto.randomBytes(16).toString('hex');return salt+':'+crypto.scryptSync(s,salt,64).toString('hex')};
 const checkPw=(s,h)=>{const [salt,hex]=h.split(':');const a=crypto.scryptSync(s,salt,64),b=Buffer.from(hex,'hex');return a.length===b.length&&crypto.timingSafeEqual(a,b)};
 if(pw&&!db.prepare('SELECT id FROM users WHERE email=?').get(email))db.prepare("INSERT INTO users(name,email,hash,role) VALUES(?,?,?,'admin')").run('Administrator',email,hashPw(pw));
-const exams=['UP Police Computer Operator|Police','SSC CGL|SSC','SSC CHSL|SSC','SSC GD|SSC','RRB NTPC|Railway','RRB Group D|Railway','IBPS PO|Banking','SBI Clerk|Banking','UP Police Constable|Police','UPSSSC PET|State','CTET|Teaching','UPTET|Teaching','NDA|Defence','CDS|Defence','UPPSC PCS|State'];
+const exams=['UP Police Computer Operator|Police','SSC CGL|SSC','SSC CHSL|SSC','SSC GD|SSC','RRB NTPC|Railway','RRB Group D|Railway','IBPS PO|Banking','SBI Clerk|Banking','UP Police Constable|Police','UPSSSC PET|State','CTET|Teaching','UPTET|Teaching','NDA|Defence','CDS|Defence','UPPSC PCS|State','CCC|Computer Exams','ADCA|Computer Exams','O Level|Computer Exams','A Level|Computer Exams','AIIMS NORCET|Nursing','RRB Nursing Superintendent|Nursing','KVS PRT|Teaching'];
 const addExam=db.prepare('INSERT OR IGNORE INTO exams(name,category) VALUES(?,?)');for(const x of exams){const [name,category]=x.split('|');addExam.run(name,category)}
 const exam1=db.prepare('SELECT id FROM exams WHERE name=?').get('UP Police Computer Operator').id;
 // Do not seed unverifiable or off-syllabus practice content into a fresh database.
 // Older demo attempts/history remain readable, but their sample tests are retired.
 db.prepare("UPDATE tests SET published=0 WHERE exam_id=? AND title LIKE '%(Sample)%'").run(exam1);
 const patternBlueprints={"UP Police Computer Operator": {"count": 160, "minutes": 120, "positive": 1.25, "negative": 0, "sections": [{"topic": "Computer", "count": 80}, {"topic": "General Awareness", "count": 40}, {"topic": "Reasoning", "count": 40}], "source": "https://uppbpb.gov.in/ — Computer Operator Grade A written examination syllabus", "reviewed": true}, "SSC CGL": {"count": 100, "minutes": 60, "positive": 2, "negative": 0.5, "sections": [{"topic": "General Intelligence and Reasoning", "count": 25}, {"topic": "General Awareness", "count": 25}, {"topic": "Quantitative Aptitude", "count": 25}, {"topic": "English Comprehension", "count": 25}], "source": "https://ssc.gov.in/", "reviewed": true}, "SSC CHSL": {"count": 100, "minutes": 60, "positive": 2, "negative": 0.5, "sections": [{"topic": "English Language", "count": 25}, {"topic": "General Intelligence", "count": 25}, {"topic": "Quantitative Aptitude", "count": 25}, {"topic": "General Awareness", "count": 25}], "source": "https://ssc.gov.in/", "reviewed": true}, "SSC GD": {"count": 80, "minutes": 60, "positive": 2, "negative": 0.25, "sections": [{"topic": "General Intelligence and Reasoning", "count": 20}, {"topic": "General Knowledge and General Awareness", "count": 20}, {"topic": "Elementary Mathematics", "count": 20}, {"topic": "English or Hindi", "count": 20}], "source": "https://ssc.gov.in/", "reviewed": true}, "RRB NTPC": {"count": 100, "minutes": 90, "positive": 1, "negative": 0.3333333333333333, "sections": [{"topic": "General Awareness", "count": 40}, {"topic": "Mathematics", "count": 30}, {"topic": "General Intelligence and Reasoning", "count": 30}], "source": "https://www.rrbcdg.gov.in/", "reviewed": true}, "RRB Group D": {"count": 100, "minutes": 90, "positive": 1, "negative": 0.3333333333333333, "sections": [{"topic": "General Science", "count": 25}, {"topic": "Mathematics", "count": 25}, {"topic": "General Intelligence and Reasoning", "count": 30}, {"topic": "General Awareness and Current Affairs", "count": 20}], "source": "https://www.rrbcdg.gov.in/uploads/202408/CEN%202024-08%20Level-1.pdf", "reviewed": true}, "IBPS PO": {"count": 100, "minutes": 60, "positive": 1, "negative": 0.25, "sections": [{"topic": "English Language", "count": 30}, {"topic": "Quantitative Aptitude", "count": 35}, {"topic": "Reasoning Ability", "count": 35}], "source": "https://www.ibps.in/ — section weights differ; DRAFT ONLY", "reviewed": false}, "SBI Clerk": {"count": 100, "minutes": 60, "positive": 1, "negative": 0.25, "sections": [{"topic": "English Language", "count": 30}, {"topic": "Numerical Ability", "count": 35}, {"topic": "Reasoning Ability", "count": 35}], "source": "https://sbi.co.in/web/careers", "reviewed": true}, "UP Police Constable": {"count": 150, "minutes": 120, "positive": 2, "negative": 0.5, "sections": [{"topic": "General Knowledge", "count": 38}, {"topic": "General Hindi", "count": 37}, {"topic": "Numerical and Mental Ability", "count": 38}, {"topic": "Mental Aptitude and Reasoning", "count": 37}], "source": "https://uppbpb.gov.in/", "reviewed": true}, "UPSSSC PET": {"count": 100, "minutes": 120, "positive": 1, "negative": 0.25, "sections": [{"topic": "Indian History", "count": 5}, {"topic": "Indian National Movement", "count": 5}, {"topic": "Geography", "count": 5}, {"topic": "Indian Economy", "count": 5}, {"topic": "Indian Constitution and Public Administration", "count": 5}, {"topic": "General Science", "count": 5}, {"topic": "Elementary Arithmetic", "count": 5}, {"topic": "General Hindi", "count": 5}, {"topic": "General English", "count": 5}, {"topic": "Logic and Reasoning", "count": 5}, {"topic": "Current Affairs", "count": 10}, {"topic": "General Awareness", "count": 10}, {"topic": "Hindi Passage", "count": 10}, {"topic": "Graph Interpretation", "count": 10}, {"topic": "Table Interpretation", "count": 10}], "source": "https://upsssc.gov.in/ — verify cycle notice", "reviewed": false}, "CTET": {"count": 150, "minutes": 150, "positive": 1, "negative": 0, "sections": [{"topic": "Child Development and Pedagogy", "count": 30}, {"topic": "Mathematics", "count": 30}, {"topic": "Environmental Studies", "count": 30}, {"topic": "Language I", "count": 30}, {"topic": "Language II", "count": 30}], "source": "https://ctet.nic.in/", "reviewed": true}, "UPTET": {"count": 150, "minutes": 150, "positive": 1, "negative": 0, "sections": [{"topic": "Child Development and Pedagogy", "count": 30}, {"topic": "Language I", "count": 30}, {"topic": "Language II", "count": 30}, {"topic": "Mathematics", "count": 30}, {"topic": "Environmental Studies", "count": 30}], "source": "https://updeled.gov.in/ — latest notification pending", "reviewed": false}, "NDA": {"count": 120, "minutes": 150, "positive": 2.5, "negative": 0.8333333333333334, "sections": [{"topic": "Mathematics", "count": 120}], "source": "https://upsc.gov.in/ — Mathematics PAPER only; GAT separate", "reviewed": true}, "CDS": {"count": 100, "minutes": 120, "positive": 1, "negative": 0.3333333333333333, "sections": [{"topic": "English", "count": 100}], "source": "https://upsc.gov.in/ — indicative only; question count verify", "reviewed": false}, "UPPSC PCS": {"count": 150, "minutes": 120, "positive": 1.3333333333333333, "negative": 0.4444444444444444, "sections": [{"topic": "General Studies I", "count": 150}], "source": "https://uppsc.up.nic.in/ — GS I only; CSAT separate", "reviewed": true}};
+Object.assign(patternBlueprints, {
+  "CCC": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Computer Fundamentals and Operating Systems",
+        "count": 10
+      },
+      {
+        "topic": "Word Processing and Spreadsheets",
+        "count": 10
+      },
+      {
+        "topic": "Presentations and Internet",
+        "count": 10
+      },
+      {
+        "topic": "Digital Payments and Cyber Safety",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "ADCA": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Computer Fundamentals and Office Applications",
+        "count": 10
+      },
+      {
+        "topic": "Computerised Accounting",
+        "count": 10
+      },
+      {
+        "topic": "Database Fundamentals",
+        "count": 10
+      },
+      {
+        "topic": "Internet and Web Basics",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "O Level": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "IT Tools and Network Basics",
+        "count": 10
+      },
+      {
+        "topic": "Web Designing and Publishing",
+        "count": 10
+      },
+      {
+        "topic": "Python Programming",
+        "count": 10
+      },
+      {
+        "topic": "Internet of Things",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "A Level": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Programming and Data Structures",
+        "count": 10
+      },
+      {
+        "topic": "Database Management",
+        "count": 10
+      },
+      {
+        "topic": "Computer Networks",
+        "count": 10
+      },
+      {
+        "topic": "Software Engineering",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "AIIMS NORCET": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Nursing Foundations",
+        "count": 10
+      },
+      {
+        "topic": "Medical Surgical Nursing",
+        "count": 10
+      },
+      {
+        "topic": "Community Health Nursing",
+        "count": 10
+      },
+      {
+        "topic": "Maternal and Child Health Nursing",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "RRB Nursing Superintendent": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Nursing Foundations",
+        "count": 10
+      },
+      {
+        "topic": "Medical Surgical Nursing",
+        "count": 10
+      },
+      {
+        "topic": "Community Health Nursing",
+        "count": 10
+      },
+      {
+        "topic": "Maternal and Child Health Nursing",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  },
+  "KVS PRT": {
+    "count": 40,
+    "minutes": 45,
+    "positive": 1,
+    "negative": 0,
+    "sections": [
+      {
+        "topic": "Child Development and Pedagogy",
+        "count": 10
+      },
+      {
+        "topic": "Foundational Literacy and Numeracy",
+        "count": 10
+      },
+      {
+        "topic": "Primary Mathematics and EVS",
+        "count": 10
+      },
+      {
+        "topic": "Language and Classroom Practice",
+        "count": 10
+      }
+    ],
+    "source": "Practice blueprint · verify current syllabus before publishing",
+    "reviewed": false
+  }
+});
+const officialSyllabi = {
+  CCC: {
+    source: 'https://www.nielit.gov.in/sites/default/files/headquarter/pdf/Syllabus_CCC.pdf',
+    syllabus: 'NIELIT CCC Revision 4: computer hardware and software basics; operating systems and file management; word processing; spreadsheets; presentations; internet and networking fundamentals; email, social media and e-governance; digital financial tools; basic cybersecurity; introductory future skills and AI.'
+  },
+  'RRB Nursing Superintendent': {
+    source: 'https://www.rrbcdg.gov.in/uploads/2025/03-PMED/CEN%2003_2025.pdf',
+    syllabus: 'CEN 03/2025 CBT Annexure C: nursing foundations, anatomy and physiology, nutrition, biochemistry, psychology, microbiology, sociology, pharmacology, pathology and genetics; adult and geriatric, community, child and mental health nursing; maternity care, research, statistics and nursing administration. General sections cover general awareness, arithmetic and reasoning, and general science.'
+  }
+};
+Object.assign(patternBlueprints['RRB Nursing Superintendent'],{
+  count:100,minutes:90,negative:1/3,
+  sections:[{topic:'Professional Ability',count:70},{topic:'General Awareness',count:10},{topic:'Arithmetic and Reasoning',count:10},{topic:'General Science',count:10}]
+});
+patternBlueprints.CCC.sections=[
+  {topic:'Computer Fundamentals and Operating Systems',count:8},
+  {topic:'Word Processing, Spreadsheets and Presentations',count:12},
+  {topic:'Internet, Email and E-Governance',count:8},
+  {topic:'Digital Finance, Cybersecurity and Future Skills',count:12}
+];
+for(const [name,entry] of Object.entries(officialSyllabi))patternBlueprints[name].source=entry.source;
 // Self-authored practice bank: not official PYQs; preserve user's existing questions.
 const coPractice=JSON.parse(fs.readFileSync(path.join(__dirname,'co_practice_questions.json'),'utf8'));
 const addPractice=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)');
@@ -85,6 +293,11 @@ for(const [examName,pat] of Object.entries(patternBlueprints)){
 db.exec(`CREATE TABLE IF NOT EXISTS deleted_daily(day TEXT,exam_id INTEGER,type TEXT,PRIMARY KEY(day,exam_id,type));CREATE TABLE IF NOT EXISTS daily_drafts(day TEXT NOT NULL,exam_id INTEGER NOT NULL,type TEXT NOT NULL,test_id INTEGER NOT NULL UNIQUE,PRIMARY KEY(day,exam_id,type),FOREIGN KEY(exam_id) REFERENCES exams(id),FOREIGN KEY(test_id) REFERENCES tests(id));`);
 function indiaDay(date=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(date).replace(/^(\d{2})\/(\d{2})\/(\d{4})$/,'$3-$1-$2')}
 db.exec("CREATE TABLE IF NOT EXISTS exam_generation(exam_id INTEGER PRIMARY KEY REFERENCES exams(id),syllabus TEXT NOT NULL DEFAULT '',pattern_json TEXT)");
+if(!db.prepare('PRAGMA table_info(exam_generation)').all().some(c=>c.name==='official_url'))db.exec("ALTER TABLE exam_generation ADD COLUMN official_url TEXT NOT NULL DEFAULT ''");
+for(const [name,entry] of Object.entries(officialSyllabi)){
+ const exam=db.prepare('SELECT id FROM exams WHERE name=?').get(name);
+ db.prepare("INSERT INTO exam_generation(exam_id,syllabus,official_url) VALUES(?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,official_url=excluded.official_url WHERE exam_generation.syllabus=''").run(exam.id,entry.syllabus,entry.source);
+}
 for(const row of db.prepare('SELECT e.name,g.pattern_json FROM exam_generation g JOIN exams e ON e.id=g.exam_id WHERE g.pattern_json IS NOT NULL').all())patternBlueprints[row.name]=JSON.parse(row.pattern_json);
 function makeDailyDrafts(){const day=indiaDay(), examRows=db.prepare('SELECT id,name FROM exams ORDER BY id').all();let created=0;
  const insert=db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)');
@@ -127,7 +340,7 @@ const repairCo=()=>{
 function setBankingTimers(){for(const t of db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE e.category='Banking' AND t.published=0 AND t.behavior_json='{}' AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)").all()){const sections=JSON.parse(t.sections_json);if(!sections.length)continue;let remaining=t.minutes;const rules=sections.map((sec,i)=>{const minutes=i===sections.length-1?remaining:Math.floor(t.minutes/sections.length);remaining-=minutes;return {topic:sec.topic,minutes,positive:t.positive,negative:t.negative}});db.prepare('UPDATE tests SET behavior_json=? WHERE id=?').run(JSON.stringify(normalizeBehavior({timerMode:'sectional',sectionRules:rules},sections,t.minutes)),t.id)}}
 setBankingTimers();const bankingTimer=setInterval(setBankingTimers,60000);bankingTimer.unref();
 const engine=require('./draft-engine')(db,patternBlueprints,indiaDay);
-function finalize(a){if(a.submitted_at)return JSON.parse(a.result_json);const t=db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),ids=JSON.parse(a.question_ids_json),qs=ids.map(id=>db.prepare('SELECT * FROM questions WHERE id=?').get(id)),ans=JSON.parse(a.answers_json||'{}');let correct=0,wrong=0,score=0,maxMarks=0;let topics={};const rules=behaviorFor(t).sectionRules;const review=qs.map(q=>{const selected=ans[q.id]??null,ok=selected===q.correct_index,rule=rules.find(x=>x.topic===q.topic),plus=rule?.positive??t.positive,minus=rule?.negative??t.negative;maxMarks+=plus;if(selected!==null)score+=ok?plus:-minus;if(selected!==null){if(ok)correct++;else wrong++}const r=topics[q.topic]||{correct:0,total:0};r.total++;if(ok)r.correct++;topics[q.topic]=r;return {id:q.id,topic:q.topic,stem:q.stem,options:JSON.parse(q.options_json),selected,correctIndex:q.correct_index,explanation:q.explanation,optionExplanations:JSON.parse(q.option_explanations_json||'[]'),revisionNotes:q.revision_notes||''}});const result={correct,wrong,skipped:qs.length-correct-wrong,total:qs.length,score:Number(score.toFixed(2)),maxMarks:Number(maxMarks.toFixed(2)),accuracy:Number((qs.length?100*correct/(correct+wrong||1):0).toFixed(1)),positive:t.positive,negative:t.negative,behavior:behaviorFor(t),topics,review,submittedAt:Date.now()};db.prepare('UPDATE attempts SET submitted_at=?,result_json=? WHERE id=?').run(Date.now(),JSON.stringify(result),a.id);return result}
+function finalize(a){if(a.submitted_at)return JSON.parse(a.result_json);const t=db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),ids=JSON.parse(a.question_ids_json),qs=ids.map(id=>db.prepare('SELECT * FROM questions WHERE id=?').get(id)),ans=JSON.parse(a.answers_json||'{}'),timings=questionTimes(a);let correct=0,wrong=0,score=0,maxMarks=0;let topics={};const rules=behaviorFor(t).sectionRules;const review=qs.map(q=>{const selected=ans[q.id]??null,ok=selected===q.correct_index,rule=rules.find(x=>x.topic===q.topic),plus=rule?.positive??t.positive,minus=rule?.negative??t.negative;maxMarks+=plus;if(selected!==null)score+=ok?plus:-minus;if(selected!==null){if(ok)correct++;else wrong++}const r=topics[q.topic]||{correct:0,total:0};r.total++;if(ok)r.correct++;topics[q.topic]=r;return {timeMs:timings[q.id]??null,id:q.id,topic:q.topic,stem:q.stem,options:JSON.parse(q.options_json),selected,correctIndex:q.correct_index,explanation:q.explanation,optionExplanations:JSON.parse(q.option_explanations_json||'[]'),revisionNotes:q.revision_notes||''}});const result={durationMs:Math.max(0,Math.min(Date.now(),a.deadline)-a.started_at),trackedMs:Object.values(timings).reduce((n,x)=>n+x,0),correct,wrong,skipped:qs.length-correct-wrong,total:qs.length,score:Number(score.toFixed(2)),maxMarks:Number(maxMarks.toFixed(2)),accuracy:Number((qs.length?100*correct/(correct+wrong||1):0).toFixed(1)),positive:t.positive,negative:t.negative,behavior:behaviorFor(t),topics,review,submittedAt:Date.now()};db.prepare('UPDATE attempts SET submitted_at=?,result_json=? WHERE id=?').run(Date.now(),JSON.stringify(result),a.id);return result}
 const exchangeJPOwner=require('./jp-owner-bridge')(db);
 async function api(req,res,url){let method=req.method, p=url.pathname, data={};if(['POST','PATCH','PUT'].includes(method)){let chunks=[],n=0;for await(const b of req){n+=b.length;if(n>1e6)fail(413,'Payload too large');chunks.push(b)}try{data=JSON.parse(Buffer.concat(chunks).toString()||'{}')}catch{fail(400,'Invalid JSON')}}
 if(method==='POST'&&p==='/api/jp-control/exchange')return send(res,200,await exchangeJPOwner(data));
@@ -136,18 +349,18 @@ if(method==='POST'&&p==='/api/login'){const u=db.prepare('SELECT * FROM users WH
 if(method==='GET'&&p==='/api/me')return send(res,200,{user:auth(req)});
 if(method==='POST'&&p==='/api/logout'){auth(req);db.prepare('DELETE FROM tokens WHERE token_hash=?').run(crypto.createHash('sha256').update((req.headers.authorization||'').slice(7)).digest('hex'));return send(res,200,{ok:true})}
 if(method==='GET'&&p==='/api/status'){const rows=db.prepare("SELECT e.name exam, SUM(CASE WHEN t.type='Full' THEN 1 ELSE 0 END) AS full_count, SUM(CASE WHEN t.type='Mini' THEN 1 ELSE 0 END) AS mini_count FROM exams e LEFT JOIN tests t ON t.exam_id=e.id AND t.title NOT LIKE '%(Sample)%' GROUP BY e.id ORDER BY e.id").all();return send(res,200,{build:BUILD, database:path.join(__dirname,'data','examnova.sqlite'), total:rows.reduce((n,r)=>n+(r.full_count||0)+(r.mini_count||0),0),exams:rows,coReady:db.prepare("SELECT COUNT(*) AS n FROM tests WHERE exam_id=? AND published=1 AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%'").get(exam1).n,coQuestions:db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=?').get(exam1).n})}
-if(method==='GET'&&p==='/api/exams'){return send(res,200,{exams:db.prepare('SELECT * FROM exams ORDER BY id').all()})}
+if(method==='GET'&&p==='/api/exams'){return send(res,200,{exams:db.prepare("SELECT e.*,COALESCE(g.official_url,'') official_url,CASE WHEN g.official_url<>'' THEN g.syllabus ELSE '' END syllabus FROM exams e LEFT JOIN exam_generation g ON g.exam_id=e.id ORDER BY e.id").all()})}
 if(method==='GET'&&p==='/api/tests'){const examId=Number(url.searchParams.get('exam')||0);return send(res,200,{tests:db.prepare("SELECT t.*,e.name exam_name FROM tests t JOIN exams e ON e.id=t.exam_id WHERE (?=0 OR t.exam_id=?) AND t.title NOT LIKE '%(Sample)%' ORDER BY t.id DESC").all(examId,examId).map(publicTest)})}
 if(method==='POST'&&p==='/api/attempts'){const u=auth(req),t=db.prepare('SELECT * FROM tests WHERE id=? AND published=1').get(Number(data.testId));if(!t)fail(404,'Test unavailable');const sections=JSON.parse(t.sections_json||'[]');let qs=[];const pinned=engine.questions(t.id);if(pinned.length){if(!engine.complete(t))fail(409,'Mock questions incomplete');qs=pinned.map(q=>({id:q.id}))}else if(sections.length){for(const section of sections){const picked=db.prepare('SELECT id FROM questions WHERE exam_id=? AND LOWER(TRIM(topic))=LOWER(TRIM(?)) AND verified=1 ORDER BY RANDOM() LIMIT ?').all(t.exam_id,section.topic,section.count);if(picked.length<section.count)fail(409,`Section ${section.topic}: only ${picked.length}/${section.count} questions available`);qs.push(...picked)}}else{qs=db.prepare('SELECT id FROM questions WHERE exam_id=? AND verified=1 ORDER BY RANDOM() LIMIT ?').all(t.exam_id,t.question_count)}if(qs.length<t.question_count)fail(409,'Question bank incomplete for this test');const now=Date.now(),id=Number(db.prepare('INSERT INTO attempts(user_id,test_id,started_at,deadline,question_ids_json) VALUES(?,?,?,?,?)').run(u.id,t.id,now,now+t.minutes*60000,JSON.stringify(qs.map(q=>q.id))).lastInsertRowid);return send(res,201,{id})}
 const m=p.match(/^\/api\/attempts\/(\d+)(?:\/(submit|answer))?$/);if(m){const u=auth(req),a=db.prepare('SELECT * FROM attempts WHERE id=? AND user_id=?').get(Number(m[1]),u.id);if(!a)fail(404,'Attempt not found');if(method==='GET'&&!m[2]){if(a.submitted_at)return send(res,200,{done:true,result:JSON.parse(a.result_json)});if(Date.now()>=a.deadline)return send(res,200,{done:true,result:finalize(a)});const ids=JSON.parse(a.question_ids_json),questions=ids.map(id=>{let q=db.prepare('SELECT id,topic,stem,options_json FROM questions WHERE id=?').get(id);return {...q,options:JSON.parse(q.options_json),options_json:undefined}});return send(res,200,{done:false,id:a.id,test:publicTest(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id)),deadline:a.deadline,activeSection:sectionAt(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a),questions,answers:JSON.parse(a.answers_json||'{}'),review:JSON.parse(a.review_json||'{}')})}
-if(method==='POST'&&m[2]==='answer'){if(a.submitted_at||Date.now()>=a.deadline)fail(409,'Test already ended');const qid=Number(data.questionId),ids=JSON.parse(a.question_ids_json);if(!ids.includes(qid))fail(400,'Invalid question');const active=sectionAt(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a);if(active>=0&&getQuestionSection(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a,qid)!==active)fail(409,'Section time ended or not yet started');let answers=JSON.parse(a.answers_json||'{}'),review=JSON.parse(a.review_json||'{}');if(data.answer===null)delete answers[qid];else if(Number.isInteger(data.answer)&&data.answer>=0&&data.answer<4)answers[qid]=data.answer;else if(data.answer!==undefined)fail(400,'Invalid answer');if(typeof data.review==='boolean'){if(behaviorFor(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id)).reviewPolicy==='disabled')fail(409,'Review disabled for this exam');review[qid]=data.review;}db.prepare('UPDATE attempts SET answers_json=?,review_json=? WHERE id=?').run(JSON.stringify(answers),JSON.stringify(review),a.id);return send(res,200,{ok:true})}
+if(method==='POST'&&m[2]==='answer'){if(a.submitted_at||Date.now()>=a.deadline)fail(409,'Test already ended');const qid=Number(data.questionId),ids=JSON.parse(a.question_ids_json);if(!ids.includes(qid))fail(400,'Invalid question');const active=sectionAt(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a);if(active>=0&&getQuestionSection(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a,qid)!==active)fail(409,'Section time ended or not yet started');if(data.focus===true){db.prepare('UPDATE attempts SET timing_json=?,focus_q=?,focus_at=? WHERE id=?').run(JSON.stringify(questionTimes(a)),qid,Date.now(),a.id);return send(res,200,{ok:true})}let answers=JSON.parse(a.answers_json||'{}'),review=JSON.parse(a.review_json||'{}');if(data.answer===null)delete answers[qid];else if(Number.isInteger(data.answer)&&data.answer>=0&&data.answer<4)answers[qid]=data.answer;else if(data.answer!==undefined)fail(400,'Invalid answer');if(typeof data.review==='boolean'){if(behaviorFor(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id)).reviewPolicy==='disabled')fail(409,'Review disabled for this exam');review[qid]=data.review;}db.prepare('UPDATE attempts SET answers_json=?,review_json=? WHERE id=?').run(JSON.stringify(answers),JSON.stringify(review),a.id);return send(res,200,{ok:true})}
 if(method==='POST'&&m[2]==='submit')return send(res,200,{result:finalize(a)})}
 if(method==='GET'&&p==='/api/incomplete'){const u=auth(req);return send(res,200,{attempts:db.prepare('SELECT a.id,a.deadline,t.title FROM attempts a JOIN tests t ON t.id=a.test_id WHERE a.user_id=? AND a.submitted_at IS NULL AND a.deadline>? ORDER BY a.id DESC LIMIT 10').all(u.id,Date.now())})}
-if(method==='GET'&&p==='/api/history'){const u=auth(req);return send(res,200,{history:db.prepare('SELECT a.id,a.started_at,a.submitted_at,a.result_json,t.title,e.name exam FROM attempts a JOIN tests t ON a.test_id=t.id JOIN exams e ON t.exam_id=e.id WHERE a.user_id=? AND a.submitted_at IS NOT NULL ORDER BY a.id DESC LIMIT 100').all(u.id).map(x=>({...x,result:JSON.parse(x.result_json),result_json:undefined}))})}
+if(method==='GET'&&p==='/api/history'){const u=auth(req);return send(res,200,{history:db.prepare('SELECT a.id,a.started_at,a.submitted_at,a.result_json,t.title,e.name exam FROM attempts a JOIN tests t ON a.test_id=t.id JOIN exams e ON t.exam_id=e.id WHERE a.user_id=? AND a.submitted_at IS NOT NULL ORDER BY a.id DESC').all(u.id).map(x=>({...x,result:JSON.parse(x.result_json),result_json:undefined}))})}
 if(p.startsWith('/api/admin/')){admin(req);
-if(method==='GET'&&p==='/api/admin/studio')return send(res,200,{configured:!!(process.env.GEMINI_API_KEY||process.env.OPENAI_API_KEY),provider:process.env.GEMINI_API_KEY?'Gemini':'OpenAI',enabled:!!db.prepare('SELECT enabled FROM generation_settings').get().enabled,mocks:engine.list()});
+if(method==='GET'&&p==='/api/admin/studio')return send(res,200,{configured:!!(process.env.GEMINI_API_KEY||process.env.OPENAI_API_KEY),provider:process.env.GEMINI_API_KEY?'Gemini':'OpenAI',enabled:!!db.prepare('SELECT enabled FROM generation_settings').get().enabled,worker:engine.status(),mocks:engine.list()});
 if(method==='POST'&&p==='/api/admin/studio/settings'){db.prepare('UPDATE generation_settings SET enabled=?').run(data.enabled?1:0);return send(res,200,{ok:true})}
-if(method==='POST'&&p==='/api/admin/studio/retry'){db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE test_id=? AND status NOT IN ('generating','published')").run(Number(data.id));void engine.tick();return send(res,200,{ok:true})}
+if(method==='POST'&&p==='/api/admin/studio/retry'){if(!engine.retry(Number(data.id)))fail(404,'Unpublished mock not found');void engine.tick();return send(res,200,{ok:true})}
 if(method==='GET'&&/^\/api\/admin\/studio\/\d+$/.test(p)){const id=Number(p.split('/').pop());return send(res,200,{questions:engine.questions(id)})}
 if(method==='DELETE'&&/^\/api\/admin\/studio\/\d+$/.test(p)){try{engine.remove(Number(p.split('/').pop()))}catch(e){fail(409,e.message)}return send(res,200,{ok:true})}
 if(method==='DELETE'&&/^\/api\/admin\/studio\/\d+\/questions\/\d+$/.test(p)){
@@ -166,7 +379,10 @@ if(method==='POST'&&/^\/api\/admin\/studio\/\d+\/publish$/.test(p)){
 if(method==='POST'&&p==='/api/admin/studio/pattern'){
  const id=Number(data.examId),t=data.pattern;if(!db.prepare('SELECT 1 FROM exams WHERE id=?').get(id)||!t||!Array.isArray(t.sections)||!t.sections.length||t.sections.length>20||t.sections.some(x=>!x.topic||!Number.isInteger(x.count)||x.count<1)||t.sections.reduce((a,x)=>a+x.count,0)>500||!Number.isFinite(t.minutes)||t.minutes<1||t.minutes>500||!Number.isFinite(t.positive)||t.positive<=0||!Number.isFinite(t.negative)||t.negative<0||new Set(t.sections.map(x=>x.topic.trim().toLowerCase())).size!==t.sections.length)fail(400,'Valid pattern: sections, minutes, positive and negative required');
  t.count=t.sections.reduce((a,x)=>a+x.count,0);const name=db.prepare('SELECT name FROM exams WHERE id=?').get(id).name;
- db.prepare('INSERT INTO exam_generation(exam_id,syllabus,pattern_json) VALUES(?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,pattern_json=excluded.pattern_json').run(id,String(data.syllabus||''),JSON.stringify(t));patternBlueprints[name]=t;return send(res,200,{ok:true});
+ const syllabus=String(data.syllabus||'').trim(), officialUrl=String(data.officialUrl||'').trim();
+ if(!syllabus||!URL.canParse(officialUrl)||new URL(officialUrl).protocol!=='https:')fail(400,'Enter the official HTTPS syllabus link and syllabus topics');
+ db.prepare('INSERT INTO exam_generation(exam_id,syllabus,pattern_json,official_url) VALUES(?,?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,pattern_json=excluded.pattern_json,official_url=excluded.official_url').run(id,syllabus,JSON.stringify(t),officialUrl);
+ patternBlueprints[name]=t;return send(res,200,{ok:true});
 }
 
 if(method==='GET'&&p==='/api/admin/readiness'){
