@@ -2,7 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const PORT=Number(process.env.PORT||3001), ROOT=path.join(__dirname,'public');
-const BUILD='2026-11-04-syllabus-draft-update';
+const BUILD='2026-11-04-owner-login';
 fs.mkdirSync(path.join(__dirname,'data'),{recursive:true});
 const db=new DatabaseSync(path.join(__dirname,'data','examnova.sqlite')); db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
 db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'candidate',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -52,10 +52,23 @@ function sectionAt(t,a,now=Date.now()){
 function getQuestionSection(t,a,id){const sections=JSON.parse(t.sections_json||'[]'),ids=JSON.parse(a.question_ids_json);let pos=ids.indexOf(id),offset=0;if(pos<0)return -1;
  for(let i=0;i<sections.length;i++){offset+=sections[i].count;if(pos<offset)return i}return -1;
 }
-const email=(process.env.ADMIN_EMAIL||'admin@examnova.local').toLowerCase(), pw=process.env.ADMIN_PASSWORD;
+const email=(process.env.ADMIN_EMAIL||'admin@examnova.local').trim().toLowerCase(), pw=process.env.ADMIN_PASSWORD;
 const hashPw=s=>{const salt=crypto.randomBytes(16).toString('hex');return salt+':'+crypto.scryptSync(s,salt,64).toString('hex')};
 const checkPw=(s,h)=>{const [salt,hex]=h.split(':');const a=crypto.scryptSync(s,salt,64),b=Buffer.from(hex,'hex');return a.length===b.length&&crypto.timingSafeEqual(a,b)};
-if(pw&&!db.prepare('SELECT id FROM users WHERE email=?').get(email))db.prepare("INSERT INTO users(name,email,hash,role) VALUES(?,?,?,'admin')").run('Administrator',email,hashPw(pw));
+if(pw){
+ if(pw.length<8)throw Error('ADMIN_PASSWORD must contain at least 8 characters');
+ const owner=db.prepare('SELECT id,hash,role FROM users WHERE email=?').get(email);
+ if(!owner)db.prepare("INSERT INTO users(name,email,hash,role) VALUES(?,?,?,'admin')").run('Owner',email,hashPw(pw));
+ else if(owner.role!=='admin'||!checkPw(pw,owner.hash)){
+  db.exec('BEGIN IMMEDIATE');
+  try{
+   db.prepare("UPDATE users SET hash=?,role='admin' WHERE id=?").run(hashPw(pw),owner.id);
+   db.prepare('DELETE FROM tokens WHERE user_id=?').run(owner.id);
+   db.exec('COMMIT');
+  }catch(error){db.exec('ROLLBACK');throw error}
+ }
+}
+
 const exams=['UP Police Computer Operator|Police','SSC CGL|SSC','SSC CHSL|SSC','SSC GD|SSC','RRB NTPC|Railway','RRB Group D|Railway','IBPS PO|Banking','SBI Clerk|Banking','UP Police Constable|Police','UPSSSC PET|State','CTET|Teaching','UPTET|Teaching','NDA|Defence','CDS|Defence','UPPSC PCS|State','CCC|Computer Exams','ADCA|Computer Exams','O Level|Computer Exams','A Level|Computer Exams','AIIMS NORCET|Nursing','RRB Nursing Superintendent|Nursing','KVS PRT|Teaching'];
 const addExam=db.prepare('INSERT OR IGNORE INTO exams(name,category) VALUES(?,?)');for(const x of exams){const [name,category]=x.split('|');addExam.run(name,category)}
 const exam1=db.prepare('SELECT id FROM exams WHERE name=?').get('UP Police Computer Operator').id;
@@ -385,7 +398,7 @@ const exchangeJPOwner=require('./jp-owner-bridge')(db);
 async function api(req,res,url){let method=req.method, p=url.pathname, data={};if(['POST','PATCH','PUT'].includes(method)){let chunks=[],n=0;for await(const b of req){n+=b.length;if(n>1e6)fail(413,'Payload too large');chunks.push(b)}try{data=JSON.parse(Buffer.concat(chunks).toString()||'{}')}catch{fail(400,'Invalid JSON')}}
 if(method==='POST'&&p==='/api/jp-control/exchange')return send(res,200,await exchangeJPOwner(data));
 if(method==='POST'&&p==='/api/register'){const name=String(data.name||'').trim(),em=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');if(name.length<2||name.length>70||!/^\S+@\S+\.\S+$/.test(em)||password.length<8)fail(400,'Valid name, email, password (8+ characters) required');try{db.prepare('INSERT INTO users(name,email,hash) VALUES(?,?,?)').run(name,em,hashPw(password))}catch{fail(409,'Email already registered')}return send(res,201,{ok:true})}
-if(method==='POST'&&p==='/api/login'){const u=db.prepare('SELECT * FROM users WHERE email=?').get(String(data.email||'').toLowerCase());if(!u||!checkPw(String(data.password||''),u.hash))fail(401,'Invalid email or password');const token=crypto.randomBytes(32).toString('hex');db.prepare('INSERT INTO tokens(token_hash,user_id,expires) VALUES(?,?,?)').run(crypto.createHash('sha256').update(token).digest('hex'),u.id,Date.now()+7*864e5);return send(res,200,{token,user:{id:u.id,name:u.name,email:u.email,role:u.role}})}
+if(method==='POST'&&p==='/api/login'){const u=db.prepare('SELECT * FROM users WHERE email=?').get(String(data.email||'').trim().toLowerCase());if(!u||!checkPw(String(data.password||''),u.hash))fail(401,'Invalid email or password');const token=crypto.randomBytes(32).toString('hex');db.prepare('INSERT INTO tokens(token_hash,user_id,expires) VALUES(?,?,?)').run(crypto.createHash('sha256').update(token).digest('hex'),u.id,Date.now()+7*864e5);return send(res,200,{token,user:{id:u.id,name:u.name,email:u.email,role:u.role}})}
 if(method==='GET'&&p==='/api/me')return send(res,200,{user:auth(req)});
 if(method==='POST'&&p==='/api/logout'){auth(req);db.prepare('DELETE FROM tokens WHERE token_hash=?').run(crypto.createHash('sha256').update((req.headers.authorization||'').slice(7)).digest('hex'));return send(res,200,{ok:true})}
 if(method==='GET'&&p==='/api/status'){const rows=db.prepare("SELECT e.name exam, SUM(CASE WHEN t.type='Full' THEN 1 ELSE 0 END) AS full_count, SUM(CASE WHEN t.type='Mini' THEN 1 ELSE 0 END) AS mini_count FROM exams e LEFT JOIN tests t ON t.exam_id=e.id AND t.title NOT LIKE '%(Sample)%' GROUP BY e.id ORDER BY e.id").all();return send(res,200,{build:BUILD, database:path.join(__dirname,'data','examnova.sqlite'), total:rows.reduce((n,r)=>n+(r.full_count||0)+(r.mini_count||0),0),exams:rows,coReady:db.prepare("SELECT COUNT(*) AS n FROM tests WHERE exam_id=? AND published=1 AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%'").get(exam1).n,coQuestions:db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=?').get(exam1).n})}

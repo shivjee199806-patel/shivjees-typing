@@ -13,7 +13,7 @@ module.exports=function(db,blueprints,day){
   if(process.env.GEMINI_MODEL)return process.env.GEMINI_MODEL.replace(/^models\//,'');if(cachedModel)return cachedModel;
   const models=[];let page='';for(let i=0;i<5;i++){
    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100'+(page?'&pageToken='+encodeURIComponent(page):''),{method:'GET',signal:AbortSignal.timeout(20000),headers:{'x-goog-api-key':process.env.GEMINI_API_KEY}});
-   if(!response.ok){if(response.status===429)nextCall=Date.now()+60000;throw Error('Gemini model discovery HTTP '+response.status+'; check key permissions/quota.')}
+   if(!response.ok){if(response.status>=500)throw transientError('Gemini model discovery temporarily unavailable: HTTP '+response.status);if(response.status===429)nextCall=Date.now()+60000;throw Error('Gemini model discovery HTTP '+response.status+'; check key permissions/quota.')}
    const body=await response.json();models.push(...(body.models||[]));page=body.nextPageToken;if(!page)break;
   }
   const names=models.filter(m=>m.supportedGenerationMethods?.includes('generateContent')&&/gemini.*flash/i.test(m.name)&&!/(image|audio|live|tts|robot|computer)/i.test(m.name)).map(m=>m.name.replace(/^models\//,''));
@@ -23,6 +23,10 @@ module.exports=function(db,blueprints,day){
  function retry(id){const job=db.prepare('SELECT t.* FROM tests t JOIN mock_jobs j ON j.test_id=t.id WHERE t.id=?').get(id);if(!job||job.published)return false;db.prepare("UPDATE mock_jobs SET status='queued',error='',priority_ms=? WHERE test_id=? AND status!='generating'").run(Date.now(),id);return true}
  function status(){return {active,model:process.env.GEMINI_API_KEY?(process.env.GEMINI_MODEL||cachedModel||'Auto-detect'):process.env.QUESTION_MODEL||'gpt-4.1-mini',lastError,retryInSeconds:Math.max(0,Math.ceil((nextCall-Date.now())/1000))}}
 
+ function transientError(message){
+  nextCall=Math.max(nextCall,Date.now()+60000);
+  const error=new Error(message);error.retryable=true;return error;
+ }
  const provider=()=>process.env.GEMINI_API_KEY?'Gemini':'OpenAI';
  const norm=s=>s.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
  const questions=id=>db.prepare('SELECT q.* FROM mock_questions m JOIN questions q ON q.id=m.question_id WHERE m.test_id=? ORDER BY m.position').all(id).map(q=>({...q,options:JSON.parse(q.options_json),optionExplanations:JSON.parse(q.option_explanations_json),revisionNotes:q.revision_notes}));
@@ -37,7 +41,7 @@ module.exports=function(db,blueprints,day){
  }
  function save(t,topic,q,reuse=false){
   if(typeof q.stem!=='string'||q.stem.trim().length<15||!Array.isArray(q.options)||q.options.length!==4||q.options.some(x=>typeof x!=='string'||!x.trim())||new Set(q.options.map(norm)).size!==4||!Number.isInteger(q.correctIndex)||q.correctIndex<0||q.correctIndex>3||typeof q.explanation!=='string'||q.explanation.length<20||!Array.isArray(q.optionExplanations)||q.optionExplanations.length!==4||q.optionExplanations.some(x=>typeof x!=='string'||x.length<10)||typeof q.revisionNotes!=='string'||q.revisionNotes.length<15)return false;
-  if(!reuse&&(!patternKey(q.patternKey)||!patternAllowed(t.id,q.stem,q.patternKey)))return false;
+  if(!patternAllowed(t.id,q.stem,q.patternKey)||(!reuse&&!patternKey(q.patternKey)))return false;
   const prior=db.prepare('SELECT id,stem FROM questions').all().find(x=>norm(x.stem)===norm(q.stem));
   if(prior){if(!reuse||db.prepare('SELECT 1 FROM mock_questions WHERE question_id=? AND test_id!=?').get(prior.id,t.id))return false;db.prepare('INSERT OR IGNORE INTO mock_questions VALUES(?,?,?)').run(t.id,prior.id,questions(t.id).length);db.prepare("UPDATE questions SET option_explanations_json=?,revision_notes=? WHERE id=? AND option_explanations_json='[]'").run(JSON.stringify(q.optionExplanations),q.revisionNotes,prior.id);return true}
   db.exec('BEGIN IMMEDIATE');try{const id=Number(db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified,option_explanations_json,revision_notes,pattern_key) VALUES(?,?,?,?,?,?,0,?,?,?)').run(t.exam_id,topic,q.stem.trim(),JSON.stringify(q.options),q.correctIndex,q.explanation,JSON.stringify(q.optionExplanations),q.revisionNotes,patternKey(q.patternKey)).lastInsertRowid);db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,id,questions(t.id).length);db.exec('COMMIT');return true}catch(e){db.exec('ROLLBACK');throw e}
@@ -49,7 +53,7 @@ module.exports=function(db,blueprints,day){
   for(let i=0;i<500&&questions(t.id).filter(q=>q.topic==='Computer').length<80;i++)save(t,'Computer',offline('Computer',i),true);
   for(let i=0;i<40;i++)save(t,'Reasoning',offline('Reasoning',i),true);
   for(let i=0;i<factCount;i++)save(t,'General Awareness',factual(i),true);
-  db.prepare("INSERT OR REPLACE INTO mock_jobs(test_id,status,error) VALUES(?,'ready','Offline practice starter: limited subtopics; review exam coverage before publishing.')").run(t.id);
+  db.prepare("INSERT OR REPLACE INTO mock_jobs(test_id,status,error) VALUES(?,?,'Offline practice starter: limited subtopics; review exam coverage before publishing.')").run(t.id,complete(t)?'ready':'queued');
  }
  async function requestJson(request){
    const gemini=provider()==='Gemini',model=gemini?(await geminiModel()):request.model;
@@ -59,7 +63,7 @@ module.exports=function(db,blueprints,day){
    const r=await fetch(endpoint,{method:'POST',signal:AbortSignal.timeout(120000),headers:{'Content-Type':'application/json',...(gemini?{'x-goog-api-key':process.env.GEMINI_API_KEY}:{Authorization:'Bearer '+process.env.OPENAI_API_KEY})},body:JSON.stringify(payload)});
    if(!r.ok){let code='';try{const detail=await r.json();code=String(detail.error?.status||detail.error?.code||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,70)}catch{}
     if(r.status===429)nextCall=Date.now()+60000;if(r.status===404)cachedModel='';
-    if(r.status===503){nextCall=Date.now()+60000;const error=new Error(provider()+' temporarily unavailable (503). Will retry.');error.retryable=true;throw error}
+    if(r.status>=500)throw transientError(provider()+' temporarily unavailable ('+r.status+'). Will retry.');
     throw Error(`${provider()} HTTP ${r.status}${code?' ('+code+')':''}; ${r.status===429?'quota/rate limit; wait or check API billing.':r.status===404?'check GEMINI_MODEL / QUESTION_MODEL availability.':'check API key permissions.'}`);
    }
    const body=await r.json();const output=gemini?(body.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join(''):body.choices?.[0]?.message?.content;
@@ -102,10 +106,37 @@ module.exports=function(db,blueprints,day){
   }
   const updated=db.prepare('SELECT * FROM tests WHERE id=?').get(job.id);
   lastError='';db.prepare("UPDATE mock_jobs SET status=?,error='',updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(complete(updated)?'ready':'queued',job.id);
- }catch(e){lastError=String(e.message).slice(0,350);db.prepare("UPDATE mock_jobs SET status=?,error=?,updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(e.retryable?'queued':'error',lastError,job.id)}finally{busy=false;active=null}
+ }catch(e){if(e.name==='TimeoutError'||e.name==='AbortError'||(e instanceof TypeError&&/fetch failed/i.test(e.message)))e=transientError('AI connection timed out or failed. Will retry.');lastError=String(e.message).slice(0,350);console.error('[mock-generation]',job.id,job.name,lastError);db.prepare("UPDATE mock_jobs SET status=?,error=?,updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(e.retryable?'queued':'error',lastError,job.id)}finally{busy=false;active=null}
  }
  function list(){return db.prepare('SELECT t.*,e.name exam_name,j.status,j.error,j.updated_at FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id WHERE t.published=1 OR t.id NOT IN (SELECT test_id FROM daily_drafts) ORDER BY t.id DESC LIMIT 200').all().map(t=>({...t,sections:JSON.parse(t.sections_json),generated:questions(t.id).length,ready:complete(t),syllabusPending:!db.prepare("SELECT 1 FROM exam_generation WHERE exam_id=? AND official_url<>'' AND trim(syllabus)<>''").get(t.exam_id)}))}
  function remove(id){const t=db.prepare('SELECT * FROM tests WHERE id=?').get(id);if(!t)throw Error('Mock not found');if(t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(id))throw Error('Unpublish first; attempted tests are retained for result history.');db.exec('BEGIN IMMEDIATE');try{db.prepare('DELETE FROM mock_jobs WHERE test_id=?').run(id);db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_daily SELECT day,exam_id,type FROM daily_drafts WHERE test_id=?').run(id);db.prepare('DELETE FROM daily_drafts WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_test_titles(title) VALUES(?)').run(t.title);db.prepare('DELETE FROM tests WHERE id=?').run(id);db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}}
- db.exec('CREATE TABLE IF NOT EXISTS starter_state(id INTEGER PRIMARY KEY)');bootstrap();db.prepare('INSERT OR IGNORE INTO starter_state VALUES(1)').run();enqueue();db.prepare("UPDATE mock_jobs SET status='queued' WHERE status='error' AND error LIKE 'Gemini HTTP 503%'").run();if(process.env.GEMINI_API_KEY)db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND error LIKE 'AI service HTTP %'").run();db.exec('CREATE TABLE IF NOT EXISTS engine_migrations(name TEXT PRIMARY KEY)');if(process.env.GEMINI_API_KEY&&!db.prepare('SELECT 1 FROM engine_migrations WHERE name=?').get('fair-gemini-model-v2')){db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND (error LIKE 'Gemini%' OR error LIKE 'AI service HTTP %')").run();db.prepare('INSERT INTO engine_migrations VALUES(?)').run('fair-gemini-model-v2')}const timer=setInterval(()=>void tick(),3000);timer.unref();void tick();
+ // Repair only unpublished, unattempted offline starters previously made with numeric templates.
+ db.exec('CREATE TABLE IF NOT EXISTS engine_migrations(name TEXT PRIMARY KEY)');
+ if(!db.prepare('SELECT 1 FROM engine_migrations WHERE name=?').get('offline-pattern-cap-v1')){
+  db.exec('BEGIN IMMEDIATE');
+  try{
+   const old=db.prepare(`SELECT t.* FROM tests t JOIN mock_jobs j ON j.test_id=t.id
+    WHERE j.error LIKE 'Offline practice starter:%' AND t.published=0
+    AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)`).all();
+   for(const test of old){
+    const kept=[],counts=new Map();
+    for(const q of questions(test.id)){
+     const signature=stemPattern(q.stem),count=counts.get(signature)||0;
+     if(count<2){kept.push(q);counts.set(signature,count+1)}
+    }
+    db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(test.id);
+    kept.forEach((q,index)=>db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(test.id,q.id,index));
+    db.prepare("UPDATE mock_jobs SET status='queued',error='Repeated offline templates removed; waiting for AI questions.' WHERE test_id=?").run(test.id);
+   }
+   db.prepare('INSERT INTO engine_migrations VALUES(?)').run('offline-pattern-cap-v1');
+   db.exec('COMMIT');
+  }catch(error){db.exec('ROLLBACK');throw error}
+ }
+ db.exec('CREATE TABLE IF NOT EXISTS starter_state(id INTEGER PRIMARY KEY)');bootstrap();db.prepare('INSERT OR IGNORE INTO starter_state VALUES(1)').run();enqueue();db.prepare("UPDATE mock_jobs SET status='queued' WHERE status='error' AND error LIKE 'Gemini HTTP 503%'").run();if(process.env.GEMINI_API_KEY)db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND error LIKE 'AI service HTTP %'").run();db.exec('CREATE TABLE IF NOT EXISTS engine_migrations(name TEXT PRIMARY KEY)');if(process.env.GEMINI_API_KEY&&!db.prepare('SELECT 1 FROM engine_migrations WHERE name=?').get('fair-gemini-model-v2')){db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND (error LIKE 'Gemini%' OR error LIKE 'AI service HTTP %')").run();db.prepare('INSERT INTO engine_migrations VALUES(?)').run('fair-gemini-model-v2')}if(!db.prepare('SELECT 1 FROM engine_migrations WHERE name=?').get('transient-recovery-v1')){
+ db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND (error LIKE '%HTTP 500%' OR error LIKE '%HTTP 502%' OR error LIKE '%HTTP 503%' OR error LIKE '%HTTP 504%' OR error LIKE '%fetch failed%' OR error LIKE '%timeout%')").run();
+ db.prepare('INSERT INTO engine_migrations VALUES(?)').run('transient-recovery-v1');
+ }
+ console.info('[mock-generation]',JSON.stringify({provider:provider(),configured:!!(process.env.GEMINI_API_KEY||process.env.OPENAI_API_KEY),enabled:!!db.prepare('SELECT enabled FROM generation_settings').get().enabled,syllabusMissing:list().filter(t=>t.syllabusPending).map(t=>t.exam_name).filter((v,i,a)=>a.indexOf(v)===i),errors:list().filter(t=>t.status==='error').map(t=>({id:t.id,exam:t.exam_name,error:t.error}))}));
+ const timer=setInterval(()=>void tick(),3000);timer.unref();void tick();
  return {questions,complete,list,remove,tick,enqueue,retry,status,distractors,patternAllowed};
 };
