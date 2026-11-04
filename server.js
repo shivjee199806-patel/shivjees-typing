@@ -2,7 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const PORT=Number(process.env.PORT||3001), ROOT=path.join(__dirname,'public');
-const BUILD='2026-11-03-complete-auto-draft-studio';
+const BUILD='2026-11-04-syllabus-draft-update';
 fs.mkdirSync(path.join(__dirname,'data'),{recursive:true});
 const db=new DatabaseSync(path.join(__dirname,'data','examnova.sqlite')); db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
 db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'candidate',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -248,6 +248,22 @@ Object.assign(patternBlueprints, {
   }
 });
 const officialSyllabi = {
+  'UP Police Computer Operator': {
+    source: 'https://uppbpb.gov.in/FilesUploaded/Notice/scan20231229_184700698363ecde-ffbd-4e18-934a-57f6460bec58.pdf',
+    syllabus: 'UPPRPB Computer Operator Grade A direct recruitment 2023, Appendix 2. Computer: fundamentals, peripherals, algorithms, flowcharts, number systems, file organization, relational databases and basic SQL, EDI and office software, Windows/Linux, networks and security, internet applications, web publishing, emerging technology, Boolean logic and K-maps, one- and two-dimensional arrays, stacks and queues. Reasoning covers mental aptitude and verbal, numerical, and spatial reasoning. General Awareness covers India and UP history, polity, geography, economy, science, society, security, cybercrime and verified current affairs.'
+  },
+  'SSC CGL': {
+    source: 'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2026.pdf',
+    syllabus: 'SSC CGL 2026 Tier I, sections 13.8 and 13.10. Reasoning: verbal and nonverbal analogy, classification, series, coding, relationships, spatial tasks and analytical decisions. Awareness: Indian and neighbouring-country history, culture, geography, economy, policy, science and verified current events. Quantitative aptitude: number operations, ratios, percentages, averages, interest, profit, work, speed, algebra, geometry, mensuration, trigonometry and data charts. English Comprehension: English-language understanding and comprehension only.'
+  },
+  'RRB NTPC': {
+    source: 'https://www.rrbcdg.gov.in/uploads/2025/07-NTPCUG/072025NTPCUG-CEN.pdf',
+    syllabus: 'CEN 07/2025 NTPC Undergraduate CBT 1. Mathematics: number operations, fractions, HCF/LCM, proportions, percentages, mensuration, work and speed, interest, profit, elementary algebra, geometry, trigonometry and statistics. Reasoning: analogies, series, coding, relationships, syllogisms, Venn diagrams, puzzles, decisions, data sufficiency, maps and graphs. General Awareness: Indian history, geography, polity, economy, culture, basic computing, environment, science through class X, technology, institutions, sports and verified current events.'
+  },
+  CTET: {
+    source: 'https://cdnbbsr.s3waas.gov.in/s3443dec3062d0286986e21dc0631734c9/uploads/2026/05/202605111250310617.pdf',
+    syllabus: 'CTET September 2026 Paper I, classes I–V. Child development: development, inclusive education, learning and pedagogy. Mathematics: primary number operations, geometry, measurement, time, money, patterns and data, including teaching and assessment. EVS: family and friends, food, shelter, water, travel and things we make and do, with environmental pedagogy. Use Hindi as Language I and English as Language II, with original comprehension passages and language pedagogy in their respective languages.'
+  },
   CCC: {
     source: 'https://www.nielit.gov.in/sites/default/files/headquarter/pdf/Syllabus_CCC.pdf',
     syllabus: 'NIELIT CCC Revision 4: computer hardware and software basics; operating systems and file management; word processing; spreadsheets; presentations; internet and networking fundamentals; email, social media and e-governance; digital financial tools; basic cybersecurity; introductory future skills and AI.'
@@ -273,8 +289,7 @@ const coPractice=JSON.parse(fs.readFileSync(path.join(__dirname,'co_practice_que
 const addPractice=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)');
 for(const q of coPractice){if(!db.prepare('SELECT id FROM questions WHERE exam_id=? AND stem=?').get(exam1,q.stem))addPractice.run(exam1,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation)}
 db.exec('CREATE TABLE IF NOT EXISTS deleted_test_titles(title TEXT PRIMARY KEY);CREATE TABLE IF NOT EXISTS seeded_test_titles(title TEXT PRIMARY KEY)');
-// Daily review queue (India calendar day). Creates two unpublished templates per exam,
-// only when the server is running. No external AI source, copied questions or auto-publishing.
+// Legacy daily draft records are retained where needed for existing data.
 db.exec(`CREATE TABLE IF NOT EXISTS deleted_daily(day TEXT,exam_id INTEGER,type TEXT,PRIMARY KEY(day,exam_id,type));CREATE TABLE IF NOT EXISTS daily_drafts(day TEXT NOT NULL,exam_id INTEGER NOT NULL,type TEXT NOT NULL,test_id INTEGER NOT NULL UNIQUE,PRIMARY KEY(day,exam_id,type),FOREIGN KEY(exam_id) REFERENCES exams(id),FOREIGN KEY(test_id) REFERENCES tests(id));`);
 function indiaDay(date=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(date).replace(/^(\d{2})\/(\d{2})\/(\d{4})$/,'$3-$1-$2')}
 db.exec("CREATE TABLE IF NOT EXISTS exam_generation(exam_id INTEGER PRIMARY KEY REFERENCES exams(id),syllabus TEXT NOT NULL DEFAULT '',pattern_json TEXT)");
@@ -283,18 +298,28 @@ for(const [name,entry] of Object.entries(officialSyllabi)){
  const exam=db.prepare('SELECT id FROM exams WHERE name=?').get(name);
  db.prepare("INSERT INTO exam_generation(exam_id,syllabus,official_url) VALUES(?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,official_url=excluded.official_url WHERE exam_generation.syllabus=''").run(exam.id,entry.syllabus,entry.source);
 }
-for(const row of db.prepare('SELECT e.name,g.pattern_json FROM exam_generation g JOIN exams e ON e.id=g.exam_id WHERE g.pattern_json IS NOT NULL').all())patternBlueprints[row.name]=JSON.parse(row.pattern_json);
-// Seed one Full and one Mini starter per exam.
+for(const row of db.prepare('SELECT e.name,g.pattern_json,g.official_url FROM exam_generation g JOIN exams e ON e.id=g.exam_id WHERE g.pattern_json IS NOT NULL').all())patternBlueprints[row.name]={...JSON.parse(row.pattern_json),source:row.official_url||patternBlueprints[row.name]?.source||''};
+function mockShape(pattern,type){
+ const sections=pattern.sections.map(section=>({...section}));
+ if(type==='Full')return {sections,count:pattern.count,minutes:pattern.minutes};
+ const target=Math.max(sections.length,Math.round(pattern.count/2));
+ let count=0;
+ for(const section of sections){section.count=Math.max(1,Math.floor(section.count/2));count+=section.count}
+ for(const [index,section] of pattern.sections.entries()){
+  if(count>=target)break;
+  if(section.count>1&&section.count%2){sections[index].count++;count++}
+ }
+ return {sections,count,minutes:Math.max(5,Math.round(pattern.minutes*count/pattern.count))};
+}
+// Seed two Full and two Mini starters per exam.
 for(const [examName,pat] of Object.entries(patternBlueprints)){
  const ex=db.prepare('SELECT id FROM exams WHERE name=?').get(examName);if(!ex)continue;
  const up=db.prepare('UPDATE exams SET source_url=? WHERE id=?');up.run(pat.source,ex.id);
- for(const [type,no] of [['Full',1],['Mini',1]]){
+ for(const [type,no] of [['Full',1],['Full',2],['Mini',1],['Mini',2]]){
   const title=`${examName} • ${type} Mock ${no} (Question Bank Pending)`;
   if(db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
-  if(db.prepare('SELECT title FROM seeded_test_titles WHERE title=?').get(title)||db.prepare('SELECT title FROM deleted_test_titles WHERE title=?').get(title)||db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))continue;
-  // Mini: retain all sections, distributing half of each section without exceeding the blueprint total.
-  const sections=type==='Full'?pat.sections:pat.sections.map(s=>({...s,count:Math.max(1,Math.round(s.count/2))}));
-  const count=sections.reduce((n,s)=>n+s.count,0),minutes=type==='Full'?pat.minutes:Math.max(5,Math.round(pat.minutes*count/pat.count));
+  if(db.prepare('SELECT title FROM seeded_test_titles WHERE title=?').get(title)||db.prepare('SELECT 1 FROM tests WHERE exam_id=? AND title=?').get(ex.id,title.replace(' (Question Bank Pending)',''))||db.prepare('SELECT title FROM deleted_test_titles WHERE title=?').get(title)||db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))continue;
+  const {sections,count,minutes}=mockShape(pat,type);
   db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json) VALUES(?,?,?,?,?,?,?,?,?)').run(ex.id,title,type,minutes,pat.positive,pat.negative,count,0,JSON.stringify(sections));
   db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
  }
@@ -307,7 +332,7 @@ if(!db.prepare('SELECT 1 FROM starter_queue_migrations WHERE id=1').get()){
  db.exec('BEGIN IMMEDIATE');
  try{
   const obsolete=db.prepare(`SELECT t.id FROM tests t
-   WHERE t.published=0 AND (t.title LIKE '% Mock 2 (Question Bank Pending)' OR EXISTS(SELECT 1 FROM daily_drafts d WHERE d.test_id=t.id))
+   WHERE t.published=0 AND EXISTS(SELECT 1 FROM daily_drafts d WHERE d.test_id=t.id)
    AND NOT EXISTS(SELECT 1 FROM mock_questions q WHERE q.test_id=t.id)
    AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)`).all();
   for(const {id} of obsolete){
@@ -318,25 +343,33 @@ if(!db.prepare('SELECT 1 FROM starter_queue_migrations WHERE id=1').get()){
   db.exec('INSERT INTO starter_queue_migrations VALUES(1); COMMIT');
  }catch(error){db.exec('ROLLBACK');throw error}
 }
-function makeDailyDrafts(){const day=indiaDay(), examRows=db.prepare('SELECT id,name FROM exams ORDER BY id').all();let created=0;
- const insert=db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)');
- const link=db.prepare('INSERT INTO daily_drafts(day,exam_id,type,test_id) VALUES(?,?,?,?)');
- for(const ex of examRows){const pat=patternBlueprints[ex.name];if(!pat)continue;
-  for(const type of ['Full','Mini']){
-   if(db.prepare("SELECT 1 FROM tests WHERE exam_id=? AND type=? AND published=0").get(ex.id,type))continue;
-   if(!db.prepare("SELECT 1 FROM exam_generation WHERE exam_id=? AND official_url<>'' AND trim(syllabus)<>''").get(ex.id))continue;
-   if(db.prepare('SELECT 1 FROM deleted_daily WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;if(db.prepare('SELECT 1 FROM daily_drafts WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;
-   const sections=type==='Full'?pat.sections:pat.sections.map(v=>({...v,count:Math.max(1,Math.round(v.count/2))}));
-   const count=sections.reduce((a,b)=>a+b.count,0),minutes=type==='Full'?pat.minutes:Math.max(5,Math.round(pat.minutes*count/pat.count));
-   const title=`${ex.name} • ${day} Daily ${type} Draft`;
-   const id=Number(insert.run(ex.id,title,type,minutes,pat.positive,pat.negative,count,JSON.stringify(sections),'{}').lastInsertRowid);
-   link.run(day,ex.id,type,id);created++;
-  }
+// Only empty, unattempted starter slots can adopt a new exam pattern in place.
+function updateEmptyStarters(examId,pattern){
+ const slots=db.prepare(`SELECT t.id,t.type FROM tests t JOIN seeded_test_titles s ON s.title=t.title
+  WHERE t.exam_id=? AND t.published=0 AND t.type IN ('Full','Mini')
+  AND NOT EXISTS(SELECT 1 FROM mock_questions q WHERE q.test_id=t.id)
+  AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)
+  AND NOT EXISTS(SELECT 1 FROM mock_jobs j WHERE j.test_id=t.id AND j.status='generating')`).all(examId);
+ const update=db.prepare("UPDATE tests SET question_count=?,minutes=?,positive=?,negative=?,sections_json=?,behavior_json='{}' WHERE id=?");
+ for(const slot of slots){
+  const {sections,count,minutes}=mockShape(pattern,slot.type);
+  update.run(count,minutes,pattern.positive,pattern.negative,JSON.stringify(sections),slot.id);
+  db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE test_id=?").run(slot.id);
  }
- return {day,created};
 }
-const dailyTimer=setInterval(()=>{try{makeDailyDrafts()}catch(e){console.error('Daily draft queue:',e.message)}},60*60*1000);dailyTimer.unref();
-function dailyQueue(){return db.prepare(`SELECT d.day,d.type,t.id,t.title,t.question_count,t.minutes,t.positive,t.negative,t.published,t.sections_json,e.name exam_name,e.id exam_id FROM daily_drafts d JOIN tests t ON t.id=d.test_id JOIN exams e ON e.id=d.exam_id ORDER BY d.day DESC,e.id,d.type LIMIT 120`).all().map(t=>{
+if(!db.prepare('SELECT 1 FROM starter_queue_migrations WHERE id=2').get()){
+ db.exec('BEGIN IMMEDIATE');
+ try{
+  for(const name of Object.keys(officialSyllabi)){
+   const exam=db.prepare('SELECT e.id,g.pattern_json FROM exams e JOIN exam_generation g ON g.exam_id=e.id WHERE e.name=?').get(name);
+   if(!exam.pattern_json)updateEmptyStarters(exam.id,patternBlueprints[name]);
+  }
+  db.exec('INSERT INTO starter_queue_migrations VALUES(2); COMMIT');
+ }catch(error){db.exec('ROLLBACK');throw error}
+}
+// Keep the legacy endpoint compatible without recreating retired daily slots.
+function makeDailyDrafts(){return {day:indiaDay(),created:0}}
+function dailyQueue(){return db.prepare(`SELECT d.day,d.type,t.id,t.title,t.question_count,t.minutes,t.positive,t.negative,t.published,t.sections_json,e.name exam_name,e.id exam_id FROM daily_drafts d JOIN tests t ON t.id=d.test_id JOIN exams e ON e.id=d.exam_id WHERE t.published=1 ORDER BY d.day DESC,e.id,d.type LIMIT 120`).all().map(t=>{
  const sections=JSON.parse(t.sections_json);const gaps=sections.map(x=>{const available=db.prepare('SELECT COUNT(*) n FROM questions WHERE exam_id=? AND LOWER(topic)=LOWER(?) AND verified=1').get(t.exam_id,x.topic).n;return {topic:x.topic,required:x.count,verified:available,missing:Math.max(0,x.count-available)}});
  return {...t,sections,gaps,ready:gaps.every(x=>x.missing===0),sections_json:undefined};
 });}
@@ -344,22 +377,8 @@ const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application
 function auth(req){let token=(req.headers.authorization||'').match(/^Bearer (.+)$/)?.[1];if(!token)fail(401,'Login आवश्यक है');const h=crypto.createHash('sha256').update(token).digest('hex');return db.prepare('SELECT u.id,u.name,u.email,u.role FROM tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.expires>?').get(h,Date.now())||fail(401,'Session expired')}
 function admin(req){let u=auth(req);if(u.role!=='admin')fail(403,'Admin access only');return u}
 function publicTest(t){return {...t,sections:JSON.parse(t.sections_json||'[]'),behavior:behaviorFor(t),sections_json:undefined,behavior_json:undefined}}
-// Repair earlier draft records (including an existing user database) at every startup.
-// Never silently publish any test unless every configured section can be filled.
-const repairCo=()=>{
- const eligible=db.prepare("SELECT * FROM tests WHERE exam_id=? AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%' AND id NOT IN (SELECT test_id FROM daily_drafts)").all(exam1);
- for(const t of eligible){
-  const sections=JSON.parse(t.sections_json||'[]');
-  const ready=sections.length>0 && sections.reduce((n,s)=>n+s.count,0)===t.question_count &&
-   sections.every(sec=>db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=? AND LOWER(TRIM(topic))=LOWER(TRIM(?))').get(exam1,sec.topic).n>=sec.count);
-  if(ready){
-   const clean=t.title.replace(/ \(Question Bank Pending\)| \(Practice\)| \(Coming Soon\)/g,'');
-   db.prepare('UPDATE tests SET published=1,title=? WHERE id=?').run(clean+' (Practice)',t.id);
-  }
- }
-}; // Publishing belongs exclusively to admin review.
-function setBankingTimers(){for(const t of db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE e.category='Banking' AND t.published=0 AND t.behavior_json='{}' AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)").all()){const sections=JSON.parse(t.sections_json);if(!sections.length)continue;let remaining=t.minutes;const rules=sections.map((sec,i)=>{const minutes=i===sections.length-1?remaining:Math.floor(t.minutes/sections.length);remaining-=minutes;return {topic:sec.topic,minutes,positive:t.positive,negative:t.negative}});db.prepare('UPDATE tests SET behavior_json=? WHERE id=?').run(JSON.stringify(normalizeBehavior({timerMode:'sectional',sectionRules:rules},sections,t.minutes)),t.id)}}
-setBankingTimers();const bankingTimer=setInterval(setBankingTimers,60000);bankingTimer.unref();
+function setDefaultSectionalTimers(){for(const t of db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE (e.category='Banking' OR e.name='SSC CGL') AND t.published=0 AND t.behavior_json='{}' AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)").all()){const sections=JSON.parse(t.sections_json);if(!sections.length||t.minutes<sections.length)continue;let remaining=t.minutes;const rules=sections.map((sec,i)=>{const minutes=i===sections.length-1?remaining:Math.floor(t.minutes/sections.length);remaining-=minutes;return {topic:sec.topic,minutes,positive:t.positive,negative:t.negative}});db.prepare('UPDATE tests SET behavior_json=? WHERE id=?').run(JSON.stringify(normalizeBehavior({timerMode:'sectional',sectionRules:rules},sections,t.minutes)),t.id)}}
+setDefaultSectionalTimers();const bankingTimer=setInterval(setDefaultSectionalTimers,60000);bankingTimer.unref();
 const engine=require('./draft-engine')(db,patternBlueprints,indiaDay);
 function finalize(a){if(a.submitted_at)return JSON.parse(a.result_json);const t=db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),ids=JSON.parse(a.question_ids_json),qs=ids.map(id=>db.prepare('SELECT * FROM questions WHERE id=?').get(id)),ans=JSON.parse(a.answers_json||'{}'),timings=questionTimes(a);let correct=0,wrong=0,score=0,maxMarks=0;let topics={};const rules=behaviorFor(t).sectionRules;const review=qs.map(q=>{const selected=ans[q.id]??null,ok=selected===q.correct_index,rule=rules.find(x=>x.topic===q.topic),plus=rule?.positive??t.positive,minus=rule?.negative??t.negative;maxMarks+=plus;if(selected!==null)score+=ok?plus:-minus;if(selected!==null){if(ok)correct++;else wrong++}const r=topics[q.topic]||{correct:0,total:0};r.total++;if(ok)r.correct++;topics[q.topic]=r;return {timeMs:timings[q.id]??null,id:q.id,topic:q.topic,stem:q.stem,options:JSON.parse(q.options_json),selected,correctIndex:q.correct_index,explanation:q.explanation,optionExplanations:JSON.parse(q.option_explanations_json||'[]'),revisionNotes:q.revision_notes||''}});const result={durationMs:Math.max(0,Math.min(Date.now(),a.deadline)-a.started_at),trackedMs:Object.values(timings).reduce((n,x)=>n+x,0),correct,wrong,skipped:qs.length-correct-wrong,total:qs.length,score:Number(score.toFixed(2)),maxMarks:Number(maxMarks.toFixed(2)),accuracy:Number((qs.length?100*correct/(correct+wrong||1):0).toFixed(1)),positive:t.positive,negative:t.negative,behavior:behaviorFor(t),topics,review,submittedAt:Date.now()};db.prepare('UPDATE attempts SET submitted_at=?,result_json=? WHERE id=?').run(Date.now(),JSON.stringify(result),a.id);return result}
 const exchangeJPOwner=require('./jp-owner-bridge')(db);
@@ -371,7 +390,16 @@ if(method==='GET'&&p==='/api/me')return send(res,200,{user:auth(req)});
 if(method==='POST'&&p==='/api/logout'){auth(req);db.prepare('DELETE FROM tokens WHERE token_hash=?').run(crypto.createHash('sha256').update((req.headers.authorization||'').slice(7)).digest('hex'));return send(res,200,{ok:true})}
 if(method==='GET'&&p==='/api/status'){const rows=db.prepare("SELECT e.name exam, SUM(CASE WHEN t.type='Full' THEN 1 ELSE 0 END) AS full_count, SUM(CASE WHEN t.type='Mini' THEN 1 ELSE 0 END) AS mini_count FROM exams e LEFT JOIN tests t ON t.exam_id=e.id AND t.title NOT LIKE '%(Sample)%' GROUP BY e.id ORDER BY e.id").all();return send(res,200,{build:BUILD, database:path.join(__dirname,'data','examnova.sqlite'), total:rows.reduce((n,r)=>n+(r.full_count||0)+(r.mini_count||0),0),exams:rows,coReady:db.prepare("SELECT COUNT(*) AS n FROM tests WHERE exam_id=? AND published=1 AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%'").get(exam1).n,coQuestions:db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=?').get(exam1).n})}
 if(method==='GET'&&p==='/api/exams'){return send(res,200,{exams:db.prepare("SELECT e.*,COALESCE(g.official_url,'') official_url,CASE WHEN g.official_url<>'' THEN g.syllabus ELSE '' END syllabus FROM exams e LEFT JOIN exam_generation g ON g.exam_id=e.id ORDER BY e.id").all()})}
-if(method==='GET'&&p==='/api/tests'){const examId=Number(url.searchParams.get('exam')||0);return send(res,200,{tests:db.prepare("SELECT t.*,e.name exam_name FROM tests t JOIN exams e ON e.id=t.exam_id WHERE (?=0 OR t.exam_id=?) AND t.title NOT LIKE '%(Sample)%' ORDER BY t.id DESC").all(examId,examId).map(publicTest)})}
+if(method==='GET'&&p==='/api/tests'){
+ const examId=Number(url.searchParams.get('exam')||0);
+ let owner=false;
+ if(req.headers.authorization){try{owner=auth(req).role==='admin'}catch{}}
+ const rows=db.prepare(`SELECT t.*,e.name exam_name FROM tests t JOIN exams e ON e.id=t.exam_id
+  WHERE (?=0 OR t.exam_id=?) AND t.title NOT LIKE '%(Sample)%'
+  AND (t.published=1 OR (?=1 AND NOT EXISTS(SELECT 1 FROM daily_drafts d WHERE d.test_id=t.id)))
+  ORDER BY t.id DESC`).all(examId,examId,Number(owner));
+ return send(res,200,{tests:rows.map(publicTest)});
+}
 if(method==='POST'&&p==='/api/attempts'){const u=auth(req),t=db.prepare('SELECT * FROM tests WHERE id=? AND published=1').get(Number(data.testId));if(!t)fail(404,'Test unavailable');const sections=JSON.parse(t.sections_json||'[]');let qs=[];const pinned=engine.questions(t.id);if(pinned.length){if(!engine.complete(t))fail(409,'Mock questions incomplete');qs=pinned.map(q=>({id:q.id}))}else if(sections.length){for(const section of sections){const picked=db.prepare('SELECT id FROM questions WHERE exam_id=? AND LOWER(TRIM(topic))=LOWER(TRIM(?)) AND verified=1 ORDER BY RANDOM() LIMIT ?').all(t.exam_id,section.topic,section.count);if(picked.length<section.count)fail(409,`Section ${section.topic}: only ${picked.length}/${section.count} questions available`);qs.push(...picked)}}else{qs=db.prepare('SELECT id FROM questions WHERE exam_id=? AND verified=1 ORDER BY RANDOM() LIMIT ?').all(t.exam_id,t.question_count)}if(qs.length<t.question_count)fail(409,'Question bank incomplete for this test');const now=Date.now(),id=Number(db.prepare('INSERT INTO attempts(user_id,test_id,started_at,deadline,question_ids_json) VALUES(?,?,?,?,?)').run(u.id,t.id,now,now+t.minutes*60000,JSON.stringify(qs.map(q=>q.id))).lastInsertRowid);return send(res,201,{id})}
 const m=p.match(/^\/api\/attempts\/(\d+)(?:\/(submit|answer))?$/);if(m){const u=auth(req),a=db.prepare('SELECT * FROM attempts WHERE id=? AND user_id=?').get(Number(m[1]),u.id);if(!a)fail(404,'Attempt not found');if(method==='GET'&&!m[2]){if(a.submitted_at)return send(res,200,{done:true,result:JSON.parse(a.result_json)});if(Date.now()>=a.deadline)return send(res,200,{done:true,result:finalize(a)});const ids=JSON.parse(a.question_ids_json),questions=ids.map(id=>{let q=db.prepare('SELECT id,topic,stem,options_json FROM questions WHERE id=?').get(id);return {...q,options:JSON.parse(q.options_json),options_json:undefined}});return send(res,200,{done:false,id:a.id,test:publicTest(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id)),deadline:a.deadline,activeSection:sectionAt(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a),questions,answers:JSON.parse(a.answers_json||'{}'),review:JSON.parse(a.review_json||'{}')})}
 if(method==='POST'&&m[2]==='answer'){if(a.submitted_at||Date.now()>=a.deadline)fail(409,'Test already ended');const qid=Number(data.questionId),ids=JSON.parse(a.question_ids_json);if(!ids.includes(qid))fail(400,'Invalid question');const active=sectionAt(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a);if(active>=0&&getQuestionSection(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),a,qid)!==active)fail(409,'Section time ended or not yet started');if(data.focus===true){db.prepare('UPDATE attempts SET timing_json=?,focus_q=?,focus_at=? WHERE id=?').run(JSON.stringify(questionTimes(a)),qid,Date.now(),a.id);return send(res,200,{ok:true})}let answers=JSON.parse(a.answers_json||'{}'),review=JSON.parse(a.review_json||'{}');if(data.answer===null)delete answers[qid];else if(Number.isInteger(data.answer)&&data.answer>=0&&data.answer<4)answers[qid]=data.answer;else if(data.answer!==undefined)fail(400,'Invalid answer');if(typeof data.review==='boolean'){if(behaviorFor(db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id)).reviewPolicy==='disabled')fail(409,'Review disabled for this exam');review[qid]=data.review;}db.prepare('UPDATE attempts SET answers_json=?,review_json=? WHERE id=?').run(JSON.stringify(answers),JSON.stringify(review),a.id);return send(res,200,{ok:true})}
@@ -398,12 +426,19 @@ if(method==='POST'&&/^\/api\/admin\/studio\/\d+\/publish$/.test(p)){
  db.exec('BEGIN IMMEDIATE');try{db.prepare('UPDATE questions SET verified=1 WHERE id IN (SELECT question_id FROM mock_questions WHERE test_id=?)').run(id);db.prepare("UPDATE tests SET published=1,title=REPLACE(title,' (Question Bank Pending)','') WHERE id=?").run(id);db.prepare("UPDATE mock_jobs SET status='published' WHERE test_id=?").run(id);db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}return send(res,200,{ok:true});
 }
 if(method==='POST'&&p==='/api/admin/studio/pattern'){
- const id=Number(data.examId),t=data.pattern;if(!db.prepare('SELECT 1 FROM exams WHERE id=?').get(id)||!t||!Array.isArray(t.sections)||!t.sections.length||t.sections.length>20||t.sections.some(x=>!x.topic||!Number.isInteger(x.count)||x.count<1)||t.sections.reduce((a,x)=>a+x.count,0)>500||!Number.isFinite(t.minutes)||t.minutes<1||t.minutes>500||!Number.isFinite(t.positive)||t.positive<=0||!Number.isFinite(t.negative)||t.negative<0||new Set(t.sections.map(x=>x.topic.trim().toLowerCase())).size!==t.sections.length)fail(400,'Valid pattern: sections, minutes, positive and negative required');
+ const id=Number(data.examId),t=data.pattern;if(!db.prepare('SELECT 1 FROM exams WHERE id=?').get(id)||!t||!Array.isArray(t.sections)||!t.sections.length||t.sections.length>20||t.sections.some(x=>typeof x?.topic!=='string'||!x.topic.trim()||!Number.isInteger(x.count)||x.count<1)||t.sections.reduce((a,x)=>a+x.count,0)>500||!Number.isFinite(t.minutes)||t.minutes<1||t.minutes>500||!Number.isFinite(t.positive)||t.positive<=0||!Number.isFinite(t.negative)||t.negative<0||new Set(t.sections.map(x=>x.topic.trim().toLowerCase())).size!==t.sections.length)fail(400,'Valid pattern: sections, minutes, positive and negative required');
  t.count=t.sections.reduce((a,x)=>a+x.count,0);const name=db.prepare('SELECT name FROM exams WHERE id=?').get(id).name;
  const syllabus=String(data.syllabus||'').trim(), officialUrl=String(data.officialUrl||'').trim();
  if(!syllabus||!URL.canParse(officialUrl)||new URL(officialUrl).protocol!=='https:')fail(400,'Enter the official HTTPS syllabus link and syllabus topics');
- db.prepare('INSERT INTO exam_generation(exam_id,syllabus,pattern_json,official_url) VALUES(?,?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,pattern_json=excluded.pattern_json,official_url=excluded.official_url').run(id,syllabus,JSON.stringify(t),officialUrl);
- patternBlueprints[name]=t;return send(res,200,{ok:true});
+ db.exec('BEGIN IMMEDIATE');
+ try{
+  db.prepare('INSERT INTO exam_generation(exam_id,syllabus,pattern_json,official_url) VALUES(?,?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,pattern_json=excluded.pattern_json,official_url=excluded.official_url').run(id,syllabus,JSON.stringify(t),officialUrl);
+  updateEmptyStarters(id,t);
+  db.exec('COMMIT');
+ }catch(error){db.exec('ROLLBACK');throw error}
+ patternBlueprints[name]={...t,source:officialUrl};
+ setDefaultSectionalTimers();
+ return send(res,200,{ok:true});
 }
 
 if(method==='GET'&&p==='/api/admin/readiness'){
@@ -430,7 +465,7 @@ if(method==='PATCH'&&/^\/api\/admin\/daily\/\d+$/.test(p)){
  const id=Number(p.split('/').pop()),t=db.prepare('SELECT * FROM tests WHERE id=?').get(id);if(!t)fail(404,'Mock draft not found');
  if(t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(id))fail(409,'Cannot edit published/attempted mock');
  const count=Number(data.questionCount??t.question_count),minutes=Number(data.minutes??t.minutes),positive=Number(data.positive??t.positive),negative=Number(data.negative??t.negative),title=String(data.title??t.title).trim(),sections=Array.isArray(data.sections)?data.sections:JSON.parse(t.sections_json);
- if(!title||!Number.isInteger(count)||count<1||count>500||!Number.isInteger(minutes)||minutes<1||minutes>500||!Number.isFinite(positive)||positive<=0||!Number.isFinite(negative)||negative<0||!sections.length||sections.some(x=>!x.topic||!Number.isInteger(x.count)||x.count<1)||sections.reduce((a,b)=>a+b.count,0)!==count)fail(400,'Invalid mock settings or section distribution');
+ if(!title||!Number.isInteger(count)||count<1||count>500||!Number.isInteger(minutes)||minutes<1||minutes>500||!Number.isFinite(positive)||positive<=0||!Number.isFinite(negative)||negative<0||!sections.length||sections.some(x=>typeof x?.topic!=='string'||!x.topic.trim()||!Number.isInteger(x.count)||x.count<1)||sections.reduce((a,b)=>a+b.count,0)!==count)fail(400,'Invalid mock settings or section distribution');
  const b=normalizeBehavior(JSON.parse(t.behavior_json||'{}'),sections,minutes);
  db.prepare('UPDATE tests SET title=?,question_count=?,minutes=?,positive=?,negative=?,sections_json=?,behavior_json=? WHERE id=?').run(title,count,minutes,positive,negative,JSON.stringify(sections),JSON.stringify(b),id);db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE test_id=? AND status!='generating'").run(id);return send(res,200,{ok:true});
 }

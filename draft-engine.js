@@ -37,15 +37,15 @@ module.exports=function(db,blueprints,day){
  }
  function save(t,topic,q,reuse=false){
   if(typeof q.stem!=='string'||q.stem.trim().length<15||!Array.isArray(q.options)||q.options.length!==4||q.options.some(x=>typeof x!=='string'||!x.trim())||new Set(q.options.map(norm)).size!==4||!Number.isInteger(q.correctIndex)||q.correctIndex<0||q.correctIndex>3||typeof q.explanation!=='string'||q.explanation.length<20||!Array.isArray(q.optionExplanations)||q.optionExplanations.length!==4||q.optionExplanations.some(x=>typeof x!=='string'||x.length<10)||typeof q.revisionNotes!=='string'||q.revisionNotes.length<15)return false;
-  if(!reuse&&!patternAllowed(t.id,q.stem,q.patternKey))return false;
+  if(!reuse&&(!patternKey(q.patternKey)||!patternAllowed(t.id,q.stem,q.patternKey)))return false;
   const prior=db.prepare('SELECT id,stem FROM questions').all().find(x=>norm(x.stem)===norm(q.stem));
   if(prior){if(!reuse||db.prepare('SELECT 1 FROM mock_questions WHERE question_id=? AND test_id!=?').get(prior.id,t.id))return false;db.prepare('INSERT OR IGNORE INTO mock_questions VALUES(?,?,?)').run(t.id,prior.id,questions(t.id).length);db.prepare("UPDATE questions SET option_explanations_json=?,revision_notes=? WHERE id=? AND option_explanations_json='[]'").run(JSON.stringify(q.optionExplanations),q.revisionNotes,prior.id);return true}
   db.exec('BEGIN IMMEDIATE');try{const id=Number(db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified,option_explanations_json,revision_notes,pattern_key) VALUES(?,?,?,?,?,?,0,?,?,?)').run(t.exam_id,topic,q.stem.trim(),JSON.stringify(q.options),q.correctIndex,q.explanation,JSON.stringify(q.optionExplanations),q.revisionNotes,patternKey(q.patternKey)).lastInsertRowid);db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,id,questions(t.id).length);db.exec('COMMIT');return true}catch(e){db.exec('ROLLBACK');throw e}
  }
  function complete(t){const qs=questions(t.id),sections=JSON.parse(t.sections_json);return qs.length===t.question_count&&sections.every(s=>qs.filter(q=>q.topic===s.topic).length===s.count)}
- function enqueue(){if(!db.prepare('SELECT enabled FROM generation_settings').get().enabled)return;db.prepare("INSERT OR IGNORE INTO mock_jobs(test_id) SELECT id FROM tests WHERE published=0 AND title NOT LIKE '%(Sample)%'").run()}
+ function enqueue(){if(!db.prepare('SELECT enabled FROM generation_settings').get().enabled)return;db.prepare("INSERT OR IGNORE INTO mock_jobs(test_id) SELECT id FROM tests WHERE published=0 AND title NOT LIKE '%(Sample)%' AND id NOT IN (SELECT test_id FROM daily_drafts)").run()}
  // Immediately usable offline CO practice, independently reviewable, never published automatically.
- function bootstrap(){if(db.prepare("SELECT 1 FROM starter_state WHERE id=1").get())return;const t=db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE e.name='UP Police Computer Operator' AND t.type='Full' AND t.published=0 ORDER BY t.id LIMIT 1").get();if(!t)return;
+ function bootstrap(){if(db.prepare("SELECT 1 FROM starter_state WHERE id=1").get())return;const t=db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE e.name='UP Police Computer Operator' AND t.type='Full' AND t.published=0 AND t.id NOT IN (SELECT test_id FROM daily_drafts) AND t.question_count=160 ORDER BY t.id LIMIT 1").get();if(!t)return;
   for(let i=0;i<500&&questions(t.id).filter(q=>q.topic==='Computer').length<80;i++)save(t,'Computer',offline('Computer',i),true);
   for(let i=0;i<40;i++)save(t,'Reasoning',offline('Reasoning',i),true);
   for(let i=0;i<factCount;i++)save(t,'General Awareness',factual(i),true);
@@ -79,7 +79,7 @@ module.exports=function(db,blueprints,day){
  // use spare generation capacity for other drafts. Explicit retries still lead.
  const job=db.prepare(`SELECT t.*,e.name
   FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id
-  WHERE j.status IN ('queued','needs_key') AND t.published=0
+  WHERE j.status IN ('queued','needs_key') AND t.published=0 AND t.id NOT IN (SELECT test_id FROM daily_drafts)
     AND EXISTS(SELECT 1 FROM exam_generation g WHERE g.exam_id=t.exam_id AND g.official_url<>'' AND trim(g.syllabus)<>'')
   ORDER BY j.priority_ms DESC,
     CASE WHEN t.type IN ('Full','Mini') AND t.id=(
@@ -100,10 +100,11 @@ module.exports=function(db,blueprints,day){
    let saved=0;for(const q of (Array.isArray(items)?items:[]).slice(0,n))if(questions(job.id).filter(x=>x.topic===section.topic).length<JSON.parse(db.prepare('SELECT sections_json FROM tests WHERE id=?').get(job.id).sections_json).find(x=>x.topic===section.topic)?.count&&save(job,section.topic,q))saved++;
    if(!saved)throw Error('No valid unique questions received. Retry this draft.');
   }
-  lastError='';db.prepare("UPDATE mock_jobs SET status=?,error='',updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(complete(job)?'ready':'queued',job.id);
+  const updated=db.prepare('SELECT * FROM tests WHERE id=?').get(job.id);
+  lastError='';db.prepare("UPDATE mock_jobs SET status=?,error='',updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(complete(updated)?'ready':'queued',job.id);
  }catch(e){lastError=String(e.message).slice(0,350);db.prepare("UPDATE mock_jobs SET status=?,error=?,updated_at=CURRENT_TIMESTAMP WHERE test_id=?").run(e.retryable?'queued':'error',lastError,job.id)}finally{busy=false;active=null}
  }
- function list(){return db.prepare('SELECT t.*,e.name exam_name,j.status,j.error,j.updated_at FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id ORDER BY t.id DESC LIMIT 200').all().map(t=>({...t,sections:JSON.parse(t.sections_json),generated:questions(t.id).length,ready:complete(t),syllabusPending:!db.prepare("SELECT 1 FROM exam_generation WHERE exam_id=? AND official_url<>'' AND trim(syllabus)<>''").get(t.exam_id)}))}
+ function list(){return db.prepare('SELECT t.*,e.name exam_name,j.status,j.error,j.updated_at FROM mock_jobs j JOIN tests t ON t.id=j.test_id JOIN exams e ON e.id=t.exam_id WHERE t.published=1 OR t.id NOT IN (SELECT test_id FROM daily_drafts) ORDER BY t.id DESC LIMIT 200').all().map(t=>({...t,sections:JSON.parse(t.sections_json),generated:questions(t.id).length,ready:complete(t),syllabusPending:!db.prepare("SELECT 1 FROM exam_generation WHERE exam_id=? AND official_url<>'' AND trim(syllabus)<>''").get(t.exam_id)}))}
  function remove(id){const t=db.prepare('SELECT * FROM tests WHERE id=?').get(id);if(!t)throw Error('Mock not found');if(t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(id))throw Error('Unpublish first; attempted tests are retained for result history.');db.exec('BEGIN IMMEDIATE');try{db.prepare('DELETE FROM mock_jobs WHERE test_id=?').run(id);db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_daily SELECT day,exam_id,type FROM daily_drafts WHERE test_id=?').run(id);db.prepare('DELETE FROM daily_drafts WHERE test_id=?').run(id);db.prepare('INSERT OR IGNORE INTO deleted_test_titles(title) VALUES(?)').run(t.title);db.prepare('DELETE FROM tests WHERE id=?').run(id);db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}}
  db.exec('CREATE TABLE IF NOT EXISTS starter_state(id INTEGER PRIMARY KEY)');bootstrap();db.prepare('INSERT OR IGNORE INTO starter_state VALUES(1)').run();enqueue();db.prepare("UPDATE mock_jobs SET status='queued' WHERE status='error' AND error LIKE 'Gemini HTTP 503%'").run();if(process.env.GEMINI_API_KEY)db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND error LIKE 'AI service HTTP %'").run();db.exec('CREATE TABLE IF NOT EXISTS engine_migrations(name TEXT PRIMARY KEY)');if(process.env.GEMINI_API_KEY&&!db.prepare('SELECT 1 FROM engine_migrations WHERE name=?').get('fair-gemini-model-v2')){db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE status='error' AND (error LIKE 'Gemini%' OR error LIKE 'AI service HTTP %')").run();db.prepare('INSERT INTO engine_migrations VALUES(?)').run('fair-gemini-model-v2')}const timer=setInterval(()=>void tick(),3000);timer.unref();void tick();
  return {questions,complete,list,remove,tick,enqueue,retry,status,distractors,patternAllowed};
