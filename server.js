@@ -273,21 +273,6 @@ const coPractice=JSON.parse(fs.readFileSync(path.join(__dirname,'co_practice_que
 const addPractice=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)');
 for(const q of coPractice){if(!db.prepare('SELECT id FROM questions WHERE exam_id=? AND stem=?').get(exam1,q.stem))addPractice.run(exam1,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation)}
 db.exec('CREATE TABLE IF NOT EXISTS deleted_test_titles(title TEXT PRIMARY KEY);CREATE TABLE IF NOT EXISTS seeded_test_titles(title TEXT PRIMARY KEY)');
-// Seed exactly two full and two mini drafts per exam, never advertise empty exams as playable.
-for(const [examName,pat] of Object.entries(patternBlueprints)){
- const ex=db.prepare('SELECT id FROM exams WHERE name=?').get(examName);if(!ex)continue;
- const up=db.prepare('UPDATE exams SET source_url=? WHERE id=?');up.run(pat.source,ex.id);
- for(const [type,no] of [['Full',1],['Full',2],['Mini',1],['Mini',2]]){
-  const title=`${examName} • ${type} Mock ${no} (Question Bank Pending)`;
-  if(db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
-  if(db.prepare('SELECT title FROM seeded_test_titles WHERE title=?').get(title)||db.prepare('SELECT title FROM deleted_test_titles WHERE title=?').get(title)||db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))continue;
-  // Mini: retain all sections, distributing half of each section without exceeding the blueprint total.
-  const sections=type==='Full'?pat.sections:pat.sections.map(s=>({...s,count:Math.max(1,Math.round(s.count/2))}));
-  const count=sections.reduce((n,s)=>n+s.count,0),minutes=type==='Full'?pat.minutes:Math.max(5,Math.round(pat.minutes*count/pat.count));
-  db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json) VALUES(?,?,?,?,?,?,?,?,?)').run(ex.id,title,type,minutes,pat.positive,pat.negative,count,0,JSON.stringify(sections));
-  db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
- }
-}
 // Daily review queue (India calendar day). Creates two unpublished templates per exam,
 // only when the server is running. No external AI source, copied questions or auto-publishing.
 db.exec(`CREATE TABLE IF NOT EXISTS deleted_daily(day TEXT,exam_id INTEGER,type TEXT,PRIMARY KEY(day,exam_id,type));CREATE TABLE IF NOT EXISTS daily_drafts(day TEXT NOT NULL,exam_id INTEGER NOT NULL,type TEXT NOT NULL,test_id INTEGER NOT NULL UNIQUE,PRIMARY KEY(day,exam_id,type),FOREIGN KEY(exam_id) REFERENCES exams(id),FOREIGN KEY(test_id) REFERENCES tests(id));`);
@@ -299,11 +284,48 @@ for(const [name,entry] of Object.entries(officialSyllabi)){
  db.prepare("INSERT INTO exam_generation(exam_id,syllabus,official_url) VALUES(?,?,?) ON CONFLICT(exam_id) DO UPDATE SET syllabus=excluded.syllabus,official_url=excluded.official_url WHERE exam_generation.syllabus=''").run(exam.id,entry.syllabus,entry.source);
 }
 for(const row of db.prepare('SELECT e.name,g.pattern_json FROM exam_generation g JOIN exams e ON e.id=g.exam_id WHERE g.pattern_json IS NOT NULL').all())patternBlueprints[row.name]=JSON.parse(row.pattern_json);
+// Seed one Full and one Mini starter per exam.
+for(const [examName,pat] of Object.entries(patternBlueprints)){
+ const ex=db.prepare('SELECT id FROM exams WHERE name=?').get(examName);if(!ex)continue;
+ const up=db.prepare('UPDATE exams SET source_url=? WHERE id=?');up.run(pat.source,ex.id);
+ for(const [type,no] of [['Full',1],['Mini',1]]){
+  const title=`${examName} • ${type} Mock ${no} (Question Bank Pending)`;
+  if(db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
+  if(db.prepare('SELECT title FROM seeded_test_titles WHERE title=?').get(title)||db.prepare('SELECT title FROM deleted_test_titles WHERE title=?').get(title)||db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))continue;
+  // Mini: retain all sections, distributing half of each section without exceeding the blueprint total.
+  const sections=type==='Full'?pat.sections:pat.sections.map(s=>({...s,count:Math.max(1,Math.round(s.count/2))}));
+  const count=sections.reduce((n,s)=>n+s.count,0),minutes=type==='Full'?pat.minutes:Math.max(5,Math.round(pat.minutes*count/pat.count));
+  db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json) VALUES(?,?,?,?,?,?,?,?,?)').run(ex.id,title,type,minutes,pat.positive,pat.negative,count,0,JSON.stringify(sections));
+  db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
+ }
+}
+// Remove obsolete empty auto drafts once. Preserve questions, attempts and published tests.
+db.exec(`CREATE TABLE IF NOT EXISTS starter_queue_migrations(id INTEGER PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS mock_questions(test_id INTEGER NOT NULL REFERENCES tests(id),question_id INTEGER NOT NULL REFERENCES questions(id),position INTEGER NOT NULL,PRIMARY KEY(test_id,question_id),UNIQUE(test_id,position));
+CREATE TABLE IF NOT EXISTS mock_jobs(test_id INTEGER PRIMARY KEY REFERENCES tests(id),status TEXT NOT NULL DEFAULT 'queued',error TEXT NOT NULL DEFAULT '',updated_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
+if(!db.prepare('SELECT 1 FROM starter_queue_migrations WHERE id=1').get()){
+ db.exec('BEGIN IMMEDIATE');
+ try{
+  const obsolete=db.prepare(`SELECT t.id FROM tests t
+   WHERE t.published=0 AND (t.title LIKE '% Mock 2 (Question Bank Pending)' OR EXISTS(SELECT 1 FROM daily_drafts d WHERE d.test_id=t.id))
+   AND NOT EXISTS(SELECT 1 FROM mock_questions q WHERE q.test_id=t.id)
+   AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)`).all();
+  for(const {id} of obsolete){
+   db.prepare('DELETE FROM mock_jobs WHERE test_id=?').run(id);
+   db.prepare('DELETE FROM daily_drafts WHERE test_id=?').run(id);
+   db.prepare('DELETE FROM tests WHERE id=?').run(id);
+  }
+  db.exec('INSERT INTO starter_queue_migrations VALUES(1); COMMIT');
+ }catch(error){db.exec('ROLLBACK');throw error}
+}
 function makeDailyDrafts(){const day=indiaDay(), examRows=db.prepare('SELECT id,name FROM exams ORDER BY id').all();let created=0;
  const insert=db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)');
  const link=db.prepare('INSERT INTO daily_drafts(day,exam_id,type,test_id) VALUES(?,?,?,?)');
  for(const ex of examRows){const pat=patternBlueprints[ex.name];if(!pat)continue;
-  for(const type of ['Full','Mini']){if(db.prepare('SELECT 1 FROM deleted_daily WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;if(db.prepare('SELECT 1 FROM daily_drafts WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;
+  for(const type of ['Full','Mini']){
+   if(db.prepare("SELECT 1 FROM tests WHERE exam_id=? AND type=? AND published=0").get(ex.id,type))continue;
+   if(!db.prepare("SELECT 1 FROM exam_generation WHERE exam_id=? AND official_url<>'' AND trim(syllabus)<>''").get(ex.id))continue;
+   if(db.prepare('SELECT 1 FROM deleted_daily WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;if(db.prepare('SELECT 1 FROM daily_drafts WHERE day=? AND exam_id=? AND type=?').get(day,ex.id,type))continue;
    const sections=type==='Full'?pat.sections:pat.sections.map(v=>({...v,count:Math.max(1,Math.round(v.count/2))}));
    const count=sections.reduce((a,b)=>a+b.count,0),minutes=type==='Full'?pat.minutes:Math.max(5,Math.round(pat.minutes*count/pat.count));
    const title=`${ex.name} • ${day} Daily ${type} Draft`;
@@ -313,7 +335,6 @@ function makeDailyDrafts(){const day=indiaDay(), examRows=db.prepare('SELECT id,
  }
  return {day,created};
 }
-makeDailyDrafts();
 const dailyTimer=setInterval(()=>{try{makeDailyDrafts()}catch(e){console.error('Daily draft queue:',e.message)}},60*60*1000);dailyTimer.unref();
 function dailyQueue(){return db.prepare(`SELECT d.day,d.type,t.id,t.title,t.question_count,t.minutes,t.positive,t.negative,t.published,t.sections_json,e.name exam_name,e.id exam_id FROM daily_drafts d JOIN tests t ON t.id=d.test_id JOIN exams e ON e.id=d.exam_id ORDER BY d.day DESC,e.id,d.type LIMIT 120`).all().map(t=>{
  const sections=JSON.parse(t.sections_json);const gaps=sections.map(x=>{const available=db.prepare('SELECT COUNT(*) n FROM questions WHERE exam_id=? AND LOWER(topic)=LOWER(?) AND verified=1').get(t.exam_id,x.topic).n;return {topic:x.topic,required:x.count,verified:available,missing:Math.max(0,x.count-available)}});
