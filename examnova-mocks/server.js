@@ -2,7 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const PORT=Number(process.env.PORT||3001), ROOT=path.join(__dirname,'public');
-const BUILD='2026-11-04-exam-manager';
+const BUILD='2026-11-05-option-analysis';
 fs.mkdirSync(path.join(__dirname,'data'),{recursive:true});
 const db=new DatabaseSync(path.join(__dirname,'data','examnova.sqlite')); db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
 db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'candidate',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -489,7 +489,7 @@ if(method==='POST'&&p==='/api/admin/bulk-append'){
  const all=[...current,...r.questions],sections=[];for(const q of all){let sec=sections.find(s=>s.topic===q.topic);if(!sec){sec={topic:q.topic,count:0};sections.push(sec)}sec.count++}if(sections.length>20)fail(400,'Maximum 20 sections');
  const behavior=JSON.parse(t.behavior_json||'{}');if(behavior.timerMode==='sectional')fail(409,'Use an empty manual mock with a common timer for batch paste');
  db.exec('BEGIN IMMEDIATE');try{
- for(const q of r.questions){const id=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)').run(t.exam_id,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation).lastInsertRowid;db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,id,engine.questions(t.id).length)}
+ for(const q of r.questions){const id=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,option_explanations_json,revision_notes,verified) VALUES(?,?,?,?,?,?,?,?,0)').run(t.exam_id,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation,JSON.stringify(q.optionExplanations),q.revisionNotes).lastInsertRowid;db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,id,engine.questions(t.id).length)}
  const ordered=engine.questions(t.id);db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(t.id);let pos=0;for(const sec of sections)for(const q of ordered.filter(q=>q.topic===sec.topic))db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,q.id,pos++);
  db.prepare('UPDATE tests SET sections_json=? WHERE id=?').run(JSON.stringify(sections),t.id);db.prepare("UPDATE mock_jobs SET status=?,error='' WHERE test_id=?").run(all.length===t.question_count?'ready':'draft',t.id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e}return send(res,201,{id:t.id,count:r.questions.length,total:all.length});
 }
@@ -510,7 +510,7 @@ if(method==='POST'&&['/api/admin/bulk-preview','/api/admin/bulk-create'].include
  id=Number(db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)').run(eid,title,data.type,minutes,positive,negative,result.questions.length,JSON.stringify(sections),JSON.stringify(normalizeBehavior({timerMode:'global'},sections,minutes))).lastInsertRowid);
  let position=0;
  for(const section of sections)for(const q of result.questions.filter(q=>q.topic===section.topic)){
- const qid=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)').run(eid,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation).lastInsertRowid;
+ const qid=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,option_explanations_json,revision_notes,verified) VALUES(?,?,?,?,?,?,?,?,0)').run(eid,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation,JSON.stringify(q.optionExplanations),q.revisionNotes).lastInsertRowid;
  db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(id,qid,position++);
  }
  db.prepare("INSERT INTO mock_jobs(test_id,status,error) VALUES(?,'ready','')").run(id);

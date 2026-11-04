@@ -1,37 +1,42 @@
-EXAM + MOCK MANAGER (cumulative update, replaces previous Manual Paste ZIP)
+ExamNova — Correct Answer + Four Option Explanations Fix
 
-Upload these four files to examnova-production branch / examnova-mocks folder:
-server.js, manual-engine.js, bulk-import.js, public/app.js
-Do not upload at repository root or on main. Keep existing data volume and other files.
-Build: 2026-11-04-exam-manager
+Replace only these 3 files in your existing examnova-production branch:
+examnova-mocks/bulk-import.js
+examnova-mocks/server.js
+examnova-mocks/public/app.js
 
-1. Add Exam: name and category → Save Exam.
-2. Create Mock: choose exam, name, Full/Mini/Subject/Topic/Sectional,
-   total question count, minutes and marks → Save Mock.
-3. On that mock click Add Questions, or use Paste Questions into Mock and select it.
-4. Enter subject/section, paste questions, Preview → Save Questions to Draft.
-5. Repeat batches until target count is complete, then Review & Publish.
-New empty owner-created mocks survive restart and remain visible.
-Published or attempted mocks cannot receive additional questions.
-Duplicate questions, over-capacity batches and more than two equal numeric
-question templates are rejected. All of a batch is saved or none of it.
-New mocks use a common timer. Manual imports do not verify official syllabus or factual answers.
+Keep all other project files, the existing data volume and database unchanged.
+This is an update patch, not a standalone application. Restart/redeploy the
+existing application after replacing the files. Live deployment has not been performed.
 
-Paste format:
+Paste the same questions again, including (correct) and the four explanations.
+The failed preview in the screenshot did not save those questions.
+Format:
 Section: Computer
-Q1. Question text
-A) First option
-B) Second option
-C) Third option
-D) Fourth option
-Answer: B
-Explanation: Reason
+1. Question text?
+A. First option
+B. Second option (correct)
+C. Third option
+D. Fourth option
+विकल्पों की व्याख्या:
+A. Reason for A.
+B. Reason for B.
+C. Reason for C.
+D. Reason for D.
 
-Each question needs four distinct options and an answer. Explanations are optional.
-Gemini generation remains disabled. Old legacy empty/pending slots remain archived.
-Existing account/attempt/history data is retained.
+Use Section: Reasoning and Section: GK/GS before those batches, or choose the
+section in the paste form. The previous COMPUTER — प्रश्न 1–40 style is also accepted.
 
-Local checks passed: creation of new exam and separate mock, empty mock restart persistence,
-partial and complete batch imports, duplicate rejection, incomplete publish blocked,
-publish after full count, changes to published mock blocked, normal candidate questions,
-legacy archive and existing attempts retained. Not yet deployed live by assistant.
+Admin Preview displays answers and all four explanations for review.
+Candidate test receives only question text and clean options.
+After submission (including timed auto-submission), Analysis and History show
+correct answers and individual option explanations.
+Answer: A/B/C/D and general Explanation: remain supported.
+Conflicting answers and multiple marked-correct options are rejected.
+
+Validation: syntax checks; 80-question generated fixture with 40/20/20 sections;
+create and append API/database persistence; candidate response excludes answer
+and reasons; submission and history preserve explanations. Tested on isolated
+SQLite data. The unrelated owner-login bridge was stubbed and the pre-existing
+practice bank replaced by an empty fixture in tests only; neither is included
+or changed by this patch. Browser/live deployment verification not performed.
