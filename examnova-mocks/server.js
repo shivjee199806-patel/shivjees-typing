@@ -413,6 +413,39 @@ if(method==='PATCH'&&/^\/api\/admin\/daily\/\d+$/.test(p)){
  const b=normalizeBehavior(JSON.parse(t.behavior_json||'{}'),sections,minutes);
  db.prepare('UPDATE tests SET title=?,question_count=?,minutes=?,positive=?,negative=?,sections_json=?,behavior_json=? WHERE id=?').run(title,count,minutes,positive,negative,JSON.stringify(sections),JSON.stringify(b),id);db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE test_id=? AND status!='generating'").run(id);return send(res,200,{ok:true});
 }
+if(method==='POST'&&p==='/api/admin/paste-preview'){
+ const stem=String(data.stem||'').trim(),answer=String(data.answer||'').trim();
+ if(!stem||!answer||stem.length>4000||answer.length>1000)fail(400,'Enter a question and its answer');
+ let alternatives;
+ try{alternatives=await engine.distractors(stem,answer)}catch(e){fail(502,e.message)}
+ const options=[answer,...(Array.isArray(alternatives)?alternatives:[])];
+ if(options.length!==4||options.some(x=>typeof x!=='string'||!x.trim())||new Set(options.map(x=>x.trim().normalize('NFKC').toLowerCase())).size!==4)fail(422,'Could not make three distinct options. Add them manually or retry.');
+ const correctIndex=crypto.randomInt(4);
+ options.splice(correctIndex,0,options.shift());
+ return send(res,200,{options,correctIndex});
+}
+if(method==='POST'&&p==='/api/admin/paste-draft'){
+ const id=Number(data.testId),topic=String(data.topic||'').trim(),stem=String(data.stem||'').trim();
+ const t=db.prepare('SELECT * FROM tests WHERE id=?').get(id);
+ if(!t||t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(id))fail(409,'Select an unpublished mock without attempts');
+ const section=JSON.parse(t.sections_json||'[]').find(x=>x.topic===topic);
+ const current=engine.questions(id);
+ if(!section||current.length>=t.question_count||current.filter(q=>q.topic===topic).length>=section.count)fail(409,'This section is full or unavailable');
+ const options=data.options,correct=data.correctIndex;
+ const key=x=>x.normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+ if(!stem||stem.length>4000||!Array.isArray(options)||options.length!==4||options.some(x=>typeof x!=='string'||!x.trim()||x.length>1000)||new Set(options.map(key)).size!==4||!Number.isInteger(correct)||correct<0||correct>3)fail(400,'Review the question, four distinct options and correct answer');
+ if(db.prepare('SELECT stem FROM questions').all().some(q=>key(q.stem)===key(stem)))fail(409,'This question already exists in the question bank');
+ if(!engine.patternAllowed(id,stem))fail(409,'This mock already has two questions with this numeric template');
+ db.exec('BEGIN IMMEDIATE');
+ try{
+  const qid=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)').run(t.exam_id,topic,stem,JSON.stringify(options.map(x=>x.trim())),correct,String(data.explanation||'').slice(0,4000)).lastInsertRowid;
+  db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(id,qid,current.length);
+  db.prepare("INSERT OR IGNORE INTO mock_jobs(test_id,status) VALUES(?,'queued')").run(id);
+  if(engine.complete(t))db.prepare("UPDATE mock_jobs SET status='ready',error='' WHERE test_id=?").run(id);
+  db.exec('COMMIT');
+ }catch(e){db.exec('ROLLBACK');throw e}
+ return send(res,201,{ok:true});
+}
 if(method==='GET'&&p==='/api/admin/questions'){const examId=Number(url.searchParams.get('exam')||0);return send(res,200,{questions:db.prepare('SELECT * FROM questions WHERE (?=0 OR exam_id=?) ORDER BY id DESC LIMIT 500').all(examId,examId).map(q=>({...q,options:JSON.parse(q.options_json),options_json:undefined}))})}
 if(method==='POST'&&p==='/api/admin/exams'){const name=String(data.name||'').trim(),category=String(data.category||'').trim();if(!name||!category)fail(400,'Name and category required');const id=Number(db.prepare('INSERT INTO exams(name,category,source_url) VALUES(?,?,?)').run(name,category,String(data.sourceUrl||'')).lastInsertRowid);return send(res,201,{id})}
 if(method==='PATCH'&&/^\/api\/admin\/exams\/\d+$/.test(p)){const id=Number(p.split('/').pop());db.prepare('UPDATE exams SET verified=?,source_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(data.verified?1:0,String(data.sourceUrl||''),id);return send(res,200,{ok:true})}
