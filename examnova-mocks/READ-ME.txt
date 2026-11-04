@@ -1,0 +1,37 @@
+EXAM + MOCK MANAGER (cumulative update, replaces previous Manual Paste ZIP)
+
+Upload these four files to examnova-production branch / examnova-mocks folder:
+server.js, manual-engine.js, bulk-import.js, public/app.js
+Do not upload at repository root or on main. Keep existing data volume and other files.
+Build: 2026-11-04-exam-manager
+
+1. Add Exam: name and category → Save Exam.
+2. Create Mock: choose exam, name, Full/Mini/Subject/Topic/Sectional,
+   total question count, minutes and marks → Save Mock.
+3. On that mock click Add Questions, or use Paste Questions into Mock and select it.
+4. Enter subject/section, paste questions, Preview → Save Questions to Draft.
+5. Repeat batches until target count is complete, then Review & Publish.
+New empty owner-created mocks survive restart and remain visible.
+Published or attempted mocks cannot receive additional questions.
+Duplicate questions, over-capacity batches and more than two equal numeric
+question templates are rejected. All of a batch is saved or none of it.
+New mocks use a common timer. Manual imports do not verify official syllabus or factual answers.
+
+Paste format:
+Section: Computer
+Q1. Question text
+A) First option
+B) Second option
+C) Third option
+D) Fourth option
+Answer: B
+Explanation: Reason
+
+Each question needs four distinct options and an answer. Explanations are optional.
+Gemini generation remains disabled. Old legacy empty/pending slots remain archived.
+Existing account/attempt/history data is retained.
+
+Local checks passed: creation of new exam and separate mock, empty mock restart persistence,
+partial and complete batch imports, duplicate rejection, incomplete publish blocked,
+publish after full count, changes to published mock blocked, normal candidate questions,
+legacy archive and existing attempts retained. Not yet deployed live by assistant.

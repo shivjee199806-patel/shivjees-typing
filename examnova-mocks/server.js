@@ -2,7 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const PORT=Number(process.env.PORT||3001), ROOT=path.join(__dirname,'public');
-const BUILD='2026-11-04-owner-login';
+const BUILD='2026-11-04-exam-manager';
 fs.mkdirSync(path.join(__dirname,'data'),{recursive:true});
 const db=new DatabaseSync(path.join(__dirname,'data','examnova.sqlite')); db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
 db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'candidate',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -324,19 +324,6 @@ function mockShape(pattern,type){
  }
  return {sections,count,minutes:Math.max(5,Math.round(pattern.minutes*count/pattern.count))};
 }
-// Seed two Full and two Mini starters per exam.
-for(const [examName,pat] of Object.entries(patternBlueprints)){
- const ex=db.prepare('SELECT id FROM exams WHERE name=?').get(examName);if(!ex)continue;
- const up=db.prepare('UPDATE exams SET source_url=? WHERE id=?');up.run(pat.source,ex.id);
- for(const [type,no] of [['Full',1],['Full',2],['Mini',1],['Mini',2]]){
-  const title=`${examName} • ${type} Mock ${no} (Question Bank Pending)`;
-  if(db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
-  if(db.prepare('SELECT title FROM seeded_test_titles WHERE title=?').get(title)||db.prepare('SELECT 1 FROM tests WHERE exam_id=? AND title=?').get(ex.id,title.replace(' (Question Bank Pending)',''))||db.prepare('SELECT title FROM deleted_test_titles WHERE title=?').get(title)||db.prepare('SELECT id FROM tests WHERE exam_id=? AND title=?').get(ex.id,title))continue;
-  const {sections,count,minutes}=mockShape(pat,type);
-  db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json) VALUES(?,?,?,?,?,?,?,?,?)').run(ex.id,title,type,minutes,pat.positive,pat.negative,count,0,JSON.stringify(sections));
-  db.prepare('INSERT OR IGNORE INTO seeded_test_titles VALUES(?)').run(title);
- }
-}
 // Remove obsolete empty auto drafts once. Preserve questions, attempts and published tests.
 db.exec(`CREATE TABLE IF NOT EXISTS starter_queue_migrations(id INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS mock_questions(test_id INTEGER NOT NULL REFERENCES tests(id),question_id INTEGER NOT NULL REFERENCES questions(id),position INTEGER NOT NULL,PRIMARY KEY(test_id,question_id),UNIQUE(test_id,position));
@@ -392,23 +379,23 @@ function admin(req){let u=auth(req);if(u.role!=='admin')fail(403,'Admin access o
 function publicTest(t){return {...t,sections:JSON.parse(t.sections_json||'[]'),behavior:behaviorFor(t),sections_json:undefined,behavior_json:undefined}}
 function setDefaultSectionalTimers(){for(const t of db.prepare("SELECT t.* FROM tests t JOIN exams e ON e.id=t.exam_id WHERE (e.category='Banking' OR e.name='SSC CGL') AND t.published=0 AND t.behavior_json='{}' AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.test_id=t.id)").all()){const sections=JSON.parse(t.sections_json);if(!sections.length||t.minutes<sections.length)continue;let remaining=t.minutes;const rules=sections.map((sec,i)=>{const minutes=i===sections.length-1?remaining:Math.floor(t.minutes/sections.length);remaining-=minutes;return {topic:sec.topic,minutes,positive:t.positive,negative:t.negative}});db.prepare('UPDATE tests SET behavior_json=? WHERE id=?').run(JSON.stringify(normalizeBehavior({timerMode:'sectional',sectionRules:rules},sections,t.minutes)),t.id)}}
 setDefaultSectionalTimers();const bankingTimer=setInterval(setDefaultSectionalTimers,60000);bankingTimer.unref();
-const engine=require('./draft-engine')(db,patternBlueprints,indiaDay);
+const engine=require('./manual-engine')(db);
 function finalize(a){if(a.submitted_at)return JSON.parse(a.result_json);const t=db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),ids=JSON.parse(a.question_ids_json),qs=ids.map(id=>db.prepare('SELECT * FROM questions WHERE id=?').get(id)),ans=JSON.parse(a.answers_json||'{}'),timings=questionTimes(a);let correct=0,wrong=0,score=0,maxMarks=0;let topics={};const rules=behaviorFor(t).sectionRules;const review=qs.map(q=>{const selected=ans[q.id]??null,ok=selected===q.correct_index,rule=rules.find(x=>x.topic===q.topic),plus=rule?.positive??t.positive,minus=rule?.negative??t.negative;maxMarks+=plus;if(selected!==null)score+=ok?plus:-minus;if(selected!==null){if(ok)correct++;else wrong++}const r=topics[q.topic]||{correct:0,total:0};r.total++;if(ok)r.correct++;topics[q.topic]=r;return {timeMs:timings[q.id]??null,id:q.id,topic:q.topic,stem:q.stem,options:JSON.parse(q.options_json),selected,correctIndex:q.correct_index,explanation:q.explanation,optionExplanations:JSON.parse(q.option_explanations_json||'[]'),revisionNotes:q.revision_notes||''}});const result={durationMs:Math.max(0,Math.min(Date.now(),a.deadline)-a.started_at),trackedMs:Object.values(timings).reduce((n,x)=>n+x,0),correct,wrong,skipped:qs.length-correct-wrong,total:qs.length,score:Number(score.toFixed(2)),maxMarks:Number(maxMarks.toFixed(2)),accuracy:Number((qs.length?100*correct/(correct+wrong||1):0).toFixed(1)),positive:t.positive,negative:t.negative,behavior:behaviorFor(t),topics,review,submittedAt:Date.now()};db.prepare('UPDATE attempts SET submitted_at=?,result_json=? WHERE id=?').run(Date.now(),JSON.stringify(result),a.id);return result}
 const exchangeJPOwner=require('./jp-owner-bridge')(db);
-async function api(req,res,url){let method=req.method, p=url.pathname, data={};if(['POST','PATCH','PUT'].includes(method)){let chunks=[],n=0;for await(const b of req){n+=b.length;if(n>1e6)fail(413,'Payload too large');chunks.push(b)}try{data=JSON.parse(Buffer.concat(chunks).toString()||'{}')}catch{fail(400,'Invalid JSON')}}
+async function api(req,res,url){let method=req.method, p=url.pathname, data={};if(['/api/admin/studio/retry','/api/admin/studio/settings','/api/admin/daily/generate','/api/admin/paste-preview'].includes(p))fail(410,'AI generation removed. Use Paste Questions to create a mock.');if(['POST','PATCH','PUT'].includes(method)){let chunks=[],n=0;for await(const b of req){n+=b.length;if(n>1e6)fail(413,'Payload too large');chunks.push(b)}try{data=JSON.parse(Buffer.concat(chunks).toString()||'{}')}catch{fail(400,'Invalid JSON')}}
 if(method==='POST'&&p==='/api/jp-control/exchange')return send(res,200,await exchangeJPOwner(data));
 if(method==='POST'&&p==='/api/register'){const name=String(data.name||'').trim(),em=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');if(name.length<2||name.length>70||!/^\S+@\S+\.\S+$/.test(em)||password.length<8)fail(400,'Valid name, email, password (8+ characters) required');try{db.prepare('INSERT INTO users(name,email,hash) VALUES(?,?,?)').run(name,em,hashPw(password))}catch{fail(409,'Email already registered')}return send(res,201,{ok:true})}
 if(method==='POST'&&p==='/api/login'){const u=db.prepare('SELECT * FROM users WHERE email=?').get(String(data.email||'').trim().toLowerCase());if(!u||!checkPw(String(data.password||''),u.hash))fail(401,'Invalid email or password');const token=crypto.randomBytes(32).toString('hex');db.prepare('INSERT INTO tokens(token_hash,user_id,expires) VALUES(?,?,?)').run(crypto.createHash('sha256').update(token).digest('hex'),u.id,Date.now()+7*864e5);return send(res,200,{token,user:{id:u.id,name:u.name,email:u.email,role:u.role}})}
 if(method==='GET'&&p==='/api/me')return send(res,200,{user:auth(req)});
 if(method==='POST'&&p==='/api/logout'){auth(req);db.prepare('DELETE FROM tokens WHERE token_hash=?').run(crypto.createHash('sha256').update((req.headers.authorization||'').slice(7)).digest('hex'));return send(res,200,{ok:true})}
-if(method==='GET'&&p==='/api/status'){const rows=db.prepare("SELECT e.name exam, SUM(CASE WHEN t.type='Full' THEN 1 ELSE 0 END) AS full_count, SUM(CASE WHEN t.type='Mini' THEN 1 ELSE 0 END) AS mini_count FROM exams e LEFT JOIN tests t ON t.exam_id=e.id AND t.title NOT LIKE '%(Sample)%' GROUP BY e.id ORDER BY e.id").all();return send(res,200,{build:BUILD, database:path.join(__dirname,'data','examnova.sqlite'), total:rows.reduce((n,r)=>n+(r.full_count||0)+(r.mini_count||0),0),exams:rows,coReady:db.prepare("SELECT COUNT(*) AS n FROM tests WHERE exam_id=? AND published=1 AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%'").get(exam1).n,coQuestions:db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=?').get(exam1).n})}
+if(method==='GET'&&p==='/api/status'){const rows=db.prepare("SELECT e.name exam, SUM(CASE WHEN t.type='Full' THEN 1 ELSE 0 END) AS full_count, SUM(CASE WHEN t.type='Mini' THEN 1 ELSE 0 END) AS mini_count FROM exams e LEFT JOIN tests t ON t.exam_id=e.id AND t.id NOT IN (SELECT test_id FROM manual_archived_tests) AND t.title NOT LIKE '%(Sample)%' GROUP BY e.id ORDER BY e.id").all();return send(res,200,{build:BUILD, database:path.join(__dirname,'data','examnova.sqlite'), total:rows.reduce((n,r)=>n+(r.full_count||0)+(r.mini_count||0),0),exams:rows,coReady:db.prepare("SELECT COUNT(*) AS n FROM tests WHERE exam_id=? AND published=1 AND type IN ('Full','Mini') AND title NOT LIKE '%(Sample)%'").get(exam1).n,coQuestions:db.prepare('SELECT COUNT(*) AS n FROM questions WHERE exam_id=?').get(exam1).n})}
 if(method==='GET'&&p==='/api/exams'){return send(res,200,{exams:db.prepare("SELECT e.*,COALESCE(g.official_url,'') official_url,CASE WHEN g.official_url<>'' THEN g.syllabus ELSE '' END syllabus FROM exams e LEFT JOIN exam_generation g ON g.exam_id=e.id ORDER BY e.id").all()})}
 if(method==='GET'&&p==='/api/tests'){
  const examId=Number(url.searchParams.get('exam')||0);
  let owner=false;
  if(req.headers.authorization){try{owner=auth(req).role==='admin'}catch{}}
  const rows=db.prepare(`SELECT t.*,e.name exam_name FROM tests t JOIN exams e ON e.id=t.exam_id
-  WHERE (?=0 OR t.exam_id=?) AND t.title NOT LIKE '%(Sample)%'
+  WHERE (?=0 OR t.exam_id=?) AND t.id NOT IN (SELECT test_id FROM manual_archived_tests) AND t.title NOT LIKE '%(Sample)%'
   AND (t.published=1 OR (?=1 AND NOT EXISTS(SELECT 1 FROM daily_drafts d WHERE d.test_id=t.id)))
   ORDER BY t.id DESC`).all(examId,examId,Number(owner));
  return send(res,200,{tests:rows.map(publicTest)});
@@ -482,6 +469,56 @@ if(method==='PATCH'&&/^\/api\/admin\/daily\/\d+$/.test(p)){
  const b=normalizeBehavior(JSON.parse(t.behavior_json||'{}'),sections,minutes);
  db.prepare('UPDATE tests SET title=?,question_count=?,minutes=?,positive=?,negative=?,sections_json=?,behavior_json=? WHERE id=?').run(title,count,minutes,positive,negative,JSON.stringify(sections),JSON.stringify(b),id);db.prepare("UPDATE mock_jobs SET status='queued',error='' WHERE test_id=? AND status!='generating'").run(id);return send(res,200,{ok:true});
 }
+
+if(method==='POST'&&p==='/api/admin/manual-mock'){
+ const eid=Number(data.examId),count=Number(data.questionCount),minutes=Number(data.minutes),positive=Number(data.positive),negative=Number(data.negative),title=String(data.title||'').trim();
+ if(!db.prepare('SELECT id FROM exams WHERE id=?').get(eid)||!title||title.length>200||!['Full','Mini','Subject','Topic','Sectional'].includes(data.type)||!Number.isInteger(count)||count<1||count>500||!Number.isInteger(minutes)||minutes<1||minutes>500||!Number.isFinite(positive)||positive<=0||!Number.isFinite(negative)||negative<0)fail(400,'Check mock name, exam, question count, time and marks');
+ if(db.prepare('SELECT 1 FROM tests WHERE exam_id=? AND title=?').get(eid,title))fail(409,'This mock name already exists');
+ db.exec('BEGIN IMMEDIATE');let id;try{
+ id=Number(db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)').run(eid,title,data.type,minutes,positive,negative,count,'[]',JSON.stringify(normalizeBehavior({timerMode:'global'},[],minutes))).lastInsertRowid);
+ db.prepare('INSERT INTO manual_created_tests VALUES(?)').run(id);db.prepare("INSERT INTO mock_jobs(test_id,status) VALUES(?,'draft')").run(id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e}return send(res,201,{id});
+}
+if(method==='POST'&&p==='/api/admin/bulk-append'){
+ const t=db.prepare('SELECT * FROM tests WHERE id=?').get(Number(data.testId));
+ if(!t||t.published||db.prepare('SELECT 1 FROM attempts WHERE test_id=?').get(t.id)||db.prepare('SELECT 1 FROM manual_archived_tests WHERE test_id=?').get(t.id))fail(409,'Choose an editable unpublished mock');
+ const {parse,key}=require('./bulk-import'),r=parse(data.text,String(data.topic||'General').trim()||'General');if(r.errors.length)fail(422,r.errors.join('\n'));
+ const current=engine.questions(t.id);if(current.length+r.questions.length>t.question_count)fail(409,`Only ${t.question_count-current.length} spaces remain in this mock`);
+ const exists=new Set(db.prepare('SELECT stem FROM questions').all().map(q=>key(q.stem))),patterns=new Map();
+ for(const q of [...current,...r.questions]){const k=key(q.stem).replace(/\p{N}+/gu,'#');patterns.set(k,(patterns.get(k)||0)+1);if(patterns.get(k)>2)fail(422,'Same numeric template occurs more than twice')}
+ for(const q of r.questions)if(exists.has(key(q.stem)))fail(409,'A pasted question already exists in the bank');
+ const all=[...current,...r.questions],sections=[];for(const q of all){let sec=sections.find(s=>s.topic===q.topic);if(!sec){sec={topic:q.topic,count:0};sections.push(sec)}sec.count++}if(sections.length>20)fail(400,'Maximum 20 sections');
+ const behavior=JSON.parse(t.behavior_json||'{}');if(behavior.timerMode==='sectional')fail(409,'Use an empty manual mock with a common timer for batch paste');
+ db.exec('BEGIN IMMEDIATE');try{
+ for(const q of r.questions){const id=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)').run(t.exam_id,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation).lastInsertRowid;db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,id,engine.questions(t.id).length)}
+ const ordered=engine.questions(t.id);db.prepare('DELETE FROM mock_questions WHERE test_id=?').run(t.id);let pos=0;for(const sec of sections)for(const q of ordered.filter(q=>q.topic===sec.topic))db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(t.id,q.id,pos++);
+ db.prepare('UPDATE tests SET sections_json=? WHERE id=?').run(JSON.stringify(sections),t.id);db.prepare("UPDATE mock_jobs SET status=?,error='' WHERE test_id=?").run(all.length===t.question_count?'ready':'draft',t.id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e}return send(res,201,{id:t.id,count:r.questions.length,total:all.length});
+}
+if(method==='POST'&&['/api/admin/bulk-preview','/api/admin/bulk-create'].includes(p)){
+ const {parse,key}=require('./bulk-import');
+ const result=parse(data.text,String(data.topic||'General').trim()||'General');
+ const existing=new Set(db.prepare('SELECT stem FROM questions').all().map(q=>key(q.stem)));
+ result.questions.forEach((q,i)=>{if(existing.has(key(q.stem)))result.errors.push('Q'+(i+1)+': already exists in question bank')});
+ const sections=[];for(const q of result.questions){let section=sections.find(s=>s.topic===q.topic);if(!section){section={topic:q.topic,count:0};sections.push(section)}section.count++}
+ if(sections.length>20)result.errors.push('Maximum 20 sections');
+ if(p.endsWith('bulk-preview'))return send(res,200,{...result,sections});
+ if(result.errors.length)fail(422,result.errors.slice(0,20).join('\n'));
+ const eid=Number(data.examId),minutes=Number(data.minutes),positive=Number(data.positive),negative=Number(data.negative),title=String(data.title||'').trim();
+ if(!db.prepare('SELECT id FROM exams WHERE id=?').get(eid)||!title||title.length>200||!['Full','Mini','Sectional','Subject','Topic'].includes(data.type)||!Number.isInteger(minutes)||minutes<1||minutes>500||!Number.isFinite(positive)||positive<=0||!Number.isFinite(negative)||negative<0)fail(400,'Check exam, title, time and marks');
+ if(db.prepare('SELECT id FROM tests WHERE title=? AND exam_id=?').get(title,eid))fail(409,'A mock with this title already exists; choose another title');
+ let id;db.exec('BEGIN IMMEDIATE');
+ try{
+ id=Number(db.prepare('INSERT INTO tests(exam_id,title,type,minutes,positive,negative,question_count,published,sections_json,behavior_json) VALUES(?,?,?,?,?,?,?,0,?,?)').run(eid,title,data.type,minutes,positive,negative,result.questions.length,JSON.stringify(sections),JSON.stringify(normalizeBehavior({timerMode:'global'},sections,minutes))).lastInsertRowid);
+ let position=0;
+ for(const section of sections)for(const q of result.questions.filter(q=>q.topic===section.topic)){
+ const qid=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)').run(eid,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation).lastInsertRowid;
+ db.prepare('INSERT INTO mock_questions VALUES(?,?,?)').run(id,qid,position++);
+ }
+ db.prepare("INSERT INTO mock_jobs(test_id,status,error) VALUES(?,'ready','')").run(id);
+ db.exec('COMMIT');
+ }catch(e){db.exec('ROLLBACK');throw e}
+ return send(res,201,{id,count:result.questions.length});
+}
+
 if(method==='POST'&&p==='/api/admin/paste-preview'){
  const stem=String(data.stem||'').trim(),answer=String(data.answer||'').trim();
  if(!stem||!answer||stem.length>4000||answer.length>1000)fail(400,'Enter a question and its answer');
