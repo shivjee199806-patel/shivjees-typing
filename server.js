@@ -269,7 +269,11 @@ patternBlueprints.CCC.sections=[
 ];
 for(const [name,entry] of Object.entries(officialSyllabi))patternBlueprints[name].source=entry.source;
 // Self-authored practice bank: not official PYQs; preserve user's existing questions.
-const coPractice=JSON.parse(fs.readFileSync(path.join(__dirname,'co_practice_questions.json'),'utf8'));
+const coPracticeFile=path.join(__dirname,'co_practice_questions.json');
+const coPractice=fs.existsSync(coPracticeFile)
+  ? JSON.parse(fs.readFileSync(coPracticeFile,'utf8'))
+  : [];
+if(!fs.existsSync(coPracticeFile))console.warn('Optional CO question seed file is missing; existing database questions remain unchanged.');
 const addPractice=db.prepare('INSERT INTO questions(exam_id,topic,stem,options_json,correct_index,explanation,verified) VALUES(?,?,?,?,?,?,0)');
 for(const q of coPractice){if(!db.prepare('SELECT id FROM questions WHERE exam_id=? AND stem=?').get(exam1,q.stem))addPractice.run(exam1,q.topic,q.stem,JSON.stringify(q.options),q.correctIndex,q.explanation)}
 db.exec('CREATE TABLE IF NOT EXISTS deleted_test_titles(title TEXT PRIMARY KEY);CREATE TABLE IF NOT EXISTS seeded_test_titles(title TEXT PRIMARY KEY)');
