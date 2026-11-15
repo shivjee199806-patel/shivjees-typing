@@ -269,7 +269,7 @@ patternBlueprints.CCC.sections=[
 ];
 for(const [name,entry] of Object.entries(officialSyllabi))patternBlueprints[name].source=entry.source;
 // Self-authored practice bank: not official PYQs; preserve user's existing questions.
-const coPracticeFile=path.join(__dirname,'co_practice_questions.json');
+const coPracticeFile=path.join(__dirname,'examnova-mocks','co_practice_questions.json');
 const coPractice=fs.existsSync(coPracticeFile)
   ? JSON.parse(fs.readFileSync(coPracticeFile,'utf8'))
   : [];
@@ -345,7 +345,7 @@ function setBankingTimers(){for(const t of db.prepare("SELECT t.* FROM tests t J
 setBankingTimers();const bankingTimer=setInterval(setBankingTimers,60000);bankingTimer.unref();
 const engine=require('./draft-engine')(db,patternBlueprints,indiaDay);
 function finalize(a){if(a.submitted_at)return JSON.parse(a.result_json);const t=db.prepare('SELECT * FROM tests WHERE id=?').get(a.test_id),ids=JSON.parse(a.question_ids_json),qs=ids.map(id=>db.prepare('SELECT * FROM questions WHERE id=?').get(id)),ans=JSON.parse(a.answers_json||'{}'),timings=questionTimes(a);let correct=0,wrong=0,score=0,maxMarks=0;let topics={};const rules=behaviorFor(t).sectionRules;const review=qs.map(q=>{const selected=ans[q.id]??null,ok=selected===q.correct_index,rule=rules.find(x=>x.topic===q.topic),plus=rule?.positive??t.positive,minus=rule?.negative??t.negative;maxMarks+=plus;if(selected!==null)score+=ok?plus:-minus;if(selected!==null){if(ok)correct++;else wrong++}const r=topics[q.topic]||{correct:0,total:0};r.total++;if(ok)r.correct++;topics[q.topic]=r;return {timeMs:timings[q.id]??null,id:q.id,topic:q.topic,stem:q.stem,options:JSON.parse(q.options_json),selected,correctIndex:q.correct_index,explanation:q.explanation,optionExplanations:JSON.parse(q.option_explanations_json||'[]'),revisionNotes:q.revision_notes||''}});const result={durationMs:Math.max(0,Math.min(Date.now(),a.deadline)-a.started_at),trackedMs:Object.values(timings).reduce((n,x)=>n+x,0),correct,wrong,skipped:qs.length-correct-wrong,total:qs.length,score:Number(score.toFixed(2)),maxMarks:Number(maxMarks.toFixed(2)),accuracy:Number((qs.length?100*correct/(correct+wrong||1):0).toFixed(1)),positive:t.positive,negative:t.negative,behavior:behaviorFor(t),topics,review,submittedAt:Date.now()};db.prepare('UPDATE attempts SET submitted_at=?,result_json=? WHERE id=?').run(Date.now(),JSON.stringify(result),a.id);return result}
-const exchangeJPOwner=require('./jp-owner-bridge')(db);
+const exchangeJPOwner=require('./examnova-mocks/jp-owner-bridge')(db);
 async function api(req,res,url){let method=req.method, p=url.pathname, data={};if(['POST','PATCH','PUT'].includes(method)){let chunks=[],n=0;for await(const b of req){n+=b.length;if(n>1e6)fail(413,'Payload too large');chunks.push(b)}try{data=JSON.parse(Buffer.concat(chunks).toString()||'{}')}catch{fail(400,'Invalid JSON')}}
 if(method==='POST'&&p==='/api/jp-control/exchange')return send(res,200,await exchangeJPOwner(data));
 if(method==='POST'&&p==='/api/register'){const name=String(data.name||'').trim(),em=String(data.email||'').trim().toLowerCase(),password=String(data.password||'');if(name.length<2||name.length>70||!/^\S+@\S+\.\S+$/.test(em)||password.length<8)fail(400,'Valid name, email, password (8+ characters) required');try{db.prepare('INSERT INTO users(name,email,hash) VALUES(?,?,?)').run(name,em,hashPw(password))}catch{fail(409,'Email already registered')}return send(res,201,{ok:true})}
