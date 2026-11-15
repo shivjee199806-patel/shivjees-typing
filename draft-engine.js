@@ -1,5 +1,5 @@
 'use strict';
-const {offline,factual,factCount}=require('./auto-mocks');
+const {offline,factual,factCount}=require('./examnova-mocks/auto-mocks');
 module.exports=function(db,blueprints,day){
  db.exec(`CREATE TABLE IF NOT EXISTS mock_questions(test_id INTEGER NOT NULL REFERENCES tests(id),question_id INTEGER NOT NULL REFERENCES questions(id),position INTEGER NOT NULL,PRIMARY KEY(test_id,question_id),UNIQUE(test_id,position));
  CREATE TABLE IF NOT EXISTS mock_jobs(test_id INTEGER PRIMARY KEY REFERENCES tests(id),status TEXT NOT NULL DEFAULT 'queued',error TEXT NOT NULL DEFAULT '',updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
