@@ -1,0 +1,22 @@
+/* Shared branding for public SEO/typing landing pages. Scoped to .jp-branded-landing. */
+:root{color-scheme:light}
+body.jp-branded-landing{margin:0;background:radial-gradient(circle at 12% 0%,#eaf1ff 0,transparent 35%),#f5f7fd;color:#17264b;font-family:Inter,"Segoe UI",Arial,sans-serif}
+.jp-branded-landing *{box-sizing:border-box}
+.jp-branded-landing .jp-site-header{background:linear-gradient(115deg,#0c1730,#182e63 75%,#273e85);color:#fff;box-shadow:0 6px 24px #132d5524;position:relative;z-index:3}
+.jp-branded-landing .jp-site-header-inner{max-width:1140px;margin:0 auto;min-height:82px;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.jp-branded-landing .jp-site-brand{display:flex;align-items:center;gap:12px;color:#fff!important;background:none!important;padding:0!important;text-decoration:none!important;font-weight:800}
+.jp-branded-landing .jp-site-brand img{width:55px;height:55px;border-radius:14px;object-fit:contain;background:#fff;padding:3px}
+.jp-branded-landing .jp-site-brand strong{display:block;font-size:20px;line-height:1.15;letter-spacing:-.3px}
+.jp-branded-landing .jp-site-brand small{display:block;font-size:11px;margin:5px 0 0;color:#c7d8ff;font-weight:500}
+.jp-branded-landing .jp-site-nav{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.jp-branded-landing .jp-site-nav a{background:transparent!important;color:#e9f0ff!important;border:1px solid #ffffff30;border-radius:10px;padding:10px 13px!important;text-decoration:none!important;font-size:13px;font-weight:700;white-space:nowrap}
+.jp-branded-landing .jp-site-nav a.jp-practice-link{background:linear-gradient(100deg,#7655ff,#208eff)!important;color:#fff!important;border-color:transparent}
+.jp-branded-landing main{max-width:980px;margin:28px auto 48px;padding:30px;border-radius:22px;background:#fff;box-shadow:0 12px 38px #15376912;border:1px solid #e1e9f7}
+.jp-branded-landing main h1{color:#152a59;letter-spacing:-.6px}
+.jp-branded-landing main h2,.jp-branded-landing main h3{color:#173567}
+.jp-branded-landing main p,.jp-branded-landing main li{line-height:1.72}
+.jp-branded-landing main>a#jpLandingStart,.jp-branded-landing main .cta{background:linear-gradient(100deg,#6c45f5,#168cf5);color:#fff;border-radius:12px;box-shadow:0 8px 19px #3b61e02b}
+.jp-branded-landing .jp-brand-note{text-align:center;padding:0 16px 26px;color:#647594;font-size:13px}
+.jp-branded-landing .jp-brand-note a{color:#1f5db5;text-decoration:none}
+.jp-branded-landing body>header:not(.jp-site-header){display:none}
+@media(max-width:700px){.jp-branded-landing .jp-site-header-inner{padding:12px 15px;align-items:flex-start;flex-direction:column}.jp-branded-landing .jp-site-brand img{width:44px;height:44px}.jp-branded-landing .jp-site-brand strong{font-size:18px}.jp-branded-landing .jp-site-nav{width:100%;gap:6px}.jp-branded-landing .jp-site-nav a{padding:8px 10px!important;font-size:12px}.jp-branded-landing main{margin:14px 10px 25px;padding:19px 16px;border-radius:16px}.jp-branded-landing main h1{font-size:clamp(26px,7vw,35px)}}
