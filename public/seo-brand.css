@@ -1,4 +1,4 @@
-/* Visual-only theme for SEO landing pages; isolated from application routes. */
+/* Shared visual theme, used only on standalone SEO landing pages */
 body.jp-branded-landing{margin:0;background:#f5f6fa;color:#14213d;font-family:Arial,"Nirmala UI",sans-serif}
 .jp-branded-landing *{box-sizing:border-box}
 .jp-branded-landing .jp-site-header{background:#111827;border-bottom:3px solid #f97316;color:#fff;position:relative;z-index:2}

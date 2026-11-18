@@ -1,4 +1,4 @@
-/* Shared public-page shell. Only inserts branded navigation/footer; no application state or test code changed. */
+/* Presentation only: does not modify the typing-test logic. */
 (function(){
  function ready(){
   if(document.body.classList.contains('jp-branded-landing'))return;
