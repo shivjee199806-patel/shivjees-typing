@@ -2284,8 +2284,21 @@ app.post('/api/results',auth,(req,res)=>{
   for(const [slug,speed] of [['ssc-chsl-ldc-jsa-typing',35],['ssc-chsl-ldc-jsa-typing-hindi',30]]){
    db.prepare("UPDATE exams SET duration=10,required_wpm=?,required_accuracy=0,qualification_method='special_ssc_chsl',highlight_mode='none',default_result_count_mode='character' WHERE slug=?").run(speed,slug);
   }
-  // DDA JSA interface details differ by recruitment. Retain existing admin-configured
-  // backspace/highlight controls pending matching-year official instructions.
+  // DDA Direct Recruitment 2025, JSA post code 24 (official notice 26-09-2025,
+  // typing instructions pages 79-80): 35 English/30 Hindi WPM, 10 min,
+  // penalty of ten standard words per incorrect word; Hindi Mangal/Remington Gail.
+  for(const [slug,language,wpm,layout] of [
+   ['state-delhi-dda-junior-secretariat-assistant','English',35,'QWERTY'],
+   ['state-delhi-dda-junior-secretariat-assistant-hindi','Hindi',30,'Remington Gail / Mangal']
+  ]){
+   db.prepare(`UPDATE exams SET language=?,layout=?,duration=10,required_wpm=?,required_accuracy=0,
+     qualification_method='special_dda_jsa_2025',default_result_count_mode='character',qualification_note=?
+     WHERE slug=?`).run(language,layout,wpm,
+    'DDA Direct Recruitment 2025 JSA post 24, 26-09-2025 notification pp.79-80: 10 min; gross keystrokes/5, minus 10 standard words per incorrect word, divided by 10 min. Hindi: Mangal / Remington Gail.',
+    slug);
+  }
+  // DDA JSA keyboard controls/highlighting are not overridden here without an exact
+  // instruction screenshot matching this recruitment; candidate practice overrides remain available.
   db.prepare('INSERT INTO app_meta(key,value) VALUES(?,?)').run(marker,new Date().toISOString());
  })();
 })();
