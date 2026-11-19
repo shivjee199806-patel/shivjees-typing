@@ -11,7 +11,7 @@ function updateQuota(){
  $('examMode').classList.toggle('on',state.mode==='exam');
  $('enRemain').textContent=remaining(state.mode,'English')+' / 2';
  $('hiRemain').textContent=remaining(state.mode,'Hindi')+' / 2';
- const gate=remaining(state.mode,'English')===0&&remaining(state.mode,'Hindi')===0;
+ const gate=['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0);
  $('loginGate').classList.toggle('hidden',!gate);
 }
 function getExams(){return state.catalog?.exams||[]}
@@ -42,7 +42,7 @@ function showMatters(){
  $('matterList').innerHTML=state.rows.map(p=>{
   const ex=lookup.get(Number(p.exam_id));
   const allowed=remaining(state.mode,p.language)>0;
-  return '<div class="matter-item"><div><b>'+esc(p.title)+'</b><small>'+esc(p.language)+' · '+esc(p.difficulty||'Medium')+(ex?' · '+esc(normalize(ex.name)):'')+'</small></div><button type="button" data-passage="'+Number(p.id)+'" '+(allowed?'':'disabled')+'>'+(allowed?'Start →':'Login')+'</button></div>';
+  return '<div class="matter-item"><div><b>'+esc(p.title)+'</b><small>'+esc(p.language)+' · '+esc(p.difficulty||'Medium')+(ex?' · '+esc(normalize(ex.name)):'')+'</small></div><button type="button" data-passage="'+Number(p.id)+'" '+(allowed?'':'disabled')+'>'+(allowed?'Start →':'Used')+'</button></div>';
  }).join('')||'<div class="matter-item">इस Filter में कोई Matter उपलब्ध नहीं है।</div>';
  $('matterList').querySelectorAll('[data-passage]').forEach(b=>b.addEventListener('click',()=>startMatter(Number(b.dataset.passage))));
 }
@@ -163,7 +163,7 @@ function submitTest(auto=false){
  $('result').classList.remove('hidden');
  $('result').scrollIntoView({behavior:'smooth'});
  updateQuota();showMatters();
- if(remaining(state.mode,'English')===0&&remaining(state.mode,'Hindi')===0){$('loginGate').classList.remove('hidden');$('nextBtn').textContent='Login to Continue'}
+ if(['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0)){$('loginGate').classList.remove('hidden');$('nextBtn').textContent='Login to Continue'}
  else $('nextBtn').textContent='Next Matter';
 }
 function back(){
@@ -191,7 +191,7 @@ async function init(){
  });
  $('submitBtn').onclick=()=>submitTest(false);
  $('restartBtn').onclick=back;$('backBtn').onclick=back;
- $('nextBtn').onclick=()=>{if(remaining(state.mode,'English')===0&&remaining(state.mode,'Hindi')===0){location.href='/#login'}else back()};
+ $('nextBtn').onclick=()=>{if(['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0)){location.href='/#login'}else back()};
  try{
   const r=await fetch('/api/guest-typing/catalog',{credentials:'same-origin'});
   if(!r.ok)throw Error('Server catalog unavailable');
