@@ -39,3 +39,14 @@ test('result centered and candidate name bold only on enabled theme',()=>{
  assert.match(css,/jp-theme-candidate-name/);
  assert.match(visual,/jp-theme-candidate-name/);
 });
+
+test('last visible result row has three equal cards, never an isolated wide accuracy card',()=>{
+ assert.match(css,/grid-template-columns:repeat\(12,minmax\(0,1fr\)\)!important/);
+ assert.match(css,/nth-last-child\(-n\+4\)/);
+ assert.match(css,/grid-column:span 4/);
+ assert.doesNotMatch(css,/jp-theme-last-metric/);
+});
+test('centered results are aligned relative to application main viewport',()=>{
+ assert.match(css,/main\.content#app/);
+ assert.match(css,/align-items:center!important/);
+});
