@@ -1,0 +1,33 @@
+# Official typing exam defaults — audit register (20 Nov 2026)
+
+Status: **Draft / not deployed**. This register distinguishes documented rules from unverified assumptions. Do not label an exam simulation as fully identical to an exam merely because its time and WPM match.
+
+## Verified recruitment-specific source rules
+
+| Exact profile | Recruitment/source | Verified | Remaining verification |
+| --- | --- | --- | --- |
+| UP Police Computer Operator English/Hindi | UPPRPB, 09 Jan 2026, https://uppbpb.gov.in/FilesUploaded/Notice/202601091832048444d73aac8-e395-4919-a953-876b8a868625.pdf | English 30 WPM, Hindi 25 WPM; 15 min each; 85% word-based accuracy; Hindi Unicode InScript; full/half mistake classes | Test full/half aligner on Hindi and punctuation; actual key restrictions/highlighting not established by this notice |
+| RRB NTPC CBTST English/Hindi | RRB official CBTST candidate instructions, CEN 06/2024 (06 Feb 2026) | 10 min, English 30/Hindi 25 WPM; no editing; full/half mistake weighting, 5% grace and ten-word penalty; source completion can wrap into retyping | Need browser retyping flow, keyboard interception and exact word/grace edge-case tests |
+| DDA Direct Recruitment 2025 JSA | https://www.dda.gov.in/sites/default/files/latest_jobs/dda_final_notification_dr_2025_dated_26_sep_2025.pdf pp. 79-80 | English 35/Hindi 30 WPM; 10 min; (gross keystrokes / 5 - wrong words × 10)/10; Hindi Mangal with Remington Gail | Check current typing panel; special keys/preview rules |
+| SSC CHSL LDC/JSA | SSC notices and category-specific results; https://ssc.gov.in/home/notice-board | English 35/Hindi 30 WPM; 10 min | Need recruitment-year/category-specific error cutoff, full/half mistake classes, backend evaluator. Do NOT apply an older year's result cutoff globally |
+| Delhi Police HCM English/Hindi | SSC 2025 Head Constable Ministerial recruitment instructions | 10 min; 30/25 WPM; min words/strokes; speed bands | Full test for omissions/penalty, browser controls |
+| Supreme Court JCA English | Supreme Court JCA 2025 vacancy notice https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/uploads/2025/02/2025020434.pdf | 10 min; 35 WPM; 3% mistakes | Case rules and denominator tests |
+| Delhi High Court JJA English | https://delhihighcourt.nic.in/files/2026-01/recuritment/vacancy_notice_jja_0.pdf | 10 min; 35 WPM; 3% mistakes with rounding | Verify exact punctuation and rounding edge cases |
+| Rajasthan High Court Clerk/JJA | https://hcraj.nic.in/hcraj/hcraj_admin/uploadfile/recruitment/cns176899653055.pdf | 5 min; Backspace within current word under cited instructions | Check selected vacancy year; do not assume same for all variants |
+| DDA LDCE JSA | https://dda.gov.in/sites/default/files/Personnel/new_doc_11-28-2025_15.27.pdf | 10 min; English 35/Hindi 30 WPM, Hindi layouts Remington Gail/InScript/Remington CBI using Soni Typing Tutor | Separate from direct-recruitment 2025 JSA; don't silently mix keyboard layout requirements |
+
+## Important defaults and invariants
+
+1. Exam selection should preselect the verified recruitment's duration, word count method, layout, highlighting, backspace, auto-scroll and **official scoring method**. If no official evidence exists for a UI feature, label it **Not verified**, not "official OFF".
+2. Students can explicitly customize for practice; keep the option and record selected count mode **per attempt**. Never present a customized attempt as an official qualifying prediction unless all relevant official conditions still hold.
+3. History, ordinary leaderboard and immediate results must use the **same saved attempt record** and must show count mode, recruitment profile version and calculation method. Do not rewrite historical results or mix different scoring methods in rankings without a label/filter.
+4. The auto-created state/UT directories in `STATE_EXAM_DIRECTORY` have several generic, estimated fallbacks from `familyProfile()`. **They are placeholders**, not verified typing notices. Current code still exposes many of these as examinations. They require individual post+advertisement-year citations before any claim of official fidelity.
+5. Astenography and transcription may be different skills from typing; do not automatically generate a Hindi/English typed-text variant when a notice supports only one language or a dictation/transcription workflow.
+
+## Known blockers for production
+
+- Huge `public/index.html` and candidate keyboard controls need end-to-end browser validation; current branch only changes `server.js`.
+- RRB server-side transcript retyping support is added, but input panel may still prevent retyping.
+- SSC CHSL special cutoff evaluator is not complete.
+- Normal/Standard selection now reaches server when client POSTs `result_count_mode`; verify the client actually sends it and defaults properly.
+- Verify Railway production DB values, existing overrides, result/history/leaderboard consistency, and all keypress cases before merging.
