@@ -1655,7 +1655,7 @@ app.get('/api/admin/exam-directory-tree',auth,admin,(req,res)=>{try{res.set('Cac
 function examMatterWordLimit(exam,minutes){
  const mins=Math.max(1,Number(minutes)||Number(exam?.duration)||10),slug=String(exam?.slug||'').toLowerCase(),name=String(exam?.name||'').toLowerCase(),lang=String(exam?.language||'English').toLowerCase();
  if(slug.includes('upp-co')||name.includes('up police computer operator')){
-  const full=lang==='hindi'?400:500;
+  const full=lang==='hindi'?408:510;
   return Math.max(1,Math.round(full*(mins/15)));
  }
  try{
