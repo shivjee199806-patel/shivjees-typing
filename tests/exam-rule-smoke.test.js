@@ -40,6 +40,6 @@ test('RRB grace and penalty arithmetic',()=>{
  const total=400,weightedMistakes=30,grace=total*.05;
  assert.equal((total-Math.max(0,weightedMistakes-grace)*10)/10,30);
 });
-test('CO source length uses official 500/400 default',()=>{
- assert.match(src,/const full=lang==='hindi'\?400:500/);
+test('CO preferred practice matter defaults 510/408',()=>{
+ assert.match(src,/const full=lang==='hindi'\?408:510/);
 });
