@@ -145,3 +145,6 @@ body:has(.result-dashboard.jp-theme-on) .result-dashboard.jp-theme-on{width:min(
 .result-dashboard.jp-theme-off .jp-theme-redundant-status{display:block}
 .result-dashboard.jp-theme-on .result-meta .jp-theme-candidate{font-size:clamp(16px,1.4vw,22px)!important;font-weight:900!important;color:#123b88}
 .result-dashboard.jp-theme-on .result-meta .jp-theme-candidate-name{font-weight:950!important;color:#072a78!important;font-size:1.06em}
+
+/* The formula remains visible; only its trailing duplicated qualification word is suppressed. */
+.result-dashboard.jp-theme-on .result-note > b:last-child{display:none!important}
