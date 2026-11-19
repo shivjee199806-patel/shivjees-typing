@@ -2133,8 +2133,9 @@ app.post('/api/results',auth,(req,res)=>{
  // Repeat the expected source for an extended typed transcript; no edits to existing passage records.
  if(e?.qualification_method==='special_rrb_ntpc'&&evaluationContent.length>0&&submittedTyping.length>evaluationContent.length){
    const source=evaluationContent;
-   const repeats=Math.min(60,Math.ceil(submittedTyping.length/source.length));
-   evaluationContent=source.repeat(repeats).slice(0,Math.max(source.length,submittedTyping.length));
+   const repeatText=source.endsWith(' ')?source:(source+' ');
+   const repeats=Math.min(60,Math.ceil(submittedTyping.length/repeatText.length));
+   evaluationContent=repeatText.repeat(Math.max(1,repeats)).slice(0,Math.max(source.length,submittedTyping.length));
  }
  const typed=submittedTyping.slice(0,evaluationContent.length);
  const aligned=resyncMetrics(evaluationContent,typed),wordMetrics=String(e?.language||passage.language).toLowerCase()==='hindi'?jpHindiWords.stats(evaluationContent,typed):wordErrorMetrics(evaluationContent,typed),good=aligned.good,wrong=aligned.wrong;
