@@ -1347,7 +1347,9 @@ app.use('/api',(req,res,next)=>{res.setHeader('Cache-Control','no-store');next()
 // All typing controls, scores, and result source templates remain unchanged.
 const resultThemeAssets='<link rel="stylesheet" href="/result-theme.css"><script defer src="/result-theme.js"></script>';
 const originalPublicIndex=fs.readFileSync(path.join(__dirname,'public','index.html'),'utf8');
-const publicIndexBytes=Buffer.from(originalPublicIndex.replace(/<\/body\s*>/i,resultThemeAssets+'</body>'),'utf8');
+const bodyCloseAt=originalPublicIndex.toLowerCase().lastIndexOf('</body>');
+const themedPublicIndex=bodyCloseAt>=0?originalPublicIndex.slice(0,bodyCloseAt)+resultThemeAssets+originalPublicIndex.slice(bodyCloseAt):originalPublicIndex+resultThemeAssets;
+const publicIndexBytes=Buffer.from(themedPublicIndex,'utf8');
 const publicIndexGzip=zlib.gzipSync(publicIndexBytes,{level:6});
 function sendPublicIndex(req,res){
   res.type('html');
