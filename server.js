@@ -1780,6 +1780,70 @@ function cleanupObsoleteGeneratedExamMatterOnce(){
 }
 try{cleanupObsoleteGeneratedExamMatterOnce();}catch(error){console.error('Exam generated matter cleanup was not applied:',error.message);}
 
+
+// Anonymous typing trial: two starts for each mode/language, across exams, per browser.
+// Matter titles remain browsable. Full content is sent only after a counted start.
+db.exec(`CREATE TABLE IF NOT EXISTS guest_typing_starts(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ guest_id TEXT NOT NULL,
+ mode TEXT NOT NULL,
+ language TEXT NOT NULL,
+ passage_id INTEGER NOT NULL,
+ started_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_guest_typing_quota ON guest_typing_starts(guest_id,mode,language);`);
+function guestTypingIdentity(req,res){
+ const found=String(req.headers.cookie||'').match(/(?:^|;\s*)jp_guest_typing=([a-f0-9]{48})\.([a-f0-9]{64})(?:;|$)/);
+ const valid=found&&crypto.timingSafeEqual(
+  Buffer.from(found[2],'hex'),
+  crypto.createHmac('sha256',SECRET).update(found[1]).digest()
+ );
+ if(valid)return found[1];
+ const id=crypto.randomBytes(24).toString('hex');
+ const sig=crypto.createHmac('sha256',SECRET).update(id).digest('hex');
+ const secure=(req.secure||String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https')?'; Secure':'';
+ res.append('Set-Cookie','jp_guest_typing='+id+'.'+sig+'; Path=/; Max-Age=7776000; HttpOnly; SameSite=Lax'+secure);
+ return id;
+}
+function guestTypingCounts(id){
+ const rows=db.prepare('SELECT mode,language,COUNT(*) n FROM guest_typing_starts WHERE guest_id=? GROUP BY mode,language').all(id);
+ const counts={practice:{English:0,Hindi:0},exam:{English:0,Hindi:0}};
+ rows.forEach(x=>{if(counts[x.mode]&&Object.hasOwn(counts[x.mode],x.language))counts[x.mode][x.language]=Number(x.n)});
+ return counts;
+}
+app.get('/api/guest-typing/catalog',(req,res)=>{
+ try{
+  const guest=guestTypingIdentity(req,res);
+  const exams=db.prepare("SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method FROM exams WHERE active=1 ORDER BY name,id").all();
+  const matters=db.prepare("SELECT id,exam_id,title,language,layout,difficulty,created_at FROM passages WHERE active=1 ORDER BY id DESC").all();
+  res.set('Cache-Control','no-store');
+  res.json({exams,matters,remaining:guestTypingCounts(guest),limit:2});
+ }catch(e){console.error('Guest catalog error:',e.message);res.status(500).json({error:'Guest typing catalog unavailable'})}
+});
+const countGuestTypingStart=db.transaction((id,mode,language,passageId)=>{
+ const used=Number(db.prepare('SELECT COUNT(*) n FROM guest_typing_starts WHERE guest_id=? AND mode=? AND language=?').get(id,mode,language).n);
+ if(used>=2)return false;
+ db.prepare('INSERT INTO guest_typing_starts(guest_id,mode,language,passage_id) VALUES(?,?,?,?)').run(id,mode,language,passageId);
+ return true;
+});
+app.post('/api/guest-typing/start',(req,res)=>{
+ try{
+  const guest=guestTypingIdentity(req,res);
+  const mode=String(req.body?.mode||'');
+  const id=Number(req.body?.passage_id);
+  if(!['exam','practice'].includes(mode)||!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Invalid mode or passage'});
+  const p=db.prepare('SELECT * FROM passages WHERE id=? AND active=1').get(id);
+  if(!p||((mode==='exam')!==!!p.exam_id))return res.status(404).json({error:'Matter is not available in this mode'});
+  const language=String(p.language||'');
+  if(!['English','Hindi'].includes(language))return res.status(400).json({error:'Unsupported test language'});
+  const ex=mode==='exam'?db.prepare('SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method FROM exams WHERE id=? AND active=1').get(p.exam_id):null;
+  if(mode==='exam'&&(!ex||String(ex.language)!==language))return res.status(404).json({error:'Exam is unavailable'});
+  if(!countGuestTypingStart(guest,mode,language,id))return res.status(403).json({code:'GUEST_LIMIT_REACHED',error:'Two free '+language+' '+mode+' tests are complete. Login to continue.',remaining:guestTypingCounts(guest)});
+  res.set('Cache-Control','no-store');
+  res.json({passage:{id:p.id,title:p.title,content:p.content,language:p.language,layout:p.layout,difficulty:p.difficulty,result_count_mode:p.result_count_mode||'word',highlight_mode:p.highlight_mode||'none'},exam:ex,mode,remaining:guestTypingCounts(guest)});
+ }catch(e){console.error('Guest start error:',e.message);res.status(500).json({error:'Unable to start the guest test'})}
+});
+
 app.get('/api/exams',(req,res)=>{ensureNorthRailwayExamDirectory();let q="SELECT e.*,(SELECT COUNT(*) FROM passages p WHERE p.exam_id=e.id AND p.active=1) passage_count FROM exams e WHERE e.active=1";const a=[];if(req.query.candidate==='1'){q+=" AND e.slug NOT IN ('hindi-unicode','hindi-remington','krutidev-hindi','up-govt','custom-english')"}if(req.query.language){q+=' AND e.language=?';a.push(req.query.language)}let rows=db.prepare(q+' ORDER BY e.id').all(...a);if(!paymentSystemEnabled())rows=rows.map(x=>({...x,paid_enabled:0,fee_amount:0,payment_system_free:true}));res.set('Cache-Control','no-store');res.json(rows)});
 app.get('/api/exams/:id',auth,(req,res)=>{
  const e=db.prepare('SELECT * FROM exams WHERE id=? AND active=1').get(req.params.id);if(!e)return res.status(404).json({error:'Exam not found'});
