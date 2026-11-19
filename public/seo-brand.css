@@ -22,3 +22,27 @@ body.jp-branded-landing{margin:0;background:#f5f6fa;color:#14213d;font-family:Ar
 .jp-branded-landing .jp-site-footer-bottom{text-align:center;border-top:1px solid #334155;padding-top:14px;margin:22px auto 0;max-width:1150px;font-size:12px;color:#94a3b8}
 @media(max-width:780px){.jp-branded-landing .jp-site-header-inner{align-items:flex-start;flex-direction:column}.jp-branded-landing .jp-site-nav a{padding:8px 9px!important;font-size:12px}.jp-branded-landing .jp-site-footer-inner{grid-template-columns:repeat(2,minmax(0,1fr))}.jp-branded-landing main{margin-top:16px}}
 @media(max-width:430px){.jp-branded-landing .jp-site-brand img{height:45px;width:45px}.jp-branded-landing .jp-site-brand strong{font-size:18px}.jp-branded-landing .jp-site-footer-inner{grid-template-columns:1fr}}
+
+
+/* Seamless JP Typing branding and free exam-sample card on indexed landing pages. */
+.jp-branded-landing .jp-site-header{background:linear-gradient(105deg,#0e2352,#173f89 65%,#0d2b66);border-bottom:3px solid #f7b529;box-shadow:0 8px 25px rgba(13,40,93,.16)}
+.jp-branded-landing .jp-site-brand img{border-radius:50%;border:2px solid #f4b942;background:#fff}
+.jp-branded-landing .jp-site-nav a{border-color:#ffffff50!important;background:#ffffff12!important;transition:background .18s,transform .18s}
+.jp-branded-landing .jp-site-nav a:hover{background:#ffffff26!important;transform:translateY(-1px)}
+.jp-branded-landing .jp-site-nav a.jp-practice-link{background:linear-gradient(105deg,#f9a825,#ffbd45)!important;color:#10244b!important;border-color:#ffcb68!important}
+.jp-branded-landing .jp-site-footer{background:#102650;border-top:3px solid #f9ba38}
+.jp-branded-landing #jpSeoExamSamples{max-width:980px;margin:22px auto 26px;padding:22px 24px;background:linear-gradient(128deg,#ecf4ff,#fff 60%,#fff8e7);border:1px solid #cbdcf9;border-radius:20px;box-shadow:0 12px 35px rgba(20,56,122,.1);color:#142d56}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-samples-head{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-eyebrow{display:inline-block;font-size:11px;letter-spacing:1px;font-weight:900;color:#2761ae;margin-bottom:8px}
+.jp-branded-landing #jpSeoExamSamples h2{font-size:clamp(21px,2.4vw,29px);line-height:1.25;margin:0 0 9px;color:#102e64}
+.jp-branded-landing #jpSeoExamSamples p{font-size:13px;line-height:1.6;margin:0;color:#46617f}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-four{white-space:nowrap;background:#e0edff;border:1px solid #bad3fc;border-radius:14px;padding:11px 15px;color:#103b80;font-size:13px;font-weight:800}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-four b{font-size:23px}.jp-branded-landing #jpSeoExamSamples .jp-seo-four span{margin:0 4px;color:#c47d07}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-controls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:17px}
+.jp-branded-landing #jpSeoExamSamples label{font-weight:850;font-size:13px}
+.jp-branded-landing #jpSeoExamSamples select{flex:1 1 220px;min-width:0;max-width:390px;padding:12px;border:1px solid #b7ccef;border-radius:11px;background:#fff;color:#122f62;font-weight:800;font-size:14px}
+.jp-branded-landing #jpSeoExamSamples button{border:0;border-radius:11px;background:linear-gradient(90deg,#1757dc,#2e81f4);color:white;padding:12px 16px;font-size:14px;font-weight:900;cursor:pointer}
+.jp-branded-landing #jpSeoExamSamples button:disabled{opacity:.65}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-controls a{display:inline-block;background:#fff;border:1px solid #b4c9ee;border-radius:11px;color:#194d9e!important;text-decoration:none;padding:11px 14px;font-size:14px;font-weight:800}
+.jp-branded-landing #jpSeoExamSamples .jp-seo-exam-foot{margin-top:12px;color:#687a97;font-size:12px}
+@media(max-width:650px){.jp-branded-landing #jpSeoExamSamples{padding:17px 14px;margin:14px 12px}.jp-branded-landing #jpSeoExamSamples .jp-seo-samples-head{align-items:flex-start;flex-direction:column}.jp-branded-landing #jpSeoExamSamples .jp-seo-controls{align-items:stretch}.jp-branded-landing #jpSeoExamSamples select{flex-basis:100%;max-width:none}.jp-branded-landing #jpSeoExamSamples .jp-seo-four{padding:7px 10px}}
