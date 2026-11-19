@@ -1,15 +1,27 @@
 /* Presentation only: does not modify the typing-test logic. */
 (function(){
 
+
  function installExamSamples(){
-  if(document.getElementById('jpSeoExamSamples'))return;
-  var main=document.querySelector('main');if(!main)return;
+  var main=document.querySelector('main');
+  if(!main||document.getElementById('jpSeoExamSamples'))return;
   if(!/typing-test|typing-practice|typing-challenge|wpm-calculator|typing-accuracy/.test(location.pathname))return;
-  var sec=document.createElement('section');
-  sec.id='jpSeoExamSamples';sec.setAttribute('aria-label','Guest typing practice and exam entry');
-  sec.innerHTML='<div class="jp-seo-samples-head"><div><span class="jp-seo-eyebrow">SHIVJEE\'S TYPING · PRACTICE + EXAM</span><h2>सीधे असली Typing Pane में अभ्यास करें</h2><p>सभी उपलब्ध Matters देखें। बिना Login Practice में 2 हिंदी + 2 English और Exam में 2 हिंदी + 2 English टेस्ट दें। उसके बाद Login या Signup करके जारी रखें।</p></div></div><div class="jp-seo-controls"><a class="jp-seo-launch" href="/guest-typing.html?mode=practice">⌨ Open Practice Pane</a><a class="jp-seo-launch exam" href="/guest-typing.html?mode=exam">⏱ Open Exam Pane</a><a href="/#exams">Full Exam Dashboard</a></div><p class="jp-seo-exam-foot">अलग Free Popup नहीं · Original Matter Titles · 8 Guest Attempts · 4 Practice + 4 Exam</p>';
-  var hero=main.querySelector('.hero');if(hero)hero.insertAdjacentElement('afterend',sec);
-  else main.insertBefore(sec,main.children.length>1?main.children[1]:null);
+  var hero=main.querySelector('.hero');
+  var oldHeroLinks=hero?Array.from(hero.children).filter(function(el){return el.tagName==='A'&&el.classList.contains('cta')}):[];
+  var original=document.getElementById('jpLandingStart');
+  var generic=!hero&&!original?Array.from(main.children).find(function(el){return el.tagName==='A'&&/start|practice|typing/i.test(el.textContent||'')}):null;
+  var box=document.createElement('div');
+  box.id='jpSeoExamSamples';
+  box.className='jp-seo-single-actions';
+  box.setAttribute('aria-label','Practice and exam test entry');
+  box.innerHTML='<a class="jp-seo-primary" href="/guest-typing.html?mode=practice">⌨ Practice Test</a><a class="jp-seo-primary jp-seo-exam" href="/guest-typing.html?mode=exam">⏱ Exam Test</a><a class="jp-seo-secondary" href="/#exams">All Typing Exams</a>';
+  if(hero){
+   var anchor=oldHeroLinks[0]||hero.querySelector('p');
+   if(anchor)anchor.insertAdjacentElement('afterend',box);else hero.appendChild(box);
+   oldHeroLinks.forEach(function(el){el.remove()});
+  }else if(original||generic){
+   var old=original||generic;old.insertAdjacentElement('afterend',box);old.remove();
+  }else main.insertBefore(box,main.children.length>1?main.children[1]:null);
  }
  function ready(){
   if(document.body.classList.contains('jp-branded-landing'))return;
