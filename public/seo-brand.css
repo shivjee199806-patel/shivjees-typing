@@ -50,3 +50,12 @@ body.jp-branded-landing{margin:0;background:#f5f6fa;color:#14213d;font-family:Ar
 .jp-branded-landing #jpSeoExamSamples .jp-seo-controls a.jp-seo-launch{background:linear-gradient(105deg,#1557d7,#317df4)!important;color:white!important;border:1px solid #1557d7!important;box-shadow:0 6px 16px #1f5eb828}
 .jp-branded-landing #jpSeoExamSamples .jp-seo-controls a.jp-seo-launch.exam{background:linear-gradient(105deg,#4322bd,#7550f1)!important;border-color:#5838d0!important}
 .jp-branded-landing #jpSeoExamSamples .jp-seo-controls a.jp-seo-launch:hover{filter:brightness(1.06)}
+
+
+/* One compact call-to-action group per SEO landing page, inside existing hero. */
+.jp-branded-landing .jp-seo-single-actions{display:flex!important;align-items:center;flex-wrap:wrap;gap:10px;max-width:none!important;margin:15px 0 3px!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+.jp-branded-landing .jp-seo-single-actions a{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;font-size:13px!important;font-weight:900!important;padding:12px 17px!important;border-radius:10px!important;text-decoration:none!important;margin:0!important;line-height:1.25!important;width:auto!important;max-width:100%}
+.jp-branded-landing .jp-seo-single-actions .jp-seo-primary{color:#fff!important;background:linear-gradient(110deg,#155eef,#277fe8)!important;border:1px solid #155eef!important;box-shadow:0 4px 12px #1d5fd02b!important}
+.jp-branded-landing .jp-seo-single-actions .jp-seo-exam{background:linear-gradient(110deg,#5832d8,#8052e9)!important;border-color:#5832d8!important}
+.jp-branded-landing .jp-seo-single-actions .jp-seo-secondary{color:#154a9b!important;background:#fff!important;border:1px solid #bed0ee!important;box-shadow:none!important}
+@media(max-width:500px){.jp-branded-landing .jp-seo-single-actions{gap:7px}.jp-branded-landing .jp-seo-single-actions a{font-size:12px!important;padding:10px 12px!important}}
