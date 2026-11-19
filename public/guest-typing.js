@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const $=id=>document.getElementById(id);
-const state={mode:new URLSearchParams(location.search).get('mode')==='exam'?'exam':'practice',catalog:null,exam:'all',language:'All',rows:[],current:null,timer:null,started:false,startTime:0,deadline:0,elapsed:0,done:false,zoom:100,sound:false,audio:null,pending:false};
+const state={mode:new URLSearchParams(location.search).get('mode')==='exam'?'exam':'practice',catalog:null,exam:'all',language:'All',rows:[],current:null,timer:null,started:false,startTime:0,deadline:0,elapsed:0,done:false,zoom:100,sound:false,audio:null,pending:false,backspaces:0};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').replace(/\s*[-–—]\s*(English|Hindi|हिंदी|हिन्दी)\s*$/i,'').trim();
 const fmt=n=>{n=Math.max(0,Math.ceil(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
@@ -25,8 +25,31 @@ function setupExamChoices(){
  if(state.mode==='exam'&&previous!=='all'&&Number(previous)<state.groups.length)select.value=previous;
  else{select.value='all';state.exam='all'}
 }
+
+function syncGuestSettings(){
+ const panel=$('guestExamControls');
+ if(!panel)return;
+ panel.classList.toggle('hidden',state.mode!=='exam'||!!(state.current&&!state.done));
+ if(state.mode!=='exam')return;
+ const group=state.groups?.[Number(state.exam)];
+ const ex=group?getExams().find(x=>group.ids.includes(x.id)):getExams()[0];
+ if(!ex)return;
+ const lastId=panel.dataset.examId||'';
+ if(lastId!==String(ex.id)){
+  panel.dataset.examId=String(ex.id);
+  $('guestDuration').value='default';
+  $('guestWordLimit').value=String(Math.max(50,Math.min(5000,Math.round(((String(ex.language)==='Hindi'?36:45)*(Number(ex.duration)||5))))));
+  $('guestBackspace').checked=!!ex.backspace_allowed;
+  $('guestHighlight').checked=String(ex.highlight_mode||'current_char')!=='none';
+  $('guestAutoScroll').checked=Number(ex.auto_scroll??1)!==0;
+ }
+ const minutes=Number(ex.duration)||5;
+ $('guestDefaultNote').textContent='Default: '+minutes+' min · '+(ex.backspace_allowed?'Backspace On':'Backspace Off')+' · Highlight '+String(ex.highlight_mode||'current_char')+'. टेस्ट शुरू होने पर सेटिंग Lock होगी।';
+}
+
 function showMatters(){
  updateQuota();
+ syncGuestSettings();
  const qs=($('matterSearch').value||'').trim().toLowerCase(),lang=state.language;
  const group=state.groups?.[Number(state.exam)];
  const ids=group?new Set(group.ids.map(Number)):null;
@@ -70,31 +93,57 @@ function applyZoom(){
 function renderText(){
  if(!state.current)return;
  const raw=state.current.passage.content,typed=$('typingInput').value;
+ const style=state.current.settings?.highlight_mode||'current_char';
  let out='';
+ const pos=typed.length;
+ let wordStart=pos,wordEnd=pos;
+ if(style==='current_word'){
+  while(wordStart>0&&!/\s/.test(raw[wordStart-1]))wordStart--;
+  while(wordEnd<raw.length&&!/\s/.test(raw[wordEnd]))wordEnd++;
+ }
  for(let i=0;i<raw.length;i++){
   const c=esc(raw[i]);
-  if(i<typed.length)out+='<span class="'+(raw[i]===typed[i]?'correct':'wrong')+'">'+c+'</span>';
-  else if(i===typed.length)out+='<span class="cursor">'+c+'</span>';
+  const bad=i<pos&&raw[i]!==typed[i];
+  if(style==='none')out+=c;
+  else if(style==='errors_only')out+=bad?'<span class="wrong">'+c+'</span>':c;
+  else if(style==='current_word'){
+   if(bad)out+='<span class="wrong">'+c+'</span>';
+   else if(i>=wordStart&&i<wordEnd)out+='<span class="word-active">'+c+'</span>';
+   else out+=c;
+  }else if(i<pos)out+='<span class="'+(bad?'wrong':'correct')+'">'+c+'</span>';
+  else if(i===pos)out+='<span class="cursor">'+c+'</span>';
   else out+=c;
  }
  $('passage').innerHTML=out;
- $('passage').querySelector('.cursor')?.scrollIntoView({block:'nearest'});
+ if(state.current.settings?.auto_scroll!==false){
+  const cursor=$('passage').querySelector('.cursor,.word-active');
+  cursor?.scrollIntoView({block:'nearest'});
+ }
 }
 async function startMatter(id){
  if(state.pending)return;
  const row=state.rows.find(x=>Number(x.id)===id);
  if(!row)return;
- if(remaining(state.mode,row.language)<=0){$('loginGate').classList.remove('hidden');$('loginGate').scrollIntoView({behavior:'smooth'});return}
+ if(remaining(state.mode,row.language)<=0){alert('इस Mode में '+row.language+' के दो Guest Tests पूरे हैं। बाकी भाषा या Mode चुनें। सभी 8 Attempts के बाद Login/Signup करें।');return}
  state.pending=true;
  try{
-  const r=await fetch('/api/guest-typing/start',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:state.mode,passage_id:id})});
+  const options={mode:state.mode,passage_id:id};
+  if(state.mode==='exam'){
+   const selectedMinutes=$('guestDuration').value;
+   if(selectedMinutes!=='default')options.duration_minutes=Number(selectedMinutes);
+   options.word_limit=Math.max(50,Math.min(5000,Math.floor(Number($('guestWordLimit').value)||510)));
+   options.backspace_allowed=$('guestBackspace').checked;
+   options.highlight_mode=$('guestHighlight').checked?'current_char':'none';
+   options.auto_scroll=$('guestAutoScroll').checked;
+  }
+  const r=await fetch('/api/guest-typing/start',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});
   const data=await r.json();
   if(!r.ok)throw Object.assign(Error(data.error||'Test cannot start'),{code:data.code,remaining:data.remaining});
   state.catalog.remaining=data.remaining;
-  state.current=data;state.done=false;state.started=false;state.startTime=0;state.deadline=0;state.elapsed=0;state.zoom=100;
+  state.current=data;state.done=false;state.started=false;state.startTime=0;state.deadline=0;state.elapsed=0;state.zoom=100;state.backspaces=0;
   stopTimer();
   const p=data.passage,ex=data.exam;
-  const duration=state.mode==='exam'?Math.max(1,Math.min(30,Number(ex?.duration||5))):5;
+  const duration=Math.max(1,Math.min(30,Number(data.settings?.minutes)||5));
   state.duration=duration*60;
   $('timeDisplay').textContent='⏱ '+fmt(state.duration);
   $('titleText').textContent=state.mode==='exam'?normalize(ex?.name||'Typing Exam'):'Typing Practice';
@@ -108,6 +157,8 @@ async function startMatter(id){
   $('submitBtn').textContent=state.mode==='exam'?'Submit Exam':'Submit Practice';
   $('testIntro').classList.add('hidden');$('testSection').classList.remove('hidden');$('result').classList.add('hidden');
   $('statusText').textContent=state.mode==='exam'?'Exam Timer will start now · Paste disabled':'Timer starts with first key · Paste disabled';
+  const cfg=data.settings||{};
+  $('guestActiveSettings').textContent='Time: '+duration+' min · Matter: '+(cfg.word_limit||'Default')+' words · Highlight '+(cfg.highlight_mode==='none'?'Off':'On')+' · Backspace '+(cfg.backspace_allowed?'On':'Off')+' · Auto Scroll '+(cfg.auto_scroll?'On':'Off');
   renderText();applyZoom();updateQuota();showMatters();
   $('testSection').scrollIntoView({behavior:'smooth',block:'start'});
   $('typingInput').focus({preventScroll:true});
@@ -159,7 +210,7 @@ function submitTest(auto=false){
  const accuracy=typedWords.length?100*correctWords/typedWords.length:0;
  $('grossWpm').textContent=gross.toFixed(1);$('netWpm').textContent=net.toFixed(1);
  $('accuracy').textContent=accuracy.toFixed(1)+'%';$('mistakes').textContent=String(mistakes);
- $('resultNotes').textContent='Guest result is a practice estimate. Detailed official counting, qualification status and saved test history are available after login.';
+ $('resultNotes').textContent='Guest result is a practice estimate. Backspaces: '+state.backspaces+'. Detailed official counting and saved test history are available after login.';
  $('result').classList.remove('hidden');
  $('result').scrollIntoView({behavior:'smooth'});
  updateQuota();showMatters();
@@ -168,7 +219,7 @@ function submitTest(auto=false){
 }
 function back(){
  if(state.current&&!state.done&&!confirm('इस attempt को छोड़कर Matter list पर वापस जाएँ?'))return;
- stopTimer();state.current=null;state.done=false;
+ stopTimer();state.current=null;state.done=false;syncGuestSettings();
  $('testSection').classList.add('hidden');$('result').classList.add('hidden');$('testIntro').classList.remove('hidden');
  window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -178,6 +229,7 @@ async function init(){
  $('languageSelect').onchange=e=>{state.language=e.target.value;showMatters()};
  $('examSelect').onchange=e=>{state.exam=e.target.value;showMatters()};
  $('matterSearch').oninput=showMatters;
+ $('guestDuration').onchange=()=>{const ex=getExams().find(x=>Number(x.id)===Number($('guestExamControls').dataset.examId));if(ex){const minutes=$('guestDuration').value==='default'?(Number(ex.duration)||5):Number($('guestDuration').value);$('guestWordLimit').value=String(Math.min(5000,Math.max(50,Math.round((String(ex.language)==='Hindi'?36:45)*minutes))))}};
  $('zoomMinus').onclick=()=>{state.zoom=Math.max(60,state.zoom-10);applyZoom()};
  $('zoomPlus').onclick=()=>{state.zoom=Math.min(160,state.zoom+10);applyZoom()};
  $('zoomReset').onclick=()=>{state.zoom=100;applyZoom()};
@@ -187,7 +239,10 @@ async function init(){
  $('typingInput').addEventListener('drop',e=>e.preventDefault());
  $('typingInput').addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='v')e.preventDefault();
-  if(state.mode==='exam'&&!state.current?.exam?.backspace_allowed&&e.key==='Backspace')e.preventDefault();
+  if(e.key==='Backspace'){
+   if(state.mode==='exam'&&!state.current?.settings?.backspace_allowed){e.preventDefault();return}
+   state.backspaces++;
+  }
  });
  $('submitBtn').onclick=()=>submitTest(false);
  $('restartBtn').onclick=back;$('backBtn').onclick=back;

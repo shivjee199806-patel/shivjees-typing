@@ -1814,8 +1814,8 @@ function guestTypingCounts(id){
 app.get('/api/guest-typing/catalog',(req,res)=>{
  try{
   const guest=guestTypingIdentity(req,res);
-  const exams=db.prepare("SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method FROM exams WHERE active=1 ORDER BY name,id").all();
-  const matters=db.prepare("SELECT id,exam_id,title,language,layout,difficulty,created_at FROM passages WHERE active=1 ORDER BY id DESC").all();
+  const exams=db.prepare("SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method,highlight_mode,highlight_user_change_allowed,auto_scroll,min_words,duration_word_map FROM exams WHERE active=1 ORDER BY name,id").all();
+  const matters=db.prepare("SELECT id,exam_id,title,language,layout,difficulty,created_at,duration_override FROM passages WHERE active=1 ORDER BY id DESC").all();
   res.set('Cache-Control','no-store');
   res.json({exams,matters,remaining:guestTypingCounts(guest),limit:2});
  }catch(e){console.error('Guest catalog error:',e.message);res.status(500).json({error:'Guest typing catalog unavailable'})}
@@ -1836,11 +1836,30 @@ app.post('/api/guest-typing/start',(req,res)=>{
   if(!p||((mode==='exam')!==!!p.exam_id))return res.status(404).json({error:'Matter is not available in this mode'});
   const language=String(p.language||'');
   if(!['English','Hindi'].includes(language))return res.status(400).json({error:'Unsupported test language'});
-  const ex=mode==='exam'?db.prepare('SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method FROM exams WHERE id=? AND active=1').get(p.exam_id):null;
+  const ex=mode==='exam'?db.prepare('SELECT id,name,slug,language,layout,duration,required_wpm,required_accuracy,backspace_allowed,qualification_method,highlight_mode,highlight_user_change_allowed,auto_scroll,min_words,duration_word_map FROM exams WHERE id=? AND active=1').get(p.exam_id):null;
   if(mode==='exam'&&(!ex||String(ex.language)!==language))return res.status(404).json({error:'Exam is unavailable'});
+  // Guest trial keeps real exam defaults and clips the chosen matter to the configured word limit.
+  const defaultMinutes=mode==='exam'?Math.max(1,Number(p.duration_override)||Number(ex.duration)||5):5;
+  const requested=Number(req.body?.duration_minutes);
+  const minutes=mode==='exam'&&[5,10,15,30].includes(requested)&&!Number(p.duration_override)?requested:defaultMinutes;
+  const requestedWords=Number(req.body?.word_limit);
+  const words=mode==='exam'&&Number.isSafeInteger(requestedWords)&&requestedWords>=50&&requestedWords<=5000
+    ?requestedWords:(mode==='exam'?examMatterWordLimit(ex,minutes):Math.max(1,Math.ceil((language==='Hindi'?36:45)*minutes)));
+  const passageContent=trimExamPassageContent(p.content,ex||{language:p.language,duration:minutes},minutes,Math.min(5000,words));
+  const requestedHighlight=String(req.body?.highlight_mode||'');
+  const examHighlight=ex?.highlight_mode||'current_char';
+  const validModes=['current_char','current_word','errors_only','none'];
+  const allowHighlight=mode==='exam'&&Number(ex?.highlight_user_change_allowed??1)!==0;
+  const highlightMode=mode==='exam'
+    ?(allowHighlight&&validModes.includes(requestedHighlight)?requestedHighlight:(validModes.includes(examHighlight)?examHighlight:'none'))
+    : 'current_char';
+  const backspaceAllowed=mode==='exam'
+    ?(req.body?.backspace_allowed===undefined?!!ex.backspace_allowed:!!req.body.backspace_allowed)
+    :true;
+  const autoScroll=mode==='exam'?req.body?.auto_scroll!==false:true;
   if(!countGuestTypingStart(guest,mode,language,id))return res.status(403).json({code:'GUEST_LIMIT_REACHED',error:'Two free '+language+' '+mode+' tests are complete. Login to continue.',remaining:guestTypingCounts(guest)});
   res.set('Cache-Control','no-store');
-  res.json({passage:{id:p.id,title:p.title,content:p.content,language:p.language,layout:p.layout,difficulty:p.difficulty,result_count_mode:p.result_count_mode||'word',highlight_mode:p.highlight_mode||'none'},exam:ex,mode,remaining:guestTypingCounts(guest)});
+  res.json({passage:{id:p.id,title:p.title,content:passageContent,language:p.language,layout:p.layout,difficulty:p.difficulty,result_count_mode:p.result_count_mode||'word',highlight_mode:highlightMode},exam:ex,mode,settings:{minutes,word_limit:words,backspace_allowed:backspaceAllowed,highlight_mode:highlightMode,auto_scroll:autoScroll},remaining:guestTypingCounts(guest)});
  }catch(e){console.error('Guest start error:',e.message);res.status(500).json({error:'Unable to start the guest test'})}
 });
 
