@@ -1355,6 +1355,50 @@ function sendPublicIndex(req,res){
   }
   return res.send(publicIndexBytes);
 }
+
+// Owner-controlled maintenance mode (off unless explicitly enabled).
+// Requests to public pages receive HTTP 503; owner sign-in and recovery stay available.
+function maintenanceIsOn(){
+ return String(process.env.MAINTENANCE_MODE||'').toLowerCase()==='true'
+   || String(setting('maintenance_mode')||'0')==='1';
+}
+function maintenanceOwnerFromRequest(req){
+ const match=String(req.headers.authorization||'').match(/^Bearer (.+)$/);
+ if(!match)return false;
+ try{
+  const token=jwt.verify(match[1],SECRET);
+  const u=db.prepare('SELECT id,role,is_owner,active,auth_version FROM users WHERE id=?').get(Number(token.id));
+  return !!(u&&u.active&&u.role==='admin'&&Number(u.is_owner)===1&&Number(u.auth_version||0)===Number(token.av||0));
+ }catch(_){return false}
+}
+app.use((req,res,next)=>{
+ if(!maintenanceIsOn())return next();
+ const p=req.path||'/';
+ // Health endpoint, authenticated owner recovery and login APIs must remain reachable.
+ if(p==='/api/health'||p==='/owner-portal'||p==='/owner-portal/'||
+    p.startsWith('/api/auth/')||p==='/api/owner/maintenance'||p==='/api/maintenance-status')return next();
+ if(p.startsWith('/api/')&&maintenanceOwnerFromRequest(req))return next();
+ // Owner portal needs static JS, CSS, images and fonts, but not ordinary public HTML pages.
+ if(/\.(?:css|js|mjs|png|jpg|jpeg|webp|svg|gif|ico|woff2?|ttf|map)$/i.test(p))return next();
+ res.setHeader('Cache-Control','no-store, max-age=0');
+ res.setHeader('Retry-After','300');
+ res.setHeader('X-Robots-Tag','noindex, nofollow');
+ if(p.startsWith('/api/'))return res.status(503).json({maintenance:true,error:'Shivjee\'s Typing is temporarily under maintenance.'});
+ return res.status(503).sendFile(path.join(__dirname,'public','maintenance.html'));
+});
+app.get('/api/maintenance-status',(req,res)=>res.json({maintenance:maintenanceIsOn()}));
+app.get('/api/owner/maintenance',auth,ownerOnly,(req,res)=>res.json({enabled:maintenanceIsOn(),manual:setting('maintenance_mode')==='1',environmentForced:String(process.env.MAINTENANCE_MODE||'').toLowerCase()==='true'}));
+app.post('/api/owner/maintenance',auth,ownerOnly,(req,res)=>{
+ const enabled=req.body?.enabled;
+ if(typeof enabled!=='boolean')return res.status(400).json({error:'enabled must be true or false'});
+ if(!enabled&&String(process.env.MAINTENANCE_MODE||'').toLowerCase()==='true')
+   return res.status(409).json({error:'MAINTENANCE_MODE=true on hosting; disable it there first.'});
+ db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('maintenance_mode',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").run(enabled?'1':'0');
+ audit(req,'UPDATE','maintenance_mode','site',enabled?'on':'off');
+ res.setHeader('Cache-Control','no-store');
+ return res.json({ok:true,enabled:maintenanceIsOn()});
+});
+
 app.get(['/','/index.html'],sendPublicIndex);
 // SEO: keep old backup HTML accessible but exclude it from search indexing.
 // This changes response metadata only; application routes and bytes stay intact.
@@ -2622,7 +2666,7 @@ app.put('/api/admin/exam-folder-payment/:examId',auth,admin,(req,res)=>{
  res.json({ok:true,folder_key:examFolderAccessKey(raw),updated_variants:ids.length,fee_amount:fee,validity_days:validity,daily_demo_limit:demo,paid_enabled:paid});
 });
 
-app.put('/api/admin/settings',auth,admin,(req,res)=>{const socialRequested=Object.keys(req.body||{}).some(k=>k.startsWith('social_'));if(socialRequested&&Number(req.user?.is_owner)!==1)return res.status(403).json({error:'Social Media settings are Master Owner only'});const allowed=['site_name','tagline','contact_email','contact_phone','allow_registration','maintenance_mode','footer_text','payment_gateway_url','payment_upi_id','payment_payee_name','payment_qr_image_url','payment_instructions','social_youtube','social_youtube_on','social_instagram','social_instagram_on','social_facebook','social_facebook_on','social_whatsapp','social_whatsapp_on','social_telegram','social_telegram_on','about_home_image_url','about_member_image_url','auto_scroll_enabled'];const st=db.prepare(`INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP`);db.transaction(()=>allowed.forEach(k=>{if(req.body?.[k]!==undefined)st.run(k,String(req.body[k]))}))();audit(req,'UPDATE','settings','site');res.json({ok:true})});
+app.put('/api/admin/settings',auth,admin,(req,res)=>{const socialRequested=Object.keys(req.body||{}).some(k=>k.startsWith('social_'));if(socialRequested&&Number(req.user?.is_owner)!==1)return res.status(403).json({error:'Social Media settings are Master Owner only'});if(req.body?.maintenance_mode!==undefined&&Number(req.user?.is_owner)!==1)return res.status(403).json({error:'Maintenance settings are Master Owner only'});const allowed=['site_name','tagline','contact_email','contact_phone','allow_registration','maintenance_mode','footer_text','payment_gateway_url','payment_upi_id','payment_payee_name','payment_qr_image_url','payment_instructions','social_youtube','social_youtube_on','social_instagram','social_instagram_on','social_facebook','social_facebook_on','social_whatsapp','social_whatsapp_on','social_telegram','social_telegram_on','about_home_image_url','about_member_image_url','auto_scroll_enabled'];const st=db.prepare(`INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP`);db.transaction(()=>allowed.forEach(k=>{if(req.body?.[k]!==undefined)st.run(k,String(req.body[k]))}))();audit(req,'UPDATE','settings','site');res.json({ok:true})});
 app.post('/api/admin/change-password',auth,admin,(req,res)=>{const current=String(req.body?.current||''),next=String(req.body?.next||'');const u=db.prepare('SELECT * FROM users WHERE id=?').get(req.user.id);if(!bcrypt.compareSync(current,u.password))return res.status(400).json({error:'Current password is incorrect'});if(next.length<12)return res.status(400).json({error:'New admin password must be at least 12 characters'});db.prepare('UPDATE users SET password=?,auth_version=COALESCE(auth_version,0)+1 WHERE id=?').run(bcrypt.hashSync(next,12),u.id);audit(req,'CHANGE_PASSWORD','admin',u.id);res.json({ok:true})});
 // Exam access + dynamic fee management
 function indiaDayBoundsUtc(now=new Date()){
