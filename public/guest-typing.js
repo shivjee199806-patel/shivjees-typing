@@ -95,18 +95,30 @@ function renderText(){
  const raw=state.current.passage.content,typed=$('typingInput').value;
  const style=state.current.settings?.highlight_mode||'current_char';
  let out='';
+ const pos=typed.length;
+ let wordStart=pos,wordEnd=pos;
+ if(style==='current_word'){
+  while(wordStart>0&&!/\s/.test(raw[wordStart-1]))wordStart--;
+  while(wordEnd<raw.length&&!/\s/.test(raw[wordEnd]))wordEnd++;
+ }
  for(let i=0;i<raw.length;i++){
   const c=esc(raw[i]);
-  if(i<typed.length){
-   if(style==='none')out+=c;
-   else if(style==='errors_only')out+=raw[i]===typed[i]?c:'<span class="wrong">'+c+'</span>';
-   else out+='<span class="'+(raw[i]===typed[i]?'correct':'wrong')+'">'+c+'</span>';
-  }
-  else if(i===typed.length)out+=style==='none'?c:'<span class="cursor">'+c+'</span>';
+  const bad=i<pos&&raw[i]!==typed[i];
+  if(style==='none')out+=c;
+  else if(style==='errors_only')out+=bad?'<span class="wrong">'+c+'</span>':c;
+  else if(style==='current_word'){
+   if(bad)out+='<span class="wrong">'+c+'</span>';
+   else if(i>=wordStart&&i<wordEnd)out+='<span class="word-active">'+c+'</span>';
+   else out+=c;
+  }else if(i<pos)out+='<span class="'+(bad?'wrong':'correct')+'">'+c+'</span>';
+  else if(i===pos)out+='<span class="cursor">'+c+'</span>';
   else out+=c;
  }
  $('passage').innerHTML=out;
- if(state.current.settings?.auto_scroll!==false)$('passage').querySelector('.cursor')?.scrollIntoView({block:'nearest'});
+ if(state.current.settings?.auto_scroll!==false){
+  const cursor=$('passage').querySelector('.cursor,.word-active');
+  cursor?.scrollIntoView({block:'nearest'});
+ }
 }
 async function startMatter(id){
  if(state.pending)return;
