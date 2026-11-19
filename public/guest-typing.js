@@ -29,7 +29,7 @@ function setupExamChoices(){
 function syncGuestSettings(){
  const panel=$('guestExamControls');
  if(!panel)return;
- panel.classList.toggle('hidden',state.mode!=='exam');
+ panel.classList.toggle('hidden',state.mode!=='exam'||!!(state.current&&!state.done));
  if(state.mode!=='exam')return;
  const group=state.groups?.[Number(state.exam)];
  const ex=group?getExams().find(x=>group.ids.includes(x.id)):getExams()[0];
@@ -124,7 +124,7 @@ async function startMatter(id){
  if(state.pending)return;
  const row=state.rows.find(x=>Number(x.id)===id);
  if(!row)return;
- if(remaining(state.mode,row.language)<=0){$('loginGate').classList.remove('hidden');$('loginGate').scrollIntoView({behavior:'smooth'});return}
+ if(remaining(state.mode,row.language)<=0){alert('इस Mode में '+row.language+' के दो Guest Tests पूरे हैं। बाकी भाषा या Mode चुनें। सभी 8 Attempts के बाद Login/Signup करें।');return}
  state.pending=true;
  try{
   const options={mode:state.mode,passage_id:id};
@@ -219,7 +219,7 @@ function submitTest(auto=false){
 }
 function back(){
  if(state.current&&!state.done&&!confirm('इस attempt को छोड़कर Matter list पर वापस जाएँ?'))return;
- stopTimer();state.current=null;state.done=false;
+ stopTimer();state.current=null;state.done=false;syncGuestSettings();
  $('testSection').classList.add('hidden');$('result').classList.add('hidden');$('testIntro').classList.remove('hidden');
  window.scrollTo({top:0,behavior:'smooth'});
 }
