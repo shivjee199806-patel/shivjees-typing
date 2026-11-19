@@ -67,6 +67,9 @@ function enhance(d){
  const hindi=isHindi(examText);
  const kind=resultKind(d);
  d.dataset.jpThemeKind=kind;
+ // Hide only the redundant top status tile in the themed view; keep its data for the original view.
+ const statusTile=Array.from(grid.children).find(x=>x.querySelector('small')?.textContent.trim()==='Status');
+ if(statusTile)statusTile.classList.add('jp-theme-redundant-status');
  const title=d.querySelector('.result-heading');
  if(title){
   title.textContent='🏆 Performance Dashboard';
@@ -87,11 +90,21 @@ function enhance(d){
   });
  }
  if(meta){
+  // Format the *existing* candidate name without changing its text or identity.
+  const existing=Array.from(meta.children).find(x=>/^(Candidate|Name)\s*:/i.test(x.textContent.trim()));
   const name=displayName(d);
-  if(name&&!Array.from(meta.children).some(x=>/^(Candidate|Name)\s*:/i.test(x.textContent.trim()))){
+  if(existing){
+   existing.classList.add('jp-theme-candidate');
+   if(name&&!existing.querySelector('.jp-theme-candidate-name')){
+    const label=existing.querySelector('b')?.textContent||'Candidate:';
+    const bold=document.createElement('strong');bold.className='jp-theme-candidate-name';bold.textContent=name;
+    existing.replaceChildren(document.createTextNode(label+' '),bold);
+   }
+  }else if(name){
    const candidate=document.createElement('div');candidate.className='jp-theme-candidate';
-   const b=document.createElement('b');b.textContent=hindi?'Candidate:':'Candidate:';
-   candidate.append(b,document.createTextNode(' '+name));meta.prepend(candidate);
+   const b=document.createElement('b');b.textContent='Candidate:';
+   const bold=document.createElement('strong');bold.className='jp-theme-candidate-name';bold.textContent=name;
+   candidate.append(b,document.createTextNode(' '),bold);meta.prepend(candidate);
   }
  }
  const note=d.querySelector('.result-note');
