@@ -135,3 +135,13 @@
 .result-dashboard.jp-theme-off .jp-theme-plain-title{display:block!important}
 .result-dashboard.jp-theme-off .jp-theme-head{justify-content:flex-end;background:transparent;padding:0;margin:0;border:0;box-shadow:none}
 .result-dashboard.jp-theme-off .jp-theme-heading{display:none}
+
+/* 20-Nov owner visual corrections; never change result metrics or original view. */
+body:has(.result-dashboard.jp-theme-on) .shell{max-width:none!important;width:100%!important;justify-content:center!important}
+body:has(.result-dashboard.jp-theme-on) .shell>.side{display:none!important}
+body:has(.result-dashboard.jp-theme-on) .content{flex:1 1 auto!important;min-width:0!important;max-width:none!important;width:100%!important}
+body:has(.result-dashboard.jp-theme-on) .result-dashboard.jp-theme-on{width:min(1520px,calc(100% - 24px))!important;max-width:1520px!important;margin:16px auto!important;left:auto!important;right:auto!important}
+.result-dashboard.jp-theme-on .jp-theme-redundant-status{display:none!important}
+.result-dashboard.jp-theme-off .jp-theme-redundant-status{display:block}
+.result-dashboard.jp-theme-on .result-meta .jp-theme-candidate{font-size:clamp(16px,1.4vw,22px)!important;font-weight:900!important;color:#123b88}
+.result-dashboard.jp-theme-on .result-meta .jp-theme-candidate-name{font-weight:950!important;color:#072a78!important;font-size:1.06em}
