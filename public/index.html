@@ -3352,9 +3352,9 @@ function jpExamBrandLogo(examName){
  const n=String(examName||'').toLowerCase();
  let src='',tag='';
  if(/up police|uppbpb|upp[r]?pb|उत्तर प्रदेश पुलिस/.test(n)){src='https://commons.wikimedia.org/wiki/Special:FilePath/Logo_of_Uttar_Pradesh_Police.png';tag='UP';}
- else if(/ssc|staff selection commission/.test(n)){src='https://www.google.com/s2/favicons?domain=ssc.gov.in&sz=128';tag='SSC';}
+ else if(/upsssc|उत्तर प्रदेश अधीनस्थ सेवा चयन/.test(n)){src='https://www.google.com/s2/favicons?domain=upsssc.gov.in&sz=128';tag='UPSSSC';}
+ else if(/(?:^|[^a-z])ssc(?:[^a-z]|$)|staff selection commission/.test(n)){src='https://www.google.com/s2/favicons?domain=ssc.gov.in&sz=128';tag='SSC';}
  else if(/railway|rrb|rrc|रेलवे|रेल/.test(n)){src='https://www.google.com/s2/favicons?domain=indianrailways.gov.in&sz=128';tag='RRB';}
- else if(/upsssc/.test(n)){src='https://www.google.com/s2/favicons?domain=upsssc.gov.in&sz=128';tag='UP';}
  else if(/cpct/.test(n)){src='https://www.google.com/s2/favicons?domain=cpct.mp.gov.in&sz=128';tag='CPCT';}
  else if(/high court|उच्च न्यायालय/.test(n)){tag='HC';}
  else if(/police|पुलिस/.test(n)){tag='POL';}
