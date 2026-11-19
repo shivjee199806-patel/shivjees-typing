@@ -2038,7 +2038,7 @@ function uppMinisterialTypingMetrics(original,typed,language='English',ignoreTra
   }
  }
  const totalWords=o.length,typedWords=t.length,weightedMistakes=full+(half*0.5);
- const correctWords=Math.max(0,Math.min(totalWords,totalWords-weightedMistakes));
+ const correctWords=Math.max(0,Math.min(ignoreTrailingUntyped?typedWords:totalWords,totalWords-weightedMistakes));
  return {full_mistakes:full,half_mistakes:half,weighted_mistakes:weightedMistakes,
   correct_words:correctWords,total_words:totalWords,typed_words:typedWords,exact_correct_words:exactCorrect};
 }
