@@ -1343,7 +1343,13 @@ app.use('/api/auth',(req,res,next)=>{
 app.use('/api',(req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // Cache only the public HTML bytes, never API/account responses. Send gzip
 // when negotiated, so the large existing application transfers efficiently.
-const publicIndexBytes=fs.readFileSync(path.join(__dirname,'public','index.html'));
+// Add only the opt-in result presentation assets to the existing application HTML.
+// All typing controls, scores, and result source templates remain unchanged.
+const resultThemeAssets='<link rel="stylesheet" href="/result-theme.css"><script defer src="/result-theme.js"></script>';
+const originalPublicIndex=fs.readFileSync(path.join(__dirname,'public','index.html'),'utf8');
+const bodyCloseAt=originalPublicIndex.toLowerCase().lastIndexOf('</body>');
+const themedPublicIndex=bodyCloseAt>=0?originalPublicIndex.slice(0,bodyCloseAt)+resultThemeAssets+originalPublicIndex.slice(bodyCloseAt):originalPublicIndex+resultThemeAssets;
+const publicIndexBytes=Buffer.from(themedPublicIndex,'utf8');
 const publicIndexGzip=zlib.gzipSync(publicIndexBytes,{level:6});
 function sendPublicIndex(req,res){
   res.type('html');
@@ -1399,6 +1405,19 @@ app.post('/api/owner/maintenance',auth,ownerOnly,(req,res)=>{
  return res.json({ok:true,enabled:maintenanceIsOn()});
 });
 
+// Visual-only owner setting. This must never alter result values or exam qualification.
+app.get('/api/result-theme',(req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ return res.json({enabled:String(setting('result_theme_enabled')??'1')!=='0'});
+});
+app.put('/api/owner/result-theme',auth,ownerOnly,(req,res)=>{
+ if(typeof req.body?.enabled!=='boolean')return res.status(400).json({error:'enabled must be boolean'});
+ const enabled=req.body.enabled;
+ db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('result_theme_enabled',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").run(enabled?'1':'0');
+ audit(req,'UPDATE','result_theme_enabled','site',enabled?'on':'off');
+ res.setHeader('Cache-Control','no-store');
+ return res.json({ok:true,enabled});
+});
 app.get(['/','/index.html'],sendPublicIndex);
 // SEO: keep old backup HTML accessible but exclude it from search indexing.
 // This changes response metadata only; application routes and bytes stay intact.

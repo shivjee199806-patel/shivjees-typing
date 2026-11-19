@@ -1,0 +1,23 @@
+name: Result Theme Check
+on:
+  pull_request:
+    paths:
+      - server.js
+      - public/result-theme.js
+      - public/result-theme.css
+      - tests/result-theme.test.js
+      - .github/workflows/result-theme.yml
+  workflow_dispatch:
+jobs:
+  theme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate and test
+        run: |
+          node --check server.js
+          node --check public/result-theme.js
+          node --test tests/result-theme.test.js
