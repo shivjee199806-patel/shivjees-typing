@@ -1950,7 +1950,7 @@ function resyncMetrics(original,typed,maxLook=32){
  }
  return{good,wrong,typed_units:t.length,progress_original:i}
 }
-function wordErrorMetrics(original,typed){
+function wordErrorMetrics(original,typed,ignoreUntypedTail=false){
  const o=String(original||'').trim().split(/\s+/).filter(Boolean),t=String(typed||'').trim().split(/\s+/).filter(Boolean);let i=0,j=0,correct=0,wrong=0,omissions=0,extra=0,substitutions=0;
  const run=(oi,tj,limit=6)=>{let n=0;while(n<limit&&oi+n<o.length&&tj+n<t.length&&o[oi+n]===t[tj+n])n++;return n};
  while(j<t.length){
@@ -1964,7 +1964,7 @@ function wordErrorMetrics(original,typed){
   wrong++;substitutions++;i++;j++;
  }
  // Remaining passage words are omissions only; they are NOT Net Wrong Words.
- if(i<o.length){const remaining=o.length-i;omissions+=remaining;i=o.length;}
+ if(i<o.length&&!ignoreUntypedTail){const remaining=o.length-i;omissions+=remaining;i=o.length;}
  return{correct,wrong,omissions,extra,substitutions,typed_words:t.length};
 }
 
@@ -2211,7 +2211,8 @@ app.post('/api/results',auth,(req,res)=>{
  }else if(isDdaJsaQualification){
    // DDA JSA 2025 official formula:
    // [(gross keystrokes / 5) - (incorrect words * 10)] / 10 allotted minutes.
-   officialMistakes=Math.max(0,Number(wordMetrics.wrong||0)+Number(wordMetrics.omissions||0));
+   const ddaErrors=wordErrorMetrics(evaluationContent,typed,true);
+   officialMistakes=Math.max(0,Number(ddaErrors.wrong||0)+Number(ddaErrors.omissions||0));
    const grossKeystrokes=Array.from(typed).length;
    qualificationSpeed=Math.max(0,((grossKeystrokes/5)-(officialMistakes*10))/Math.max(1,scheduledMinutes));
    checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
