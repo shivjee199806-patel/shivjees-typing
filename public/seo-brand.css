@@ -59,3 +59,32 @@ body.jp-branded-landing{margin:0;background:#f5f6fa;color:#14213d;font-family:Ar
 .jp-branded-landing .jp-seo-single-actions .jp-seo-exam{background:linear-gradient(110deg,#5832d8,#8052e9)!important;border-color:#5832d8!important}
 .jp-branded-landing .jp-seo-single-actions .jp-seo-secondary{color:#154a9b!important;background:#fff!important;border:1px solid #bed0ee!important;box-shadow:none!important}
 @media(max-width:500px){.jp-branded-landing .jp-seo-single-actions{gap:7px}.jp-branded-landing .jp-seo-single-actions a{font-size:12px!important;padding:10px 12px!important}}
+
+/* Shared typography for standalone legal pages and SEO guide articles only */
+.jp-branded-landing{font-family:"Segoe UI","Nirmala UI","Mangal",Arial,sans-serif!important;background:#f3f7fc!important;color:#182f54!important;line-height:1.75}
+.jp-branded-landing .jp-site-header{box-shadow:0 7px 23px rgba(14,40,92,.13)}
+.jp-branded-landing.jp-legal-page .jp-legal-main{width:min(100% - 32px,1000px);max-width:1000px;margin:34px auto 56px;padding:0}
+.jp-branded-landing.jp-legal-page .jp-legal-main>h1{font-size:clamp(30px,3.7vw,44px);font-weight:800;letter-spacing:-.4px;line-height:1.22;color:#102e63;margin:0 0 10px}
+.jp-branded-landing.jp-legal-page .jp-legal-main>p{font-size:15px;color:#5a708e;margin:0 0 21px}
+.jp-branded-landing.jp-legal-page .jp-legal-main>.box{background:#fff;border:1px solid #d5e2f3;border-radius:19px;padding:28px 34px;box-shadow:0 10px 30px rgba(23,59,115,.07)}
+.jp-branded-landing.jp-legal-page .jp-legal-main .box h2{position:relative;font-size:clamp(20px,2.2vw,25px);font-weight:800;line-height:1.32;color:#123b7b;padding:0 0 0 15px;margin:30px 0 10px}
+.jp-branded-landing.jp-legal-page .jp-legal-main .box h2:before{content:"";position:absolute;left:0;top:3px;width:5px;height:calc(100% - 5px);border-radius:6px;background:linear-gradient(#2164d8,#ffbd42)}
+.jp-branded-landing.jp-legal-page .jp-legal-main .box p{font-size:16px;line-height:1.85;color:#304766;margin:0 0 18px;text-align:left;overflow-wrap:break-word}
+.jp-branded-landing.jp-legal-page .jp-legal-main .box p:first-child{font-size:17px;color:#24436b}
+.jp-branded-landing.jp-legal-page .jp-legal-main .box p:last-child{margin-bottom:0}
+.jp-branded-landing.jp-legal-page .jp-legal-main>p:last-child{margin-top:17px}
+.jp-branded-landing.jp-legal-page .jp-legal-main>p a{display:inline-block;color:#175acb!important;background:#eaf2ff;border:1px solid #cadcf6;border-radius:10px;padding:9px 14px;text-decoration:none;font-size:14px;font-weight:800}
+.jp-branded-landing main:not(.jp-legal-main){font-family:"Segoe UI","Nirmala UI","Mangal",Arial,sans-serif;line-height:1.75}
+.jp-branded-landing main:not(.jp-legal-main) .card,
+.jp-branded-landing main:not(.jp-legal-main) .hero{border-color:#d8e4f3;border-radius:18px;box-shadow:0 8px 24px rgba(19,55,107,.07);background:#fff}
+.jp-branded-landing main:not(.jp-legal-main) .card h2{font-size:clamp(21px,2.3vw,27px);font-weight:800;line-height:1.35;color:#143970;margin:0 0 14px}
+.jp-branded-landing main:not(.jp-legal-main) .card h3{font-size:clamp(17px,1.7vw,20px);line-height:1.45;color:#174581;font-weight:800;margin:22px 0 9px}
+.jp-branded-landing main:not(.jp-legal-main) .card h3:first-child{margin-top:0}
+.jp-branded-landing main:not(.jp-legal-main) .card p,
+.jp-branded-landing main:not(.jp-legal-main) .card li,
+.jp-branded-landing main:not(.jp-legal-main) .hero p{font-size:16px;line-height:1.82;color:#38506d;text-align:left;overflow-wrap:break-word}
+.jp-branded-landing main:not(.jp-legal-main) .card p{margin:0 0 14px}
+.jp-branded-landing main:not(.jp-legal-main) .card h3+p{margin-top:0}
+.jp-branded-landing main:not(.jp-legal-main) .card ul,
+.jp-branded-landing main:not(.jp-legal-main) .card ol{padding-left:23px}
+@media(max-width:700px){.jp-branded-landing.jp-legal-page .jp-legal-main{width:calc(100% - 24px);margin:20px auto 36px}.jp-branded-landing.jp-legal-page .jp-legal-main>.box{padding:19px 17px;border-radius:15px}.jp-branded-landing.jp-legal-page .jp-legal-main .box p{font-size:15px;line-height:1.75}.jp-branded-landing main:not(.jp-legal-main) .card p,.jp-branded-landing main:not(.jp-legal-main) .card li{font-size:15px;line-height:1.75}}
