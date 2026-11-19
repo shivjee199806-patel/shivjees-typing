@@ -43,3 +43,11 @@ When the matching recruitment year/advertisement does not publish interface deta
 - Conflicting online claims about live SSC highlighting mean these comparisons must **not** be used to assert an unverified visual default for a particular exam year.
 
 **Fallback behavior:** retain currently configured practice settings until a reproducible exam-specific comparison is found; expose an evidence label `Practice reference` and citation/source date, rather than silently enforcing a guessed official setting. Students retain access to configurable highlight, backspace and counting preferences.
+
+## Exam time and displayed matter length (added 20 Nov 2026)
+
+- **UP Police CO**: 09 Jan 2026 official UPPRPB notice, p.1, explicitly gives approximately **500 English words and 400 Hindi words**, each in **15 minutes**. A **10-minute interval** separates the two language tests. The simulator's prior hardcoded 510/408 matter length has been changed to 500/400. Note these are **approximately** the official notice's word amounts, not mandatory literal length of each source passage.
+- **RRB NTPC CEN 06/2024 CBTST**: RRB instructions dated 06 Feb 2026 specify **1 minute warmup + 5 minute break + 10 minute scored typing test**; typing at least **300 English/250 Hindi words**, with retyping the passage from the beginning allowed if completed before time. The minimum word requirement should not be confused with a maximum passage length. Browser needs the warmup/break/retyping sequence; server-side scoring alone is not a completed simulation.
+- **DDA JSA DR 2025**: notice confirms **10 minutes**, **35 English/30 Hindi WPM**, and key-stroke based formula. Do not invent an exact displayed passage word/character count where the notice gives only minimum speed.
+- For all other exams, separately store `duration_minutes`, `matter_count_type` (words / keystrokes / characters), `matter_count_value`, whether count is minimum/approximate/exact, and a source reference. Current database's `duration_word_map` is an approximation for some profiles and is not sufficient to claim official matter fidelity.
+- If a stored passage is shorter than its configured target, the current `trimExamPassageContent` returns the shorter passage. Full-length sim cannot be guaranteed until passage inventory is audited for adequate length.
