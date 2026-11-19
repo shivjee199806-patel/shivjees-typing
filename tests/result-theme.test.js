@@ -9,7 +9,7 @@ test('result theme JavaScript is valid',()=>assert.doesNotThrow(()=>new Function
 test('server JavaScript remains parseable',()=>assert.doesNotThrow(()=>new Function(server)));
 test('theme injected without modifying huge original HTML',()=>{
  assert.match(server,/result-theme\.css/);assert.match(server,/result-theme\.js/);
- assert.match(server,/originalPublicIndex\.replace/);
+ assert.match(server,/lastIndexOf\('<\/body>'\)/);
 });
 test('only owner can update global theme',()=>{assert.match(server,/app\.put\('\/api\/owner\/result-theme',auth,ownerOnly/);});
 test('candidate source text is never modified by theme',()=>{
