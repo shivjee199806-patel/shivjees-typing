@@ -1849,7 +1849,7 @@ app.post('/api/guest-typing/start',(req,res)=>{
   const requestedHighlight=String(req.body?.highlight_mode||'');
   const examHighlight=ex?.highlight_mode||'current_char';
   const validModes=['current_char','current_word','errors_only','none'];
-  const allowHighlight=mode==='exam'&&ex?.highlight_user_change_allowed!==0;
+  const allowHighlight=mode==='exam'&&Number(ex?.highlight_user_change_allowed??1)!==0;
   const highlightMode=mode==='exam'
     ?(allowHighlight&&validModes.includes(requestedHighlight)?requestedHighlight:(validModes.includes(examHighlight)?examHighlight:'none'))
     : 'current_char';
