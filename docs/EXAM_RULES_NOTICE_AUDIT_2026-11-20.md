@@ -31,3 +31,15 @@ Status: **Draft / not deployed**. This register distinguishes documented rules f
 - SSC CHSL special cutoff evaluator is not complete.
 - Normal/Standard selection now reaches server when client POSTs `result_count_mode`; verify the client actually sends it and defaults properly.
 - Verify Railway production DB values, existing overrides, result/history/leaderboard consistency, and all keypress cases before merging.
+
+## Fallback research — AR Typing / Suraj Typing (20 Nov 2026)
+
+When the matching recruitment year/advertisement does not publish interface details, use exam-specific third-party platforms as **comparative evidence only**, ideally cross-checking two independent platforms. Never treat a practice vendor's claim as an official rule; label these profiles `Platform reference / unverified`.
+
+- AR Typing Platform homepage: https://www.artypingplatform.com/ — states its engine handles half/full mistakes, backspace and key depressions per examination, but that general claim is not evidence for each individual recruitment.
+- AR Typing RRB NTPC guidance: https://www.artypingplatform.com/blog/rrb-ntpc-typing-test — says no backspace, no highlight, no scrolling, and word-by-word full/half evaluation. The actual RRB official notice remains the primary authority wherever available.
+- Suraj Typing Wala app: https://play.google.com/store/apps/details?id=com.surajtypingwala.community — documents configurable exam preparation and a backspace option for applicable tests; it does **not** publish a comprehensive official rule matrix for every post.
+- Supplementary mock comparison: https://typing.dublesh.com/typing-test documents independent exam presets while explicitly cautioning that accuracy and marking methods vary.
+- Conflicting online claims about live SSC highlighting mean these comparisons must **not** be used to assert an unverified visual default for a particular exam year.
+
+**Fallback behavior:** retain currently configured practice settings until a reproducible exam-specific comparison is found; expose an evidence label `Practice reference` and citation/source date, rather than silently enforcing a guessed official setting. Students retain access to configurable highlight, backspace and counting preferences.
