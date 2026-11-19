@@ -148,3 +148,33 @@ body:has(.result-dashboard.jp-theme-on) .result-dashboard.jp-theme-on{width:min(
 
 /* The formula remains visible; only its trailing duplicated qualification word is suppressed. */
 .result-dashboard.jp-theme-on .result-note > b:last-child{display:none!important}
+
+/* Balanced 4 + 4 + 3 statistics grid after hiding the duplicated status.
+   Display-only: no score values, count methods or source passages are touched. */
+@media(min-width:851px){
+ .result-dashboard.jp-theme-on .result-grid{
+  grid-template-columns:repeat(12,minmax(0,1fr))!important;
+ }
+ .result-dashboard.jp-theme-on .result-grid>.result-box:not(.jp-theme-redundant-status){
+  grid-column:span 3;
+ }
+ .result-dashboard.jp-theme-on .result-grid>.result-box:not(.jp-theme-redundant-status):nth-last-child(-n+4){
+  grid-column:span 4;
+ }
+}
+/* Center the whole results inside the available app viewport, not the old sidebar column. */
+body:has(.result-dashboard.jp-theme-on) .shell{
+ width:100%!important;max-width:none!important;margin-left:auto!important;margin-right:auto!important;
+}
+body:has(.result-dashboard.jp-theme-on) main.content#app{
+ width:100%!important;max-width:none!important;min-width:0!important;
+ display:flex!important;flex-direction:column!important;align-items:center!important;
+ box-sizing:border-box!important;margin-left:auto!important;margin-right:auto!important;
+}
+body:has(.result-dashboard.jp-theme-on) main.content#app>.result-dashboard.jp-theme-on{
+ align-self:center!important;margin-left:auto!important;margin-right:auto!important;
+ box-sizing:border-box!important;
+}
+@media(max-width:850px){
+ .result-dashboard.jp-theme-on .result-grid>.result-box:not(.jp-theme-redundant-status){grid-column:auto}
+}
