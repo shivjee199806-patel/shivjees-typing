@@ -84,20 +84,6 @@
  window.jpChooseSeoExam=chooseSeoExam;
  window.jpOpenQuickTypingTest=open;
  const launch=document.getElementById('jpLandingStart');
- if(launch) {
-   // Keep the existing indexed URL; place the working free test directly on this page.
-   const panel=ensure();
-   const inlineStyle=document.createElement('style');
-   inlineStyle.textContent='#jpQuickTypeOverlay.jp-inline-test{position:relative;inset:auto;z-index:auto;display:block;padding:0;margin:20px 0;background:transparent;backdrop-filter:none}#jpQuickTypeOverlay.jp-inline-test .jp-quicktype-box{width:100%;max-height:none;overflow:visible;border-radius:16px;box-shadow:0 8px 28px #0001;animation:none}#jpQuickTypeOverlay.jp-inline-test .jp-qt-close{display:none}@media(max-width:820px){#jpQuickTypeOverlay.jp-inline-test{margin:12px 0}}';
-   document.head.appendChild(inlineStyle);
-   panel.classList.add('jp-inline-test','show');
-   launch.insertAdjacentElement('afterend',panel);
-   launch.textContent='Start Free Typing Test ↓';
-   launch.href='#jpQuickTypeOverlay';
-   launch.addEventListener('click',e=>{e.preventDefault();panel.scrollIntoView({behavior:'smooth',block:'start'});});
-   updateChoices();
-   reset();
- }
-
+ if(launch){launch.href='/guest-typing.html?mode=practice';launch.textContent='Open Practice Typing Pane →';}
  document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 })();
