@@ -129,3 +129,9 @@
 @media(prefers-reduced-motion:reduce){
  .result-dashboard.jp-theme-on .jp-theme-particles{display:none!important}
 }
+
+/* The old page title is preserved verbatim when the result design is disabled. */
+.result-dashboard.jp-theme-on .jp-theme-plain-title{display:none!important}
+.result-dashboard.jp-theme-off .jp-theme-plain-title{display:block!important}
+.result-dashboard.jp-theme-off .jp-theme-head{justify-content:flex-end;background:transparent;padding:0;margin:0;border:0;box-shadow:none}
+.result-dashboard.jp-theme-off .jp-theme-heading{display:none}
