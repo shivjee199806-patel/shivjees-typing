@@ -32,16 +32,16 @@ function buildAnimation(kind){
  let html='';
  if(kind==='pass'){
   const colors=['#ffb900','#ed3d62','#137fff','#7f37fb','#18b765'];
-  for(let i=0;i<32;i++){
-   const x=(i*37+11)%99,delay=(i%14)*.9;
+  for(let i=0;i<36;i++){
+   const x=(i*37+11)%99,delay=(i%19)*.9;
    html+='<i class="jp-firework" style="--x:'+x+'%;--delay:'+delay+'s;--color:'+colors[i%5]+'"></i>';
   }
  }else if(kind==='fail'){
-  for(let i=0;i<14;i++)html+='<span class="jp-sad-particle" style="--x:'+((i*27+13)%95)+'%;--delay:'+((i%10)*.65)+'s">'+(i%2?'😔':'😢')+'</span>';
+  for(let i=0;i<14;i++)html+='<span class="jp-sad-particle" style="--x:'+((i*27+13)%95)+'%;--delay:'+((i%10)*.75)+'s">'+(i%2?'😔':'😢')+'</span>';
  }
  layer.innerHTML=html;
  layer.style.setProperty('--run-seconds',seconds+'s');
- layer.addEventListener('animationend',()=>{}, {once:true});
+ setTimeout(()=>layer.remove(),seconds*1000);
  // Animation runs once after page opening; never loop indefinitely.
  return layer;
 }
@@ -73,7 +73,8 @@ function enhance(d){
   const header=document.createElement('header');header.className='jp-theme-head';
   const name=hindi?'सही अभ्यास – बेहतर परिणाम':'Best Typing – Best Result';
   header.innerHTML='<div class="jp-theme-brand"><img src="'+logo+'" alt="jptyping.in official logo" loading="lazy"><div><strong>jptyping.in</strong><small>'+name+'</small></div></div><div class="jp-theme-heading">🏆 Performance Dashboard</div>'+ownerToggle(d);
-  title.replaceWith(header);
+  title.insertAdjacentElement('beforebegin',header);
+  title.classList.add('jp-theme-plain-title');
   const toggle=header.querySelector('.jp-theme-admin-toggle');
   if(toggle)toggle.addEventListener('click',async()=>{
    toggle.disabled=true;
@@ -110,6 +111,7 @@ function enhance(d){
 function applyTheme(d){
  const root=d.closest('#app')||d.parentElement;
  if(enabled){
+  const t=d.querySelector('.jp-theme-heading');if(t)t.textContent='🏆 Performance Dashboard';
   d.classList.add('jp-theme-on');d.classList.remove('jp-theme-off');
   if(root)root.classList.add('jp-has-themed-result');
  }else{
