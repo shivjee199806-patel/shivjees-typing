@@ -12,3 +12,5 @@
 .guest-settings-note{font-size:11px;line-height:1.5;color:#526e96}
 .guest-active-settings{font-size:12px;color:#1e4c8d;background:#eef5ff;border:1px solid #d9e5fc;border-radius:8px;padding:8px 10px;margin-top:10px}
 @media(max-width:460px){.guest-settings-grid{grid-template-columns:1fr}}
+
+.pane .passage .word-active{background:#cce4ff;color:#102d6a;border-bottom:2px solid #3475d5}
