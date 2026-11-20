@@ -7446,7 +7446,7 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
    const formula=document.getElementById('jpAccuracyFormula');
    if(formula){
     const numerator=standard?Number(charStats.good||0):normalCorrect,denominator=Math.max(1,standard?givenChars:normalGiven),calculated=100*numerator/denominator;
-    formula.textContent=Math.abs(calculated-accuracy)<0.015?`Calculation of Accuracy % = ( ${numberText(numerator,standard)} / ${denominator} given ${standard?'characters':'words'} ) × 100.`:`Accuracy = ${accuracy.toFixed(2)}% (saved exam evaluator; displayed matching-word count differs from its scoring method).`;
+    formula.textContent=Math.abs(calculated-accuracy)<0.015?`Calculation of Accuracy % = ( ${Number(numerator).toFixed(2).replace(/\.?0+$/,'')} / ${denominator} given ${standard?'characters':'words'} ) × 100.`:`Accuracy = ${accuracy.toFixed(2)}% (saved exam evaluator; displayed matching-word count differs from its scoring method).`;
    }
    const modeButton=document.getElementById('jpWordCountMode'),help=document.getElementById('jpWordCountHelp');
    modeButton.textContent=standard?'OFF • 5 Characters = 1 Word':'ON • Normal Typed Words';
