@@ -2048,7 +2048,8 @@ function uppMinisterialTypingMetrics(original,typed,language='English',ignoreTra
  // Paragraphic errors only matter when the source itself contains paragraph breaks.
  const op=rawO.split(/\r?\n/),tp=rawT.split(/\r?\n/);
  if(op.length>1){
-  half+=Math.abs(op.length-tp.length);
+  // Unreached paragraphs are not keyboard/paragraph mistakes.
+  if(!ignoreTrailingUntyped)half+=Math.abs(op.length-tp.length);
   const n=Math.min(op.length,tp.length);
   for(let k=1;k<n;k++){
    const os=(op[k].match(/^[\t ]*/)||[''])[0],ts=(tp[k].match(/^[\t ]*/)||[''])[0];
@@ -2057,7 +2058,7 @@ function uppMinisterialTypingMetrics(original,typed,language='English',ignoreTra
   }
  }
  const totalWords=o.length,typedWords=t.length,weightedMistakes=full+(half*0.5);
- const correctWords=Math.max(0,Math.min(ignoreTrailingUntyped?typedWords:totalWords,totalWords-weightedMistakes));
+ const correctWords=Math.max(0,Math.min(typedWords,ignoreTrailingUntyped?typedWords-weightedMistakes:totalWords-weightedMistakes));
  return {full_mistakes:full,half_mistakes:half,weighted_mistakes:weightedMistakes,
   correct_words:correctWords,total_words:totalWords,typed_words:typedWords,exact_correct_words:exactCorrect};
 }
@@ -2191,7 +2192,9 @@ app.post('/api/results',auth,(req,res)=>{
  const checks={wpm:(ruleWpm<=0||qualificationBaseSpeed>=ruleWpm),accuracy:(ruleAcc<=0||accuracy>=ruleAcc),words:(ruleWords<=0||typedWords>=ruleWords),chars:(ruleChars<=0||typed.length>=ruleChars)};
  let qualOk=true,qualificationSpeed=qualificationBaseSpeed,qualificationFinalMistakes=null,uppMetrics=null,officialAccuracy=null,officialMistakes=null,typingMarks=null;
  if(isUppMinisterialQualification||isUppCoQualification){
-   uppMetrics=uppMinisterialTypingMetrics(evaluationContent,typed,e?.language||passage.language);
+   // Evaluate mistakes only within attempted text. The untouched trailing passage
+   // remains omitted for accuracy denominator, but is not a second typed full mistake.
+   uppMetrics=uppMinisterialTypingMetrics(evaluationContent,typed,e?.language||passage.language,true);
    qualificationSpeed=uppMetrics.typed_words/Math.max(1/60,elapsedMinutes);
    officialAccuracy=uppMetrics.total_words?(uppMetrics.correct_words/uppMetrics.total_words*100):0;
    checks.wpm=(ruleWpm<=0||qualificationSpeed>=ruleWpm);
