@@ -2307,6 +2307,9 @@ app.post('/api/results',auth,(req,res)=>{
    netDisplayWords=Math.max(0,standardTypedWords-Math.max(0,Number(qualificationFinalMistakes||0))*5);
  }else if(isDelhiPoliceHcmQualification){
    netDisplayWords=Math.max(0,standardTypedWords-Math.max(0,Number(officialMistakes||0)));
+ }else if(isCourt3PctQualification||isHpHcClerkQualification){
+   // These exams use normal words; never mix character-based Net with word-based Gross.
+   netDisplayWords=Math.max(0,Math.min(typedWords,Number(wordMetrics.correct||0)));
  }
  // Never report net greater than gross (a few alignment corner cases).
  const storedGross=grossDisplay;
