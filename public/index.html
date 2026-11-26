@@ -3480,11 +3480,6 @@ async function prepareSelectedPassage(id){if(!(await ensureExamCanStart()))retur
 function renderInstructions(){const e=S.exam,p=S.passage;const isExam=S.mode==='exam'||S.mode==='live';if(!isExam){renderTest();return}const hindi=String(e?.language||p?.language||'').toLowerCase().includes('hindi');setApp(`<div class="card exam-precheck"><h1>📘 Exam Instructions & Controls / परीक्षा निर्देश</h1><p><b>${esc(e.name)}</b> · ${esc(p.title)} · ${Math.round(S.total/60)} minutes</p><ol class="exam-rule-list"><li>Exam tab के अंदर यह strict Exam Mode है; non-use controls restricted रहेंगे.</li><li>Main Exam से पहले 2-minute random keyboard practice मिलेगी; यह final result में count नहीं होगी और इसे Skip किया जा सकता है.</li><li>Practice पूरी/Skip होने पर warning के बाद <b>Enter Main Exam</b> दबाते ही full-screen typing area खुलेगा, cursor typing pane में होगा और timer तुरंत शुरू होगा.</li><li><b>Zoom − / 100% / +</b> exam timer चलते समय adjust कर सकते हैं; timer नहीं रुकेगा. यह website की extra सुविधा है, real exam में जरूरी नहीं.</li><li>Side arrow से <b>Exam Hall Sound</b> और <b>My Keyboard Sound</b> ON/OFF/volume manage कर सकते हैं; timer चलता रहेगा.</li><li>Typing के दौरान accidental Esc/Back/Refresh जैसी navigation को जहाँ browser अनुमति देता है वहाँ restrict/warn किया जाएगा. Proper exit केवल End Exam/Submit Exam से करें.</li><li><b>Restart Exam</b> confirmation के बाद typed data/stats clear करके पूरा exam timer शुरुआत से restart करेगा.</li><li><b>Submit Exam</b> पहले पूरा Typed Passage Read Only दिखाएगा; Confirm Submit के बाद detailed Result और History save होगी.</li><li><b>End Exam</b> confirmation के बाद एक step बाहर जाएगा और जितना attempt हुआ वह History में Ended/Incomplete रहेगा.</li></ol><div class="exam-checks"><label><input id="readCheck" type="checkbox"> मैंने सभी instructions पढ़ और समझ लिए हैं। / I have read and understood all instructions.</label>${hindi?`<label><input id="hindiCheck" type="checkbox"> ✅ मैंने English → Hindi keyboard/input switch करके जाँच लिया है कि Hindi typing सही काम कर रही है।</label>`:''}</div><button id="goPractice" class="btn btn-primary" disabled>Start 2-Minute Practice →</button> <button class="btn btn-white" onclick="openPassagePicker()">← Back</button></div>`);const update=()=>{const a=document.getElementById('readCheck')?.checked,b=!hindi||document.getElementById('hindiCheck')?.checked;document.getElementById('goPractice').disabled=!(a&&b)};document.getElementById('readCheck').onchange=update;if(hindi)document.getElementById('hindiCheck').onchange=update;document.getElementById('goPractice').onclick=renderPrePractice}
 function keyboardCheckMaterial(language){
  const hindi=/hindi|हिंदी|हिन्दी/i.test(String(language||''));
- const numbers='0 1 2 3 4 5 6 7 8 9';
- const punctuation=[
-  '` - = [ ] \\ ; \' , . /',
-  '~ ! @ # $ % ^ & * ( ) _ + { } | : " < > ?'
- ];
  return hindi?{
   lang:'hi',
   passage:[
@@ -3492,28 +3487,10 @@ function keyboardCheckMaterial(language){
    "पुरानी सड़क के किनारे एक बूढ़ा कारीगर लकड़ी का षट्कोण बना रहा था। पास में बच्चे झंडा, थाली और खिलौने वाला धनुष ख़रीद रहे थे। डॉक्टर ने पूछा, “फ़ैज़, तुम्हारे बैग में क़लम और काग़ज़ हैं?” फ़ैज़ ने हँसकर कहा, “हाँ, माँ ने रख दिए हैं!”",
    "मेले की प्रश्नोत्तरी में बच्चों ने ‘ङ’, ‘ञ’, ‘ण’ और ‘क्’ लिखे। फिर उन्होंने ‘क्षमा’, ‘त्रिकोण’, ‘ज्ञान’, ‘श्रम’, ‘दुःख’ और ‘ब्रह्म’ लिखकर अभ्यास पूरा किया। अंत में सबने टिकट पर छपे अंक पढ़े —0 1 2 3 4 5 6 7 8 9"
   ].join('\n\n'),
-  label:'अक्षर, मात्राएँ, अंक और चिह्न',
-  lines:[
-   'अ आ इ ई उ ऊ ऋ ए ऐ ओ औ अं अः',
-   'क ख ग घ ङ   च छ ज झ ञ   ट ठ ड ढ ण',
-   'त थ द ध न   प फ ब भ म   य र ल व श ष स ह',
-   'का कि की कु कू कृ के कै को कौ कं कः क्',
-   'क्ष त्र ज्ञ श्र   क्र प्र स्त्र   माँ चाँद   क़ ख़ ग़ ज़ फ़ ड़ ढ़',
-   numbers+'   ० १ २ ३ ४ ५ ६ ७ ८ ९',
-   '। ॥ , ; : ! ? “ ” ( )',
-   ...punctuation
-  ],
   prompt:'यहाँ टाइप करके कीबोर्ड जाँचें…'
  }:{
   lang:'en',
   passage:"Ravi opened the typing lab at 09:15. The screen flashed \"THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG\" and asked him to type 'sphinx of black quartz, judge my vow.' Next, he saved lesson_02 in C:\\Typing\\Practice and entered his email, ravi7@example.com. The receipt read: 3 x $4 = $12; discount 5% (code #86). For the final round, he typed [warm-up], {speed}, <accuracy>, and room A|B. Before leaving, he asked, \"Is the score 8+2?\" The teacher replied, \"Yes! Type ~, `, *, ^, and & to finish.\"",
-  label:'Letters, numbers and punctuation',
-  lines:[
-   'abcdefghijklmnopqrstuvwxyz',
-   'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-   numbers,
-   ...punctuation
-  ],
   prompt:'Type here to check the keyboard…'
  };
 }
@@ -3525,12 +3502,8 @@ function renderPrePractice(){
   <div class="notice">Practice only — final result में count नहीं होगी.</div>
   <h2 id="practiceClock">02:00</h2>
   <p class="passage-box" style="height:auto;white-space:pre-line;overflow-wrap:anywhere" lang="${material.lang}">${esc(material.passage)}</p>
-  <div style="margin:12px 0">
-   <strong lang="${material.lang}">${material.label}</strong>
-   <div class="passage-box" lang="${material.lang}" style="height:auto;white-space:pre-wrap;overflow-wrap:anywhere">${esc(material.lines.join('\n'))}</div>
-  </div>
   <p class="muted" lang="${material.lang}">${material.lang==='hi'?'स्पेस, Shift, Enter, Backspace और तीर वाली कुंजियाँ टाइपिंग बॉक्स में जाँचें। Tab से अगला बटन चुन सकते हैं।':'Check Space, Shift, Enter, Backspace and the arrow keys in the typing box. Tab moves to the next control.'}</p>
-  <textarea id="practiceTyping" class="typing-area" aria-label="${material.prompt}" placeholder="${material.prompt}" spellcheck="false"></textarea>
+  <textarea id="practiceTyping" class="typing-area" style="background:#eef5ff;border-color:#91add5;color:#152743" lang="${material.lang}" aria-label="${material.prompt}" placeholder="${material.prompt}" spellcheck="false"></textarea>
   <div style="margin-top:12px"><button type="button" class="btn btn-primary" onclick="practiceCompleteWarning()">Submit Practice</button> <button type="button" class="btn btn-white" onclick="practiceCompleteWarning()">Skip Practice →</button></div>
  </div>`);
  clearInterval(S.practiceTimer);
