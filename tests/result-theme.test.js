@@ -32,7 +32,7 @@ test('themed result hides only duplicate top status and preserves bottom banner'
  assert.match(visual,/jp-theme-redundant-status/);
  assert.match(css,/jp-theme-on \.jp-theme-redundant-status\{display:none!important\}/);
  assert.match(css,/jp-theme-off \.jp-theme-redundant-status\{display:block\}/);
- assert.match(visual,/statusBanner\(kind,hindi\)/);
+ assert.match(visual,/statusBanner\(kind,hindi,statusTile\?/);
 });
 test('result centered and candidate name bold only on enabled theme',()=>{
  assert.match(css,/result-dashboard\.jp-theme-on\{width:min\(1520px/);
