@@ -1,4 +1,5 @@
 const jpHindiWords=require('./public/hindi-word-metrics');
+const {canonicalRedirect,sendNotFound}=require('./seo-routing');
 const QRCode=require('qrcode');const {Pool}=require('pg');const zlib=require('zlib');const express=require('express');const path=require('path');const fs=require('fs');const os=require('os');const crypto=require('crypto');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const Database=require('better-sqlite3');const multer=require('multer');const nodemailer=require('nodemailer');
 // Load a local .env file without an extra dependency (hosting environment variables still take priority).
 try{const envPath=path.join(__dirname,'.env');if(fs.existsSync(envPath)){for(const raw of fs.readFileSync(envPath,'utf8').split(/\r?\n/)){const line=raw.trim();if(!line||line.startsWith('#'))continue;const i=line.indexOf('=');if(i<1)continue;const k=line.slice(0,i).trim(),v=line.slice(i+1).trim().replace(/^['"]|['"]$/g,'');if(process.env[k]===undefined)process.env[k]=v}}}catch(e){console.warn('Could not read .env:',e.message)}
@@ -1418,7 +1419,8 @@ app.put('/api/owner/result-theme',auth,ownerOnly,(req,res)=>{
  res.setHeader('Cache-Control','no-store');
  return res.json({ok:true,enabled});
 });
-app.get(['/','/index.html'],sendPublicIndex);
+app.use(canonicalRedirect);
+app.get(['/','/owner-portal','/verify-certificate'],sendPublicIndex);
 // SEO: keep old backup HTML accessible but exclude it from search indexing.
 // This changes response metadata only; application routes and bytes stay intact.
 app.use((req,res,next)=>{
@@ -4225,7 +4227,7 @@ app.delete('/api/owner/doubts/:id',auth,ownerOnly,(req,res)=>{const id=Number(re
 
 // SECURITY FIX: unknown API routes must never fall through to the SPA HTML.
 app.use('/api',(req,res)=>res.status(404).json({error:'API endpoint not found'}));
-// SPA fallback must be after every API route.
-app.get('*',sendPublicIndex);
+// Unrecognized public URLs should return a real 404 instead of the home page.
+app.get('*',sendNotFound);
 // Final error handler for every route declared above.
 app.use((err,req,res,next)=>{console.error(err);if(res.headersSent)return next(err);res.status(500).json({error:'Internal server error'});});

@@ -1,6 +1,7 @@
 // SEO-only URL helpers. Existing account, API and application routes are untouched.
 'use strict';
 const aliases = Object.freeze({
+  "/index.html": "/",
   "/typing-accuracy-calculator.html": "/typing-accuracy-calculator",
   "/hindi-typing-test": "/hindi-typing-test.html",
   "/wpm-calculator.html": "/wpm-calculator",
@@ -15,18 +16,19 @@ const aliases = Object.freeze({
   "/government-exam-typing-practice.html": "/government-exam-typing-practice",
   "/35-wpm-typing-challenge": "/35-wpm-typing-challenge.html",
   "/ssc-typing-test.html": "/ssc-typing-test",
-  "/uppco-typing-test": "/uppco-typing-test.html"
+  "/uppco-typing-test": "/up-police-computer-operator-typing-test",
+  "/uppco-typing-test.html": "/up-police-computer-operator-typing-test"
 });
 function canonicalRedirect(req,res,next){
- if(!['GET','HEAD'].includes(req.method))return next();
- const target=aliases[req.path];
- if(!target)return next();
- const q=String(req.originalUrl||req.url||'').indexOf('?');
- const query=q<0?'':String(req.originalUrl||req.url).slice(q);
- return res.redirect(301,target+query);
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const pathname = req.path.replace(/\/$/, '');
+  if (!Object.hasOwn(aliases, pathname)) return next();
+
+  const queryStart = req.originalUrl.indexOf('?');
+  const query = queryStart === -1 ? '' : req.originalUrl.slice(queryStart);
+  return res.redirect(301, aliases[pathname] + query);
 }
-function missingHtml(req,res,next){
- if(!['GET','HEAD'].includes(req.method)||! /\.html\/?$/i.test(req.path))return next();
- return res.status(404).type('html').send('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | JP Typing</title><main><h1>Page not found</h1><p>This typing page is unavailable. Please choose a current test.</p><a href="/typing-test.html">Open typing test</a> · <a href="/">Home</a></main></html>');
+function sendNotFound(req,res){
+  return res.status(404).type('html').send('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | JP Typing</title><main><h1>Page not found</h1><p>This typing page is unavailable. Please choose a current test.</p><a href="/typing-test.html">Open typing test</a> · <a href="/">Home</a></main></html>');
 }
-module.exports={canonicalRedirect,missingHtml};
+module.exports={canonicalRedirect,sendNotFound};
