@@ -16,7 +16,7 @@ function updateQuota(){
  $('enRemain').textContent='2 में से '+remaining(state.mode,'English')+' टेस्ट बाकी';
  $('hiRemain').textContent='2 में से '+remaining(state.mode,'Hindi')+' टेस्ट बाकी';
  const gate=['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0);
- $('loginGate').classList.toggle('hidden',!gate);
+ $('loginGate').classList.toggle('hidden',!gate||!$('testIntro').classList.contains('hidden'));
 }
 function getExams(){return state.catalog?.exams||[]}
 function getMatters(){return state.catalog?.matters||[]}
@@ -65,13 +65,39 @@ function syncGuestSettings(passage=state.readyPassage){
  $('guestDuration').options[0].textContent='Exam Default · '+minutes+' मिनट';
  $('guestDefaultNote').textContent='Default: '+minutes+' मिनट · Backspace '+(exam.backspace_allowed?'On':'Off')+' · Highlight '+String(exam.highlight_mode||'current_char')+'. टेस्ट शुरू होने पर सेटिंग लॉक होगी।';
 }
+function hasOtherFreeTest(){
+ const exams=new Map(getExams().map(exam=>[exam.id,exam.language]));
+ return getMatters().some(passage=>{
+  const mode=passage.exam_id==null?'practice':'exam';
+  if(passage.language!=='English'&&passage.language!=='Hindi')return false;
+  if(mode==='exam'&&exams.get(passage.exam_id)!==passage.language)return false;
+  return remaining(mode,passage.language)>0;
+ });
+}
 function renderReadyTest(){
  const passage=state.readyPassage;
  const hasPassage=!!passage;
+ const languages=state.language==='All'?['English','Hindi']:[state.language];
+ const exhausted=!hasPassage&&!!state.catalog&&(state.rows.length>0||languages.every(language=>remaining(state.mode,language)===0));
+ const english=exhausted&&(state.language==='English'||(state.language==='All'&&state.rows.length>0&&state.rows.every(passage=>passage.language==='English')));
+ const singleLanguage=state.language!=='All'||(state.rows.length>0&&state.rows.every(passage=>passage.language===state.rows[0].language));
+ const status=$('readyStatus'), actions=$('readyQuotaActions'), browse=$('readyBrowse');
  $('readyMatter').classList.toggle('hidden',!hasPassage);
  $('readyStart').classList.toggle('hidden',!hasPassage);
+ actions.classList.toggle('hidden',!exhausted);
+ status.lang=actions.lang=browse.lang=english?'en':'hi';
+ browse.classList.toggle('hidden',exhausted&&!hasOtherFreeTest());
+ browse.textContent=exhausted?(english?'Try another language or mode':'दूसरी भाषा या मोड आज़माएँ'):'गद्यांश या विकल्प बदलें';
+ if(exhausted){
+  status.textContent=english
+   ?'You’ve used all your free tests for this language in this mode. Log in to take more tests.'
+   :(singleLanguage?'इस भाषा में इस मोड के आपके फ्री टेस्ट पूरे हो चुके हैं।':'इस मोड के आपके फ्री टेस्ट पूरे हो चुके हैं।')+' और टेस्ट देने के लिए अपने खाते में लॉगिन करें।';
+  $('readyLogin').textContent=english?'Log in':'लॉगिन करें';
+  $('readySignup').textContent=english?'Create an account':'नया खाता बनाएँ';
+  return;
+ }
  if(!passage){
-  $('readyStatus').textContent=!state.catalog?'पहला उपलब्ध गद्यांश लोड हो रहा है।':state.rows.length?'इस भाषा के फ्री टेस्ट पूरे हो चुके हैं। दूसरी भाषा या मोड चुनें।':'इन विकल्पों में कोई गद्यांश उपलब्ध नहीं है। परीक्षा, भाषा या खोज बदलें।';
+  status.textContent=state.catalog?'इन विकल्पों में कोई गद्यांश उपलब्ध नहीं है। परीक्षा, भाषा या खोज बदलें।':'पहला उपलब्ध गद्यांश लोड हो रहा है।';
   return;
  }
  $('readyStatus').textContent='पहला उपलब्ध गद्यांश तैयार है।';
@@ -275,8 +301,9 @@ function submitTest(auto=false){
 }
 function back(){
  if(state.current&&!state.done&&!confirm('इस attempt को छोड़कर Matter list पर वापस जाएँ?'))return;
- stopTimer();state.current=null;state.done=false;showMatters();
+ stopTimer();state.current=null;state.done=false;
  $('testSection').classList.add('hidden');$('result').classList.add('hidden');$('testIntro').classList.remove('hidden');
+ showMatters();
  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function init(){
