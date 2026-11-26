@@ -81,17 +81,19 @@ function renderReadyTest(){
  const exhausted=!hasPassage&&!!state.catalog&&(state.rows.length>0||languages.every(language=>remaining(state.mode,language)===0));
  const english=exhausted&&(state.language==='English'||(state.language==='All'&&state.rows.length>0&&state.rows.every(passage=>passage.language==='English')));
  const singleLanguage=state.language!=='All'||(state.rows.length>0&&state.rows.every(passage=>passage.language===state.rows[0].language));
- const status=$('readyStatus'), actions=$('readyQuotaActions'), browse=$('readyBrowse');
+ const heading=$('readyHeading'), status=$('readyStatus'), actions=$('readyQuotaActions'), browse=$('readyBrowse');
  $('readyMatter').classList.toggle('hidden',!hasPassage);
  $('readyStart').classList.toggle('hidden',!hasPassage);
  actions.classList.toggle('hidden',!exhausted);
- status.lang=actions.lang=browse.lang=english?'en':'hi';
+ heading.lang=status.lang=actions.lang=browse.lang=english?'en':'hi';
+ heading.textContent=exhausted?(english?'Free tests completed':'फ्री टेस्ट पूरे हो गए'):'अपना टाइपिंग टेस्ट शुरू करें';
+ browse.classList.toggle('guest-quota-alternative',exhausted);
  browse.classList.toggle('hidden',exhausted&&!hasOtherFreeTest());
  browse.textContent=exhausted?(english?'Try another language or mode':'दूसरी भाषा या मोड आज़माएँ'):'गद्यांश या विकल्प बदलें';
  if(exhausted){
   status.textContent=english
-   ?'You’ve used all your free tests for this language in this mode. Log in to take more tests.'
-   :(singleLanguage?'इस भाषा में इस मोड के आपके फ्री टेस्ट पूरे हो चुके हैं।':'इस मोड के आपके फ्री टेस्ट पूरे हो चुके हैं।')+' और टेस्ट देने के लिए अपने खाते में लॉगिन करें।';
+   ?'Log in to take more tests in this language.'
+   :(singleLanguage?'इस भाषा में और टेस्ट देने के लिए लॉगिन करें।':'और टेस्ट देने के लिए लॉगिन करें।');
   $('readyLogin').textContent=english?'Log in':'लॉगिन करें';
   $('readySignup').textContent=english?'Create an account':'नया खाता बनाएँ';
   return;
