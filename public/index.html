@@ -3487,7 +3487,11 @@ function keyboardCheckMaterial(language){
  ];
  return hindi?{
   lang:'hi',
-  passage:'आज सुबह नगर पुस्तकालय में नई पुस्तकों की सूची तैयार की गई। कर्मचारियों ने पुराने अभिलेखों की जाँच की और हर पंजी में सही तारीख लिखी। विद्यालय के छात्र पुस्तकालय पहुँचे तो उन्हें शांत कक्ष में पढ़ने की जगह मिली। सहायक ने कहा, “कृपया पुस्तक साफ रखें और समय पर लौटाएँ।” इस छोटे अभ्यास में मात्रा, विराम चिह्न और शब्दों के बीच की जगह पर ध्यान दें।',
+  passage:[
+   "आज सुबह अनिल और ईशान गाँव के मेले में गए। इधर ओस से भीगी घास पर एक खरगोश बैठा था, उधर चौक में ऊँट के पास ढोल बज रहा था। ऐन उसी समय बारिश शुरू हुई। ऋषि ने छाता खोला और सीता ने फूलों की टोकरी ठेले पर रख दी।",
+   "पुरानी सड़क के किनारे एक बूढ़ा कारीगर लकड़ी का षट्कोण बना रहा था। पास में बच्चे झंडा, थाली और खिलौने वाला धनुष ख़रीद रहे थे। डॉक्टर ने पूछा, “फ़ैज़, तुम्हारे बैग में क़लम और काग़ज़ हैं?” फ़ैज़ ने हँसकर कहा, “हाँ, माँ ने रख दिए हैं!”",
+   "मेले की प्रश्नोत्तरी में बच्चों ने ‘ङ’, ‘ञ’, ‘ण’ और ‘क्’ लिखे। फिर उन्होंने ‘क्षमा’, ‘त्रिकोण’, ‘ज्ञान’, ‘श्रम’, ‘दुःख’ और ‘ब्रह्म’ लिखकर अभ्यास पूरा किया। अंत में सबने टिकट पर छपे अंक पढ़े —0 1 2 3 4 5 6 7 8 9"
+  ].join('\n\n'),
   label:'अक्षर, मात्राएँ, अंक और चिह्न',
   lines:[
    'अ आ इ ई उ ऊ ऋ ए ऐ ओ औ अं अः',
@@ -3502,7 +3506,7 @@ function keyboardCheckMaterial(language){
   prompt:'यहाँ टाइप करके कीबोर्ड जाँचें…'
  }:{
   lang:'en',
-  passage:'At 9:15 a.m., Priya opened the office and checked the delivery register. The first parcel arrived at Desk 4, and the second was marked "Handle with care!" A visitor asked, "Is this the right room?" Priya replied, "Yes, please sign here." She entered the date, checked the address, and saved the record. Before leaving, she reviewed the total: 24 items, 3 returns, and 1 pending request.',
+  passage:"Ravi opened the typing lab at 09:15. The screen flashed \"THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG\" and asked him to type 'sphinx of black quartz, judge my vow.' Next, he saved lesson_02 in C:\\Typing\\Practice and entered his email, ravi7@example.com. The receipt read: 3 x $4 = $12; discount 5% (code #86). For the final round, he typed [warm-up], {speed}, <accuracy>, and room A|B. Before leaving, he asked, \"Is the score 8+2?\" The teacher replied, \"Yes! Type ~, `, *, ^, and & to finish.\"",
   label:'Letters, numbers and punctuation',
   lines:[
    'abcdefghijklmnopqrstuvwxyz',
@@ -3520,7 +3524,7 @@ function renderPrePractice(){
   <h1>⌨️ 2-Minute Practice / Keyboard Check</h1>
   <div class="notice">Practice only — final result में count नहीं होगी.</div>
   <h2 id="practiceClock">02:00</h2>
-  <p class="passage-box" style="height:auto" lang="${material.lang}">${esc(material.passage)}</p>
+  <p class="passage-box" style="height:auto;white-space:pre-line;overflow-wrap:anywhere" lang="${material.lang}">${esc(material.passage)}</p>
   <div style="margin:12px 0">
    <strong lang="${material.lang}">${material.label}</strong>
    <div class="passage-box" lang="${material.lang}" style="height:auto;white-space:pre-wrap;overflow-wrap:anywhere">${esc(material.lines.join('\n'))}</div>
