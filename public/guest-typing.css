@@ -14,3 +14,12 @@
 @media(max-width:460px){.guest-settings-grid{grid-template-columns:1fr}}
 
 .pane .passage .word-active{background:#cce4ff;color:#102d6a;border-bottom:2px solid #3475d5}
+
+.guest-test-main{min-width:0}
+.guest-ready h2,.guest-ready h3{margin:0;color:#102b5b}
+.guest-ready h3{font-size:1.05rem;overflow-wrap:anywhere}
+.guest-ready p{margin:.4rem 0;color:#405675}
+.guest-ready-matter{margin:.85rem 0;padding:.9rem;background:#f5f9ff;border:1px solid #d4e3fa;border-radius:10px}
+.guest-ready .actions{align-items:center;gap:.8rem}
+.guest-ready .actions a{color:#1849ad;font-weight:700}
+@media(max-width:980px){.guest-test-main{grid-row:1}}

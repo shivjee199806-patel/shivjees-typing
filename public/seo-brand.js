@@ -15,6 +15,18 @@
   box.className='jp-seo-single-actions';
   box.setAttribute('aria-label','Practice and exam test entry');
   box.innerHTML='<a class="jp-seo-primary" href="/guest-typing.html?mode=practice">⌨ Practice Test</a><a class="jp-seo-primary jp-seo-exam" href="/guest-typing.html?mode=exam">⏱ Exam Test</a><a class="jp-seo-secondary" href="/#exams">All Typing Exams</a>';
+  var path=location.pathname.replace(/\.html$|\/$/g,'');
+  var examSlugs={
+   '/up-police-computer-operator-typing-test':'upp-co-english',
+   '/up-police-computer-operator-typing-practice-guide':'upp-co-english',
+   '/up-police-typing-test':'up-police-ministerial-typing-english',
+   '/railway-typing-test':'railway-rrb-ntpc-typing-skill-test',
+   '/ssc-typing-test':'ssc-english'
+  };
+  var languages={'/hindi-typing-test':'Hindi','/english-typing-test':'English'};
+  var modeLinks=box.querySelectorAll('.jp-seo-primary');
+  if(examSlugs[path])modeLinks[1].href='/guest-typing.html?mode=exam&exam='+examSlugs[path];
+  if(languages[path])modeLinks[0].href='/guest-typing.html?mode=practice&language='+languages[path];
   if(hero){
    var anchor=oldHeroLinks[0]||hero.querySelector('p');
    if(anchor)anchor.insertAdjacentElement('afterend',box);else hero.appendChild(box);
