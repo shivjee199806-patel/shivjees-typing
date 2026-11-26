@@ -39,8 +39,18 @@ function examMinutes(passage,exam){
  return Number(passage?.duration_override)||Number(exam?.duration)||5;
 }
 function examDefaults(exam,minutes=examMinutes(null,exam)){
+ const hindi=exam.language==='Hindi';
+ let words=(hindi?36:45)*minutes;
+ if(exam.qualification_method==='special_upp_co')words=(hindi?408:510)*minutes/15;
+ if(exam.qualification_method==='special_delhi_police_hcm'){
+  words=(hindi?350:400)*minutes/10;
+  try {
+   const configured=JSON.parse(exam.duration_word_map||'{}');
+   words=Number(configured?.[String(minutes)])||Number(configured?.['10'])*minutes/10||words;
+  } catch {}
+ }
  return {
-  word_limit:Math.max(50,Math.min(5000,Math.round((exam.language==='Hindi'?36:45)*minutes))),
+  word_limit:Math.max(50,Math.min(5000,Math.round(words))),
   backspace_allowed:!!exam.backspace_allowed,
   highlight_mode:String(exam.highlight_mode||'current_char')!=='none'?'current_char':'none',
   auto_scroll:Number(exam.auto_scroll??1)!==0
