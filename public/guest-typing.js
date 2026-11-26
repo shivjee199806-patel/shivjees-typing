@@ -1,7 +1,9 @@
 (()=>{
 "use strict";
 const $=id=>document.getElementById(id);
-const state={mode:new URLSearchParams(location.search).get('mode')==='exam'?'exam':'practice',catalog:null,exam:'all',language:'All',rows:[],current:null,timer:null,started:false,startTime:0,deadline:0,elapsed:0,done:false,zoom:100,sound:false,audio:null,pending:false,backspaces:0};
+const entryParams=new URLSearchParams(location.search);
+const entryLanguage=['English','Hindi'].find(language=>language.toLowerCase()===entryParams.get('language')?.toLowerCase())||'All';
+const state={mode:entryParams.get('mode')==='exam'?'exam':'practice',catalog:null,exam:'all',language:entryLanguage,rows:[],current:null,timer:null,started:false,startTime:0,deadline:0,elapsed:0,done:false,zoom:100,sound:false,audio:null,pending:false,backspaces:0};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').replace(/\s*[-–—]\s*(English|Hindi|हिंदी|हिन्दी)\s*$/i,'').trim();
 const fmt=n=>{n=Math.max(0,Math.ceil(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
@@ -9,59 +11,118 @@ function remaining(mode,language){return Math.max(0,2-Number(state.catalog?.rema
 function updateQuota(){
  $('practiceMode').classList.toggle('on',state.mode==='practice');
  $('examMode').classList.toggle('on',state.mode==='exam');
- $('enRemain').textContent=remaining(state.mode,'English')+' / 2';
- $('hiRemain').textContent=remaining(state.mode,'Hindi')+' / 2';
+ $('practiceMode').setAttribute('aria-pressed',String(state.mode==='practice'));
+ $('examMode').setAttribute('aria-pressed',String(state.mode==='exam'));
+ $('enRemain').textContent='2 में से '+remaining(state.mode,'English')+' टेस्ट बाकी';
+ $('hiRemain').textContent='2 में से '+remaining(state.mode,'Hindi')+' टेस्ट बाकी';
  const gate=['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0);
  $('loginGate').classList.toggle('hidden',!gate);
 }
 function getExams(){return state.catalog?.exams||[]}
 function getMatters(){return state.catalog?.matters||[]}
 function setupExamChoices(){
- const select=$('examSelect'), previous=state.exam;
+ const select=$('examSelect');
  const entries=new Map();
  getExams().forEach(x=>{const n=normalize(x.name),k=n.toLowerCase();if(!entries.has(k))entries.set(k,{name:n,ids:[]});entries.get(k).ids.push(x.id)});
  state.groups=[...entries.values()].sort((a,b)=>a.name.localeCompare(b.name));
  select.innerHTML='<option value="all">All Exams / सभी परीक्षाएँ</option>'+state.groups.map((x,i)=>'<option value="'+i+'">'+esc(x.name)+'</option>').join('');
- if(state.mode==='exam'&&previous!=='all'&&Number(previous)<state.groups.length)select.value=previous;
- else{select.value='all';state.exam='all'}
+ const linkedExam=getExams().find(exam=>exam.slug===entryParams.get('exam'));
+ const group=linkedExam?state.groups.findIndex(group=>group.ids.includes(linkedExam.id)):-1;
+ state.exam=group<0?'all':String(group);
+ select.value=state.exam;
 }
 
-function syncGuestSettings(){
+function passageExam(passage){
+ return getExams().find(exam=>exam.id===passage?.exam_id);
+}
+function examMinutes(passage,exam){
+ return Number(passage?.duration_override)||Number(exam?.duration)||5;
+}
+function examDefaults(exam,minutes=examMinutes(null,exam)){
+ return {
+  word_limit:Math.max(50,Math.min(5000,Math.round((exam.language==='Hindi'?36:45)*minutes))),
+  backspace_allowed:!!exam.backspace_allowed,
+  highlight_mode:String(exam.highlight_mode||'current_char')!=='none'?'current_char':'none',
+  auto_scroll:Number(exam.auto_scroll??1)!==0
+ };
+}
+function syncGuestSettings(passage=state.readyPassage){
  const panel=$('guestExamControls');
- if(!panel)return;
- panel.classList.toggle('hidden',state.mode!=='exam'||!!(state.current&&!state.done));
- if(state.mode!=='exam')return;
- const group=state.groups?.[Number(state.exam)];
- const ex=group?getExams().find(x=>group.ids.includes(x.id)):getExams()[0];
- if(!ex)return;
- const lastId=panel.dataset.examId||'';
- if(lastId!==String(ex.id)){
-  panel.dataset.examId=String(ex.id);
+ const exam=passageExam(passage);
+ panel.classList.toggle('hidden',state.mode!=='exam'||!exam||!!(state.current&&!state.done));
+ if(state.mode!=='exam'||!exam||state.current&&!state.done)return;
+ const minutes=examMinutes(passage,exam);
+ const settingsKey=exam.id+':'+minutes;
+ if(panel.dataset.settingsKey!==settingsKey){
+  const defaults=examDefaults(exam,minutes);
+  panel.dataset.settingsKey=settingsKey;
   $('guestDuration').value='default';
-  $('guestWordLimit').value=String(Math.max(50,Math.min(5000,Math.round(((String(ex.language)==='Hindi'?36:45)*(Number(ex.duration)||5))))));
-  $('guestBackspace').checked=!!ex.backspace_allowed;
-  $('guestHighlight').checked=String(ex.highlight_mode||'current_char')!=='none';
-  $('guestAutoScroll').checked=Number(ex.auto_scroll??1)!==0;
+  $('guestWordLimit').value=defaults.word_limit;
+  $('guestBackspace').checked=defaults.backspace_allowed;
+  $('guestHighlight').checked=defaults.highlight_mode!=='none';
+  $('guestAutoScroll').checked=defaults.auto_scroll;
  }
- const minutes=Number(ex.duration)||5;
- $('guestDefaultNote').textContent='Default: '+minutes+' min · '+(ex.backspace_allowed?'Backspace On':'Backspace Off')+' · Highlight '+String(ex.highlight_mode||'current_char')+'. टेस्ट शुरू होने पर सेटिंग Lock होगी।';
+ $('guestDuration').options[0].textContent='Exam Default · '+minutes+' मिनट';
+ $('guestDefaultNote').textContent='Default: '+minutes+' मिनट · Backspace '+(exam.backspace_allowed?'On':'Off')+' · Highlight '+String(exam.highlight_mode||'current_char')+'. टेस्ट शुरू होने पर सेटिंग लॉक होगी।';
+}
+function renderReadyTest(){
+ const passage=state.readyPassage;
+ const hasPassage=!!passage;
+ $('readyMatter').classList.toggle('hidden',!hasPassage);
+ $('readyStart').classList.toggle('hidden',!hasPassage);
+ if(!passage){
+  $('readyStatus').textContent=!state.catalog?'पहला उपलब्ध गद्यांश लोड हो रहा है।':state.rows.length?'इस भाषा के फ्री टेस्ट पूरे हो चुके हैं। दूसरी भाषा या मोड चुनें।':'इन विकल्पों में कोई गद्यांश उपलब्ध नहीं है। परीक्षा, भाषा या खोज बदलें।';
+  return;
+ }
+ $('readyStatus').textContent='पहला उपलब्ध गद्यांश तैयार है।';
+ $('readyTitle').textContent=passage.title;
+ const exam=passageExam(passage);
+ const selected=$('guestDuration').value;
+ const minutes=state.mode==='practice'?5:(!Number(passage.duration_override)&&selected!=='default'?Number(selected):examMinutes(passage,exam));
+ $('readyDetails').textContent=[exam?normalize(exam.name):'Practice',passage.language==='Hindi'?'हिंदी':'English',minutes+' मिनट'].join(' · ');
+}
+function guestExamOptions(passage){
+ const shown=state.readyPassage||state.rows[0];
+ const shownExam=passageExam(shown);
+ const exam=passageExam(passage);
+ const selected=$('guestDuration').value;
+ const minutes=Number(passage.duration_override)||Number(selected)||examMinutes(passage,exam);
+ const shownMinutes=Number(shown?.duration_override)||Number(selected)||examMinutes(shown,shownExam);
+ const options={
+  word_limit:Math.max(50,Math.min(5000,Math.floor(Number($('guestWordLimit').value)||510))),
+  backspace_allowed:$('guestBackspace').checked,
+  highlight_mode:$('guestHighlight').checked?'current_char':'none',
+  auto_scroll:$('guestAutoScroll').checked
+ };
+ if(shownExam&&shown?.id!==passage.id){
+  const displayedDefaults=examDefaults(shownExam,shownMinutes);
+  const defaults=examDefaults(exam,minutes);
+  for(const key of Object.keys(options)){
+   if(options[key]===displayedDefaults[key])options[key]=defaults[key];
+  }
+ }
+ if(selected!=='default')options.duration_minutes=Number(selected);
+ return options;
 }
 
 function showMatters(){
  updateQuota();
- syncGuestSettings();
+ $('examFilter').classList.toggle('hidden',state.mode!=='exam');
  const qs=($('matterSearch').value||'').trim().toLowerCase(),lang=state.language;
  const group=state.groups?.[Number(state.exam)];
  const ids=group?new Set(group.ids.map(Number)):null;
+ const lookup=new Map(getExams().map(e=>[Number(e.id),e]));
  state.rows=getMatters().filter(p=>{
   if(state.mode==='practice'&&p.exam_id!=null)return false;
-  if(state.mode==='exam'&&(p.exam_id==null||ids&&!ids.has(Number(p.exam_id))))return false;
+  if(state.mode==='exam'&&(lookup.get(Number(p.exam_id))?.language!==p.language||ids&&!ids.has(Number(p.exam_id))))return false;
   if(lang!=='All'&&p.language!==lang)return false;
   if(qs&&!String(p.title||'').toLowerCase().includes(qs))return false;
   return true;
  });
- $('matterCount').textContent=state.rows.length+' titles';
- const lookup=new Map(getExams().map(e=>[Number(e.id),e]));
+ state.readyPassage=state.rows.find(passage=>remaining(state.mode,passage.language)>0);
+ syncGuestSettings(state.readyPassage||state.rows[0]);
+ renderReadyTest();
+ $('matterCount').textContent=state.rows.length+' गद्यांश';
  $('matterList').innerHTML=state.rows.map(p=>{
   const ex=lookup.get(Number(p.exam_id));
   const allowed=remaining(state.mode,p.language)>0;
@@ -70,12 +131,14 @@ function showMatters(){
  $('matterList').querySelectorAll('[data-passage]').forEach(b=>b.addEventListener('click',()=>startMatter(Number(b.dataset.passage))));
 }
 function setMode(mode){
- if(!['practice','exam'].includes(mode))return;
+ if(state.pending||mode===state.mode)return;
  if(state.current&&!state.done){if(!confirm('चल रहा टेस्ट समाप्त करके Mode बदलें?'))return}
- stopTimer();state.current=null;state.mode=mode;state.exam='all';$('examSelect').value='all';
+ stopTimer();state.current=null;state.mode=mode;
  $('testSection').classList.add('hidden');$('result').classList.add('hidden');$('testIntro').classList.remove('hidden');
  showMatters();
- try{history.replaceState(null,'','/guest-typing.html?mode='+mode)}catch(_){}
+ const params=new URLSearchParams(location.search);
+ params.set('mode',mode);
+ history.replaceState(null,'','/guest-typing.html?'+params);
 }
 function stopTimer(){if(state.timer)clearInterval(state.timer);state.timer=null}
 function tick(){
@@ -128,14 +191,7 @@ async function startMatter(id){
  state.pending=true;
  try{
   const options={mode:state.mode,passage_id:id};
-  if(state.mode==='exam'){
-   const selectedMinutes=$('guestDuration').value;
-   if(selectedMinutes!=='default')options.duration_minutes=Number(selectedMinutes);
-   options.word_limit=Math.max(50,Math.min(5000,Math.floor(Number($('guestWordLimit').value)||510)));
-   options.backspace_allowed=$('guestBackspace').checked;
-   options.highlight_mode=$('guestHighlight').checked?'current_char':'none';
-   options.auto_scroll=$('guestAutoScroll').checked;
-  }
+  if(state.mode==='exam')Object.assign(options,guestExamOptions(row));
   const r=await fetch('/api/guest-typing/start',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});
   const data=await r.json();
   if(!r.ok)throw Object.assign(Error(data.error||'Test cannot start'),{code:data.code,remaining:data.remaining});
@@ -219,17 +275,27 @@ function submitTest(auto=false){
 }
 function back(){
  if(state.current&&!state.done&&!confirm('इस attempt को छोड़कर Matter list पर वापस जाएँ?'))return;
- stopTimer();state.current=null;state.done=false;syncGuestSettings();
+ stopTimer();state.current=null;state.done=false;showMatters();
  $('testSection').classList.add('hidden');$('result').classList.add('hidden');$('testIntro').classList.remove('hidden');
  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function init(){
  $('practiceMode').onclick=()=>setMode('practice');
  $('examMode').onclick=()=>setMode('exam');
+ $('readyStart').onclick=()=>{if(state.readyPassage)startMatter(Number(state.readyPassage.id))};
+ $('languageSelect').value=state.language;
  $('languageSelect').onchange=e=>{state.language=e.target.value;showMatters()};
  $('examSelect').onchange=e=>{state.exam=e.target.value;showMatters()};
  $('matterSearch').oninput=showMatters;
- $('guestDuration').onchange=()=>{const ex=getExams().find(x=>Number(x.id)===Number($('guestExamControls').dataset.examId));if(ex){const minutes=$('guestDuration').value==='default'?(Number(ex.duration)||5):Number($('guestDuration').value);$('guestWordLimit').value=String(Math.min(5000,Math.max(50,Math.round((String(ex.language)==='Hindi'?36:45)*minutes))))}};
+ $('guestDuration').onchange=()=>{
+  const passage=state.readyPassage||state.rows[0];
+  const exam=passageExam(passage);
+  if(exam){
+   const minutes=Number(passage.duration_override)||Number($('guestDuration').value)||examMinutes(passage,exam);
+   $('guestWordLimit').value=examDefaults(exam,minutes).word_limit;
+  }
+  renderReadyTest();
+ };
  $('zoomMinus').onclick=()=>{state.zoom=Math.max(60,state.zoom-10);applyZoom()};
  $('zoomPlus').onclick=()=>{state.zoom=Math.min(160,state.zoom+10);applyZoom()};
  $('zoomReset').onclick=()=>{state.zoom=100;applyZoom()};
@@ -247,13 +313,15 @@ async function init(){
  $('submitBtn').onclick=()=>submitTest(false);
  $('restartBtn').onclick=back;$('backBtn').onclick=back;
  $('nextBtn').onclick=()=>{if(['practice','exam'].every(m=>remaining(m,'English')===0&&remaining(m,'Hindi')===0)){location.href='/#login'}else back()};
+ updateQuota();
+ $('examFilter').classList.toggle('hidden',state.mode!=='exam');
  try{
   const r=await fetch('/api/guest-typing/catalog',{credentials:'same-origin'});
   if(!r.ok)throw Error('Server catalog unavailable');
   state.catalog=await r.json();
   setupExamChoices();
-  state.mode=state.mode==='exam'?'exam':'practice';showMatters();
- }catch(e){$('matterList').textContent='Matter list could not load. Please refresh or open the main website.';$('matterCount').textContent='Unavailable';$('testIntro').querySelector('p').textContent=e.message}
+  showMatters();
+ }catch(e){$('matterList').textContent='गद्यांश लोड नहीं हो सके।';$('matterCount').textContent='Unavailable';$('readyStatus').textContent='गद्यांश लोड नहीं हो सके। पेज फिर से खोलकर कोशिश करें।'}
 }
 init();
 })();
