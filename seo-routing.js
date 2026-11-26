@@ -1,5 +1,9 @@
 // SEO-only URL helpers. Existing account, API and application routes are untouched.
 'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+
+const notFoundPage = fs.readFileSync(path.join(__dirname, 'views', '404.html'));
 const aliases = Object.freeze({
   "/index.html": "/",
   "/typing-accuracy-calculator.html": "/typing-accuracy-calculator",
@@ -29,6 +33,6 @@ function canonicalRedirect(req,res,next){
   return res.redirect(301, aliases[pathname] + query);
 }
 function sendNotFound(req,res){
-  return res.status(404).type('html').send('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | JP Typing</title><main><h1>Page not found</h1><p>This typing page is unavailable. Please choose a current test.</p><a href="/typing-test.html">Open typing test</a> · <a href="/">Home</a></main></html>');
+  return res.status(404).type('html').send(notFoundPage);
 }
 module.exports={canonicalRedirect,sendNotFound};
