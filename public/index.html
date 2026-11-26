@@ -7458,7 +7458,7 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
   if(!dashboard||!grid||dashboard.dataset.wordCountToggleInstalled==='1')return;
   const typedBox=findResultBox(grid,'Total Words Typed'),correctBox=findResultBox(grid,'Correct Words');
   const grossBox=document.getElementById('grossSpeedBox'),grossValue=document.getElementById('grossSpeedValue'),netValue=document.getElementById('netSpeedValue');
-  const accuracyBox=findResultBox(grid,'Accuracy %'),statusBox=findResultBox(grid,'Status');
+  const accuracyBox=findResultBox(grid,'Accuracy %');
   if(!typedBox||!correctBox||!grossBox||!grossValue||!netValue)return;
   dashboard.dataset.wordCountToggleInstalled='1';
   const liveState=typeof S!=='undefined'?S:null;
@@ -7480,24 +7480,6 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
   const initiallyStandard=standard;
   const officialUppMode=['special_upp_ministerial','special_upp_co'].includes(String(saved?.exam?.qualification_method||liveState?.exam?.qualification_method||''));
   const persistedMetrics=saved?.savedMetrics||(!saved&&typeof window.__jpCurrentResultMetrics==='object'?window.__jpCurrentResultMetrics:null);
-  function qualification(correctCount,typedCount,accuracy){
-   // Only the VIEW status follows the selected count mode. Original counts and
-   // saved database results are untouched. Special exam rules stay authoritative.
-   if(saved){
-    if(saved.mode!=='exam'||saved.attempt_status==='ended')return null;
-   }else if(liveState?.mode!=='exam')return null;
-   const rule=saved?.exam||liveState?.exam||{},qualMinutes=Number(rule.speed_based_time_taken)?usedMinutes:givenMinutes;
-   const speed=correctCount/Math.max(1/60,qualMinutes);
-   const reqWpm=Number(rule.required_wpm||0),reqAcc=Number(rule.required_accuracy||0),reqWords=Number(rule.min_words||0),reqChars=Number(rule.min_chars||0);
-   // Never auto-qualify an exam whose qualification thresholds are not configured.
-   const hasRule=reqWpm>0||reqAcc>0||reqWords>0||reqChars>0;
-   if(!hasRule||/^special_/i.test(String(rule.qualification_method||'')))return null;
-   const checks={wpm:reqWpm<=0||speed>=reqWpm,accuracy:reqAcc<=0||accuracy>=reqAcc,words:reqWords<=0||typedCount>=reqWords,chars:reqChars<=0||Array.from(typed).length>=reqChars};
-   const method=String(rule.qualification_method||'all');
-   if(method==='wpm')return checks.wpm;if(method==='accuracy')return checks.accuracy;if(method==='wpm_accuracy')return checks.wpm&&checks.accuracy;
-   if(method==='words_wpm_accuracy')return checks.words&&checks.wpm&&checks.accuracy;if(method==='chars_wpm_accuracy')return checks.chars&&checks.wpm&&checks.accuracy;
-   return checks.wpm&&checks.accuracy&&checks.words&&checks.chars;
-  }
   function render(){
    const typedCount=standard?standardTyped:normalTyped,correctCount=standard?standardCorrect:normalCorrect,mins=timeMode==='full'?givenMinutes:usedMinutes;
    const useSavedMetrics=standard===initiallyStandard&&timeMode==='taken'&&persistedMetrics&&[persistedMetrics.gross,persistedMetrics.net,persistedMetrics.accuracy].every(Number.isFinite);
@@ -7522,14 +7504,9 @@ so one tap opened and immediately closed the menu. Keep exactly one handler. -->
    help.textContent=standard?'OFF: हर 5 characters = 1 standard word; accuracy में untyped/omitted characters भी count होंगे।':'ON: Correct Words ÷ Total Given Words; omissions भी accuracy में count होंगे।';
    grossBox.dataset.mode=timeMode;
    if(timeButton)timeButton.textContent=timeMode==='full'?'OFF • Full Time Given':'ON • Time Used';
-   // Change only displayed status for threshold-based exams in chosen count mode.
-   // Saved database qualification and exam-specific special rules remain unchanged.
-   const passed=qualification(correctCount,typedCount,accuracy);
-   if(passed!==null&&statusBox){
-    statusBox.querySelector('b').textContent=passed?'Qualified':'Not Qualified';statusBox.classList.toggle('status-box-pass',passed);statusBox.classList.toggle('status-box-fail',!passed);
-    const note=document.querySelector('.result-note b:last-child');if(note)note.textContent=passed?'QUALIFIED':'NOT QUALIFIED';
-    const celebration=document.querySelector('.result-celebration');if(celebration){celebration.querySelectorAll('.sad-drop,.balloon,.confetti-piece').forEach(el=>el.remove());const decoration=document.createElement('div');decoration.innerHTML=resultCelebration(passed);const newCelebration=decoration.firstElementChild;if(newCelebration){for(const el of [...newCelebration.children]){if(el.classList.contains('sad-drop')||el.classList.contains('balloon')||el.classList.contains('confetti-piece'))celebration.insertBefore(el,celebration.firstChild)}}celebration.classList.toggle('pass',passed);celebration.classList.toggle('fail',!passed);const emoji=celebration.querySelector('.bigemoji'),heading=celebration.querySelector('h2'),strong=celebration.querySelector(':scope > b'),message=celebration.querySelector(':scope > div:last-child');if(emoji)emoji.textContent=passed?'🎉🏆':'😔';if(heading)heading.textContent=passed?'Congratulations!':'Not Qualified';if(strong)strong.textContent=passed?'You are Qualified':'Keep Practicing';if(message)message.textContent=passed?'Excellent work — keep improving your speed and accuracy.':'Review the result below and try again.'}
-    if(window.__lastShareResult){window.__lastShareResult.wpm=netValue.textContent;window.__lastShareResult.accuracy=accuracy.toFixed(2);window.__lastShareResult.status=passed?'Qualified':'Not Qualified'}
+   if(window.__lastShareResult){
+    window.__lastShareResult.wpm=netValue.textContent;
+    window.__lastShareResult.accuracy=accuracy.toFixed(2);
    }
   }
   document.getElementById('jpWordCountMode').addEventListener('click',()=>{standard=!standard;render()});
