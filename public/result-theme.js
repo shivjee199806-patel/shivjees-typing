@@ -45,16 +45,16 @@ function buildAnimation(kind){
  // Animation runs once after page opening; never loop indefinitely.
  return layer;
 }
-function statusBanner(kind,hindi){
+function statusBanner(kind,hindi,status){
  const banner=document.createElement('section');
  banner.className='jp-theme-status-banner jp-theme-'+kind;
- banner.setAttribute('aria-label',kind==='pass'?'Qualified':kind==='fail'?'Not Qualified':'Practice Complete');
+ banner.setAttribute('aria-label',kind==='pass'?'Qualified':kind==='fail'?'Not Qualified':status||'Practice Complete');
  if(kind==='pass'){
   banner.innerHTML='<div class="jp-theme-symbol" aria-hidden="true">🏆</div><div class="jp-theme-status-main"><strong>Congratulations!<span>You Are Qualified ✓</span></strong><em>'+(hindi?'शानदार प्रदर्शन! अभ्यास जारी रखें।':'Excellent Work! Keep Practicing, Keep Improving!')+'</em></div><div class="jp-theme-motivation">'+(hindi?'<p>✓ आपने निर्धारित टाइपिंग लक्ष्य पूरा किया।</p><p>✓ अब अपनी गति और शुद्धता और बेहतर बनाएँ।</p><p>✓ नियमित अभ्यास से परीक्षा के लिए तैयारी मजबूत करें।</p>':'<p>✓ You have achieved the required typing target.</p><p>✓ Aim for even better speed and accuracy.</p><p>✓ Keep practicing for the real examination.</p>')+'</div>';
  }else if(kind==='fail'){
   banner.innerHTML='<div class="jp-theme-symbol" aria-hidden="true">😢</div><div class="jp-theme-status-main"><strong>Not Qualified</strong><em>'+(hindi?'हार मत मानिए! अभ्यास से बेहतर परिणाम मिलेगा।':"Don't Worry! Keep Practicing to Improve!")+'</em></div><div class="jp-theme-motivation">'+(hindi?'<p>✓ यह केवल अभ्यास का परिणाम है।</p><p>✓ गति, शुद्धता और गलतियों पर ध्यान दें।</p><p>✓ नियमित अभ्यास से बेहतर प्रदर्शन संभव है।</p>':'<p>✓ This is a practice result; keep going.</p><p>✓ Improve your speed, accuracy and mistakes.</p><p>✓ Practice regularly and try again.</p>')+'</div>';
  }else{
-  banner.innerHTML='<div class="jp-theme-symbol" aria-hidden="true">⌨️</div><div class="jp-theme-status-main"><strong>Practice Complete</strong><em>'+(hindi?'नियमित अभ्यास से बेहतर परिणाम पाएँ।':'Keep Practicing, Keep Improving!')+'</em></div>';
+  banner.innerHTML='<div class="jp-theme-symbol" aria-hidden="true">⌨️</div><div class="jp-theme-status-main"><strong>'+safe(status||'Practice Complete')+'</strong><em>'+(hindi?'नियमित अभ्यास से बेहतर परिणाम पाएँ।':'Keep Practicing, Keep Improving!')+'</em></div>';
  }
  return banner;
 }
@@ -109,7 +109,7 @@ function enhance(d){
  }
  const note=d.querySelector('.result-note');
  if(!d.querySelector('.jp-theme-status-banner')){
-  const banner=statusBanner(kind,hindi);
+  const banner=statusBanner(kind,hindi,statusTile?.querySelector('b')?.textContent?.trim());
   if(note)note.insertAdjacentElement('afterend',banner);
   else grid.insertAdjacentElement('afterend',banner);
  }
