@@ -3583,6 +3583,32 @@ function installExamGuards(){
 }
 function restartExamConfirm(){if(!confirm('Restart Exam? पूरा typed data और current timer reset होकर exam शुरुआत से शुरू होगा.'))return;clearInterval(S.timer);toggleHallSound(false);beginMainExam()}
 async function endExamConfirm(){if(!confirm('End Exam? आपका current progress History में Ended / Incomplete के रूप में save होगा.'))return;await finishTest(false,true)}
+// Rajasthan High Court 2022 speed test instructions, clause 8.
+function isRajasthanCourtSpeedTest(){
+ return (S.mode==='exam'||S.mode==='live')&&/^state-rajasthan-high-court-jja-clerk(?:-hindi)?$/.test(S.exam?.slug||'');
+}
+function isRajasthanSpeedBackspaceAllowed(input){
+ const end=input.value.length;
+ const wordStart=input.value.search(/\S*$/);
+ return input.selectionStart===end&&input.selectionEnd===end&&end>wordStart;
+}
+document.addEventListener('keydown',event=>{
+ if(event.target.id!=='typing'||S.done||!isRajasthanCourtSpeedTest())return;
+ const navigation=['Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'];
+ if(navigation.includes(event.key)||(event.key==='Backspace'&&!isRajasthanSpeedBackspaceAllowed(event.target))){
+  event.preventDefault();
+  event.stopImmediatePropagation();
+ }
+},true);
+document.addEventListener('beforeinput',event=>{
+ const input=event.target;
+ if(input.id!=='typing'||S.done||!isRajasthanCourtSpeedTest())return;
+ if(event.inputType.startsWith('delete')){
+  if(event.inputType!=='deleteContentBackward'||!isRajasthanSpeedBackspaceAllowed(input))event.preventDefault();
+ }else if(event.inputType==='insertText'&&(input.selectionStart!==input.value.length||input.selectionEnd!==input.value.length)){
+  input.setSelectionRange(input.value.length,input.value.length);
+ }
+},true);
 function testKeydown(e){if(S.done)return;playKeyClick();if((S.mode==='exam'||S.mode==='live')&&(e.key==='Escape'||e.key==='Control'||e.key==='Alt'||e.ctrlKey||e.altKey)){e.preventDefault();e.stopPropagation();showToast('Exam चल रहा है — Esc, Alt और Ctrl disabled हैं.');return}if(e.key==='Backspace'){if(S.exam&&!S.attemptBackspaceAllowed){e.preventDefault();showToast('Backspace is disabled for this attempt');return}S.backspaces=(S.backspaces||0)+1;const bs=document.getElementById('backs');if(bs)bs.textContent=S.backspaces}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='v'){e.preventDefault();showToast('Paste is disabled during typing tests')}}
 function clearTyping(){if(S.done)return;const el=document.getElementById('typing');if(!el)return;el.value='';typingInput();el.focus()}
 function textUnits(v){return Array.from(String(v||''))}
